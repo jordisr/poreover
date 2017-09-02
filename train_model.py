@@ -1,6 +1,5 @@
 '''
 TODO
-! double check pad helper function for variable length event lists
 - load model to resume training
 - add additional hidden layers
 - output accuracy on training set periodically
@@ -42,7 +41,6 @@ EVENTS_FILE = args.data+'.events' # event mean file
 BASES_FILE = args.data+'.bases' # kmer file
 
 # load training data into memory (small files so this is OK for now)
-INPUT_SIZE = 50 # same input size but will use dynamic RNN
 raw_events = []
 raw_bases = []
 with open(EVENTS_FILE,'r') as ef, open(BASES_FILE,'r') as bf:
