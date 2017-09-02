@@ -8,7 +8,7 @@ PoreOver is an RNN basecaller for the Oxford Nanopore sequencing platform and is
 * sense of adventure
 
 ### Example
-Full options available with `python --help`.
+Full options for `train_model.py` and `run_model.py` available with the `--help` flag.
 
 We can first train the model for a few iterations on a toy training set.
 
