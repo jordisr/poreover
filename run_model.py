@@ -2,7 +2,6 @@
 TODO
 - read FAST5 file and pull out events
 - support for directory of FAST5 files
-- output in fixed-width FASTA format
 '''
 
 import numpy as np
@@ -20,15 +19,15 @@ parser.add_argument('--model_dir', help='Directory of models (loads latest)', de
 parser.add_argument('--events', help='File with events (.events)', required=True)
 #parser.add_argument('--fast5', help='FAST5 file or directory to basecall')
 parser.add_argument('--stitch', action='store_true', default=False, help='Stitch list of kmers into one sequence')
-#parser.add_argument('--fasta_output', action='store_true', default=False, help='Write stitched sequence in FASTA')
+parser.add_argument('--fasta', action='store_true', default=False, help='Write stitched sequence in FASTA')
 args = parser.parse_args()
 
 # load training data to make a test prediction
 raw_events = []
 with open(args.events, 'r') as f:
-     for line in f:
-            if len(line.split()) > 1:
-                raw_events.append(np.array(list(map(lambda x: float(x),line.split()))))
+    for line in f:
+        if len(line.split()) > 1:
+            raw_events.append(np.array(list(map(lambda x: float(x),line.split()))))
 
 (padded_X,sizes) = batch.pad(raw_events)
 padded_X = np.expand_dims(padded_X,axis=2)
@@ -50,15 +49,15 @@ with tf.Session() as sess:
 
     # make prediction
     predict_ = sess.run(prediction, feed_dict={X:padded_X})
-
+    seq_counter = 0
     for prediction in predict_:
         kmers = list(map(kmer.label2kmer, prediction))
-        if args.stitch:
+        seq_counter += 1
+        if args.stitch or args.fasta:
             sequence = kmer.stitch_kmers(kmers)
-            print(sequence)
-            #if args.fasta_output:
-            #    print(sequence)
-            #else:
-            #    print(sequence)
+            if args.fasta:
+                print(kmer.fasta_format('sequence '+str(seq_counter),sequence))
+            else:
+                print(sequence)
         else:
             print(kmers)

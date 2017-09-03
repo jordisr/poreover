@@ -21,9 +21,9 @@ parser.add_argument('--data', help='Location of training data', required=True)
 parser.add_argument('--save_dir', default='.',help='Directory to save checkpoints')
 #parser.add_argument('--resume_from', help='Resume training from checkpoint file')
 
-parser.add_argument('--training_steps', type=int, default=1000, help='Number of iterations to run training')
-parser.add_argument('--save_every', type=int, default=1000, help='Frequency with which to save checkpoint files')
-parser.add_argument('--loss_every', type=int, default=100, help='Frequency with which to output batch loss')
+parser.add_argument('--training_steps', type=int, default=1000, help='Number of iterations to run training (default: 1000)')
+parser.add_argument('--save_every', type=int, default=10000, help='Frequency with which to save checkpoint files (default: 10000)')
+parser.add_argument('--loss_every', type=int, default=100, help='Frequency with which to output batch loss (default: 100)')
 #parser.add_argument('--loss_file',type=int,help='Write loss to a file instead of stdout')
 args = parser.parse_args()
 
@@ -46,27 +46,20 @@ BASES_FILE = args.data+'.bases' # kmer file
 raw_events = []
 raw_bases = []
 with open(EVENTS_FILE,'r') as ef, open(BASES_FILE,'r') as bf:
-     for eline, bline in zip(ef,bf):
-          events = eline.split()
-          bases = bline.split()
-          if (len(events) == len(bases)):
-               raw_events.append(np.array(list(map(lambda x: float(x),events))))
-               raw_bases.append(np.array(list(map(kmer.kmer2label,bases))))
+    for eline, bline in zip(ef,bf):
+        events = eline.split()
+        bases = bline.split()
+        if (len(events) == len(bases)):
+            raw_events.append(np.array(list(map(lambda x: float(x),events))))
+            raw_bases.append(np.array(list(map(kmer.kmer2label,bases))))
 
-# pad data
-#padded_X = np.array(raw_events)
-#(padded_X, X_sizes) = batch.pad(raw_events) # np.array, already using 50 event segments, so unnecessary
-#padded_y = np.array(raw_bases) # one kmer for each event
-# pad y
-
-# START new padding section
+# pad data and labels
 (padded_X,sizes) = batch.pad(raw_events)
 padded_X = np.expand_dims(padded_X,axis=2)
 (padded_y,sizes) = batch.pad(raw_bases)
-# END new padding section
-
 #print("CHECKING SHAPES:",padded_X.shape, padded_y.shape)
 
+# pass data to batch iterator class
 dataset = batch.data_helper(padded_X, padded_y, small_batch=False)
 
 # Set up the model
@@ -88,29 +81,32 @@ prediction = tf.add(tf.argmax(logits, 2),1, name='prediction') # adding one for 
 # set up minimization of loss
 # tf.one_hot(y-1...) converts 1-indexed labels to encodings (0 saved for padding)
 cross_entropy = tf.nn.softmax_cross_entropy_with_logits(
-     labels=tf.one_hot(y-1, depth=NUM_OUTPUTS, dtype=tf.float32),logits=logits)
-loss = tf.reduce_mean(cross_entropy)
+     labels=tf.one_hot(y-1, depth=NUM_OUTPUTS, dtype=tf.float32),logits=logits, name='cross_entropy')
+loss = tf.reduce_mean(cross_entropy, name='loss')
 train_op = tf.train.AdamOptimizer().minimize(loss)
 
 # Start training network
 saver = tf.train.Saver(keep_checkpoint_every_n_hours=2)
 
 with tf.Session() as sess:
-     sess.run(tf.global_variables_initializer())
-     checkpoint_counter = 0
+    sess.run(tf.global_variables_initializer())
+    checkpoint_counter = 0
 
-     # main training loop
-     for iteration in range(TRAINING_STEPS):
+    # main training loop
+    for iteration in range(TRAINING_STEPS):
 
-          # get current minibatch and run minimization
-          (X_batch, y_batch) = dataset.next_batch(BATCH_SIZE)
-          sess.run(train_op, feed_dict={X:X_batch, y:y_batch})
+        # get current minibatch and run minimization
+        (X_batch, y_batch) = dataset.next_batch(BATCH_SIZE)
+        sess.run(train_op, feed_dict={X:X_batch, y:y_batch})
 
-          # periodically output the loss
-          if (iteration+1) % LOSS_ITER == 0:
-              print('iteration:',iteration+1,'epoch:',dataset.epoch,'loss:',sess.run(loss, feed_dict={X:X_batch, y:y_batch}))
+        # periodically output the loss
+        if (iteration+1) % LOSS_ITER == 0:
+            print('iteration:',iteration+1,'epoch:',dataset.epoch,'loss:',sess.run(loss, feed_dict={X:X_batch, y:y_batch}))
 
           # periodically save the current model parameters
-          if (iteration+1) % CHECKPOINT_ITER == 0:
-               checkpoint_counter += 1
-               saver.save(sess, args.save_dir+'/model', global_step=checkpoint_counter)
+        if (iteration+1) % CHECKPOINT_ITER == 0:
+            saver.save(sess, args.save_dir+'/model', global_step=checkpoint_counter)
+            checkpoint_counter += 1
+
+    # save extra model at the end of training
+    saver.save(sess, args.save_dir+'/model', global_step=checkpoint_counter)

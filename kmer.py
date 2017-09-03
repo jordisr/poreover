@@ -50,6 +50,25 @@ def stitch_kmers(list_of_kmers,direction='+'):
     return sequence
 
 def fasta_format(name, seq, width=80):
-    fasta_string = ''
-    # need to write...
-    return(fasta_string)
+    fasta = '>'+name+'\n'
+    window = 0
+    while window+width < len(seq):
+        fasta += (seq[window:window+width]+'\n')
+        window += width
+    fasta += (seq[window:]+'\n')
+    return(fasta)
+
+if __name__ == '__main__':
+    from random import randrange
+
+    # short test of module
+    kmers = [label2kmer(randrange(4096)) for _ in range(50)]
+    sequence = stitch_kmers(kmers)
+    print(fasta_format('Test Sequence 1', sequence))
+
+    kmers = [ALPHABET for _ in range(50)]
+    sequence = stitch_kmers(kmers)
+    print(fasta_format('Test Sequence 2', sequence))
+
+    sequence = ''.join([ALPHABET for _ in range(50)])
+    print(fasta_format('Test Sequence 3', sequence))
