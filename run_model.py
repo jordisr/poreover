@@ -2,7 +2,6 @@
 TODO
 - read FAST5 file and pull out events
 - support for directory of FAST5 files
-- format events and pad as necessary
 - output in fixed-width FASTA format
 '''
 
@@ -20,8 +19,8 @@ parser.add_argument('--model', help='Saved model to run')
 parser.add_argument('--model_dir', help='Directory of models (loads latest)', default='./')
 parser.add_argument('--events', help='File with events (.events)', required=True)
 #parser.add_argument('--fast5', help='FAST5 file or directory to basecall')
-parser.add_argument('--stitch_kmer', action='store_true', default=False, help='Stitch list of kmers into one sequence')
-#parser.add_argument('--fasta_output', action='store_true', default=False, help='Write stiched sequence in FASTA')
+parser.add_argument('--stitch', action='store_true', default=False, help='Stitch list of kmers into one sequence')
+#parser.add_argument('--fasta_output', action='store_true', default=False, help='Write stitched sequence in FASTA')
 args = parser.parse_args()
 
 # load training data to make a test prediction
@@ -33,12 +32,10 @@ with open(args.events, 'r') as f:
 
 (padded_X,sizes) = batch.pad(raw_events)
 padded_X = np.expand_dims(padded_X,axis=2)
-#pred_X = np.array([padded_X[0]])
 
 with tf.Session() as sess:
 
     # load model from checkpoint
-    model_file = ''
     if args.model is not None:
         model_file = args.model
     else:
@@ -53,12 +50,11 @@ with tf.Session() as sess:
     X=graph.get_tensor_by_name('X:0')
 
     # make prediction
-    #print("Running a prediction!")
     predict_ = sess.run(prediction, feed_dict={X:padded_X})
 
     for prediction in predict_:
         kmers = list(map(kmer.label2kmer, prediction))
-        if args.stitch_kmer:
+        if args.stitch:
             sequence = kmer.stitch_kmers(kmers)
             print(sequence)
             #if args.fasta_output:
