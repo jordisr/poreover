@@ -42,7 +42,6 @@ with tf.Session() as sess:
         model_file = tf.train.latest_checkpoint(args.model_dir)
     saver = tf.train.import_meta_graph(model_file+'.meta') # loads latest model
     saver.restore(sess,model_file)
-    sess.run(tf.global_variables_initializer())
     graph = tf.get_default_graph()
 
     # load tensors needed for inference

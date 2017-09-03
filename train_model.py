@@ -83,11 +83,12 @@ outputs = tf.concat(outputs, 2)
 
 # dense layer connecting to output
 logits = tf.contrib.layers.linear(outputs, NUM_OUTPUTS)
-prediction = tf.argmax(logits, 2, name='prediction')
+prediction = tf.add(tf.argmax(logits, 2),1, name='prediction') # adding one for 1-4096
 
 # set up minimization of loss
+# tf.one_hot(y-1...) converts 1-indexed labels to encodings (0 saved for padding)
 cross_entropy = tf.nn.softmax_cross_entropy_with_logits(
-     labels=tf.one_hot(y, depth=NUM_OUTPUTS, dtype=tf.float32),logits=logits)
+     labels=tf.one_hot(y-1, depth=NUM_OUTPUTS, dtype=tf.float32),logits=logits)
 loss = tf.reduce_mean(cross_entropy)
 train_op = tf.train.AdamOptimizer().minimize(loss)
 

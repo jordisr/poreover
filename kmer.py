@@ -19,14 +19,6 @@ for kmer in itertools.product(ALPHABET, repeat=KMER_SIZE):
     kmer_count += 1
 NUM_KMER = kmer_count
 
-# not needed with tf.onehot
-def kmer2onehot(kmer):
-    v = np.zeros(NUM_KMER)
-    n = KMER_TO_LABEL[kmer]
-    if n >= 0:
-        v[n] = 1
-    return(v)
-
 def kmer2label(kmer):
     return(KMER_TO_LABEL[kmer])
 
