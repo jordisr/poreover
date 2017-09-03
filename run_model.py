@@ -16,7 +16,7 @@ import batch
 
 # parse command line arguments
 parser = argparse.ArgumentParser(description='Run the basecaller')
-#parser.add_argument('--model', help='Saved model to run')
+parser.add_argument('--model', help='Saved model to run')
 parser.add_argument('--model_dir', help='Directory of models (loads latest)', default='./')
 parser.add_argument('--events', help='File with events (.events)', required=True)
 #parser.add_argument('--fast5', help='FAST5 file or directory to basecall')
@@ -38,8 +38,13 @@ padded_X = np.expand_dims(padded_X,axis=2)
 with tf.Session() as sess:
 
     # load model from checkpoint
-    saver = tf.train.import_meta_graph(tf.train.latest_checkpoint(args.model_dir)+'.meta') # loads latest model
-    saver.restore(sess,tf.train.latest_checkpoint(args.model_dir))
+    model_file = ''
+    if args.model is not None:
+        model_file = args.model
+    else:
+        model_file = tf.train.latest_checkpoint(args.model_dir)
+    saver = tf.train.import_meta_graph(model_file+'.meta') # loads latest model
+    saver.restore(sess,model_file)
     sess.run(tf.global_variables_initializer())
     graph = tf.get_default_graph()
 

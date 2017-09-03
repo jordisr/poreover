@@ -1,9 +1,10 @@
 '''
 TODO
-! double check pad helper function for variable length event lists
+- double check loss expression
 - load model to resume training
 - add additional hidden layers
 - output accuracy on training set periodically
+- move model initialization and architecture to separate class for modularity
 '''
 
 import numpy as np
@@ -42,7 +43,6 @@ EVENTS_FILE = args.data+'.events' # event mean file
 BASES_FILE = args.data+'.bases' # kmer file
 
 # load training data into memory (small files so this is OK for now)
-INPUT_SIZE = 50 # same input size but will use dynamic RNN
 raw_events = []
 raw_bases = []
 with open(EVENTS_FILE,'r') as ef, open(BASES_FILE,'r') as bf:
@@ -76,8 +76,9 @@ X = tf.placeholder(shape=[None, None, 1], dtype=tf.float32, name='X')
 y = tf.placeholder(shape=[None, None], dtype=tf.int32, name='y')
 
 # use dynamic RNN to allow for flexibility in input size
-rnn_cell = tf.contrib.rnn.BasicLSTMCell(num_units=NUM_NEURONS,state_is_tuple=False)
-outputs, states = tf.nn.bidirectional_dynamic_rnn(rnn_cell, rnn_cell, X, dtype=tf.float32, time_major=False)
+cell_fw = tf.contrib.rnn.BasicLSTMCell(num_units=NUM_NEURONS,state_is_tuple=False)
+cell_bw = tf.contrib.rnn.BasicLSTMCell(num_units=NUM_NEURONS,state_is_tuple=False)
+outputs, states = tf.nn.bidirectional_dynamic_rnn(cell_fw, cell_bw, X, dtype=tf.float32, time_major=False)
 outputs = tf.concat(outputs, 2)
 
 # dense layer connecting to output
