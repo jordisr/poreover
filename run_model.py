@@ -46,9 +46,10 @@ with tf.Session() as sess:
     # load tensors needed for inference
     prediction = graph.get_tensor_by_name('prediction:0')
     X=graph.get_tensor_by_name('X:0')
+    sequence_length=graph.get_tensor_by_name('sequence_length:0')
 
     # make prediction
-    predict_ = sess.run(prediction, feed_dict={X:padded_X})
+    predict_ = sess.run(prediction, feed_dict={X:padded_X,sequence_length:sizes})
     seq_counter = 0
     for prediction in predict_:
         kmers = list(map(kmer.label2kmer, prediction))

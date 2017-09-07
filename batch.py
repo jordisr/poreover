@@ -14,8 +14,9 @@ class data_helper:
     '''
     Simple class to hold data/labels and return consecutive minibatches
     small_batch=True returns the last batch even if it is smaller
+    return_length=True returns a list with the length of each sequence
     '''
-    def __init__(self, X, y, small_batch=True):
+    def __init__(self, X, y, small_batch=True, return_length=False):
         # core data structure
         self.X = np.array(X)
         self.y = np.array(y)
@@ -27,6 +28,11 @@ class data_helper:
         # fixed options
         self.LENGTH = len(self.X)
         self.SMALL_BATCH = small_batch
+        self.RETURN_LENGTH = return_length
+
+        # if True return list of sequence lengths
+        if self.RETURN_LENGTH:
+            self.sequence_length = [len(i) for i in self.X]
 
     # reset counter for testing purposes
     def reset(self):
@@ -35,22 +41,23 @@ class data_helper:
     # get next minibatch
     def next_batch(self,batch_size):
         if self.batch_i+batch_size < self.LENGTH:
-            out_batch = self.batch_i
+            batch_start = self.batch_i
+            batch_end = batch_start + batch_size
             self.batch_i += batch_size
-            batch_X = self.X[out_batch:out_batch+batch_size]
-            batch_y = self.y[out_batch:out_batch+batch_size]
         elif self.SMALL_BATCH:
-            out_batch = self.batch_i
+            batch_start = self.batch_i
+            batch_end = self.LENGTH
             self.batch_i = 0
             self.epoch += 1
-            batch_X = self.X[out_batch:]
-            batch_y = self.y[out_batch:]
         else:
             self.batch_i = 0
+            batch_start = self.batch_i
+            batch_end = batch_start + batch_size
             self.epoch += 1
-            batch_X = self.X[:batch_size]
-            batch_y = self.y[:batch_size]
-        return(batch_X, batch_y)
+        if self.RETURN_LENGTH:
+            return(self.X[batch_start:batch_end], self.y[batch_start:batch_end], self.sequence_length[batch_start:batch_end])
+        else:
+            return(self.X[batch_start:batch_end], self.y[batch_start:batch_end])
 
 if __name__ == '__main__':
 

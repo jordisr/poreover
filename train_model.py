@@ -60,18 +60,19 @@ padded_X = np.expand_dims(padded_X,axis=2)
 #print("CHECKING SHAPES:",padded_X.shape, padded_y.shape)
 
 # pass data to batch iterator class
-dataset = batch.data_helper(padded_X, padded_y, small_batch=False)
+dataset = batch.data_helper(padded_X, padded_y, small_batch=False, return_length=True)
 
 # Set up the model
 # data X are [BATCH_SIZE, MAX_INPUT_SIZE, 1]
 # labels y are [BATCH_SIZE, MAX_INPUT_SIZE]
 X = tf.placeholder(shape=[None, None, 1], dtype=tf.float32, name='X')
 y = tf.placeholder(shape=[None, None], dtype=tf.int32, name='y')
+sequence_length = tf.placeholder(shape=[None],dtype=tf.int32,name='sequence_length')
 
 # use dynamic RNN to allow for flexibility in input size
 cell_fw = tf.contrib.rnn.BasicLSTMCell(num_units=NUM_NEURONS,state_is_tuple=False)
 cell_bw = tf.contrib.rnn.BasicLSTMCell(num_units=NUM_NEURONS,state_is_tuple=False)
-outputs, states = tf.nn.bidirectional_dynamic_rnn(cell_fw, cell_bw, X, dtype=tf.float32, time_major=False)
+outputs, states = tf.nn.bidirectional_dynamic_rnn(cell_fw, cell_bw, X, dtype=tf.float32, time_major=False, sequence_length=sequence_length)
 outputs = tf.concat(outputs, 2)
 
 # dense layer connecting to output
@@ -96,12 +97,12 @@ with tf.Session() as sess:
     for iteration in range(TRAINING_STEPS):
 
         # get current minibatch and run minimization
-        (X_batch, y_batch) = dataset.next_batch(BATCH_SIZE)
-        sess.run(train_op, feed_dict={X:X_batch, y:y_batch})
+        (X_batch, y_batch, sequence_length_batch) = dataset.next_batch(BATCH_SIZE)
+        sess.run(train_op, feed_dict={X:X_batch, y:y_batch, sequence_length:sequence_length_batch})
 
         # periodically output the loss
         if (iteration+1) % LOSS_ITER == 0:
-            print('iteration:',iteration+1,'epoch:',dataset.epoch,'loss:',sess.run(loss, feed_dict={X:X_batch, y:y_batch}))
+            print('iteration:',iteration+1,'epoch:',dataset.epoch,'loss:',sess.run(loss, feed_dict={X:X_batch, y:y_batch, sequence_length:sequence_length_batch}))
 
           # periodically save the current model parameters
         if (iteration+1) % CHECKPOINT_ITER == 0:
