@@ -3,7 +3,6 @@ TODO
 - double check loss expression
 - load model to resume training
 - add additional hidden layers
-- output accuracy on training set periodically
 - move model initialization and architecture to separate class for modularity
 '''
 
@@ -15,15 +14,25 @@ import argparse
 import batch
 import kmer
 
+def accuracy(data_size, data_predict, data_label):
+    total_kmers = 0
+    total_matches = 0
+    for size, predict, label in zip(data_size, data_predict, data_label):
+        total_kmers += size
+        total_matches += np.sum(predict[:size] == label[:size])
+    return(total_matches/total_kmers)
+
 # parse command line arguments
 parser = argparse.ArgumentParser(description='Train the basecaller')
 parser.add_argument('--data', help='Location of training data', required=True)
+parser.add_argument('--test_data', help='Location of test data (for test accuracy)')
 parser.add_argument('--save_dir', default='.',help='Directory to save checkpoints')
 #parser.add_argument('--resume_from', help='Resume training from checkpoint file')
 
 parser.add_argument('--training_steps', type=int, default=1000, help='Number of iterations to run training (default: 1000)')
 parser.add_argument('--save_every', type=int, default=10000, help='Frequency with which to save checkpoint files (default: 10000)')
-parser.add_argument('--loss_every', type=int, default=100, help='Frequency with which to output batch loss (default: 100)')
+parser.add_argument('--accuracy_every', type=int, default=1000, help='Frequency with which to output test/training accuracy')
+parser.add_argument('--loss_every', type=int, default=1000, help='Frequency with which to output loss')
 #parser.add_argument('--loss_file',type=int,help='Write loss to a file instead of stdout')
 args = parser.parse_args()
 
@@ -35,32 +44,33 @@ NUM_OUTPUTS = 4096 #number of possible 6-mers
 
 # user options
 TRAINING_STEPS = args.training_steps #number of iterations of SGD
-CHECKPOINT_ITER = args.save_every #how often to output checkpoint files
+CHECKPOINT_ITER = args.save_every
 LOSS_ITER = args.loss_every # how often to output loss
-
-# training data
-EVENTS_FILE = args.data+'.events' # event mean file
-BASES_FILE = args.data+'.bases' # kmer file
+ACCURACY_ITER = args.accuracy_every
 
 # load training data into memory (small files so this is OK for now)
-raw_events = []
-raw_bases = []
-with open(EVENTS_FILE,'r') as ef, open(BASES_FILE,'r') as bf:
-    for eline, bline in zip(ef,bf):
-        events = eline.split()
-        bases = bline.split()
-        if (len(events) == len(bases)):
-            raw_events.append(np.array(list(map(lambda x: float(x),events))))
-            raw_bases.append(np.array(list(map(kmer.kmer2label,bases))))
+(train_events, train_bases) = batch.load_data(args.data)
 
 # pad data and labels
-(padded_X,sizes) = batch.pad(raw_events)
+(padded_X,sizes) = batch.pad(train_events)
 padded_X = np.expand_dims(padded_X,axis=2)
-(padded_y,sizes) = batch.pad(raw_bases)
-#print("CHECKING SHAPES:",padded_X.shape, padded_y.shape)
+
+(padded_y,sizes) = batch.pad(train_bases)
+padded_y = padded_y.astype(int)
 
 # pass data to batch iterator class
 dataset = batch.data_helper(padded_X, padded_y, small_batch=False, return_length=True)
+
+# for outputing test accuracy
+if args.test_data:
+    (test_events, test_bases) = batch.load_data(args.test_data)
+
+    # pad data and labels
+    (padded_test_data,test_data_sizes) = batch.pad(test_events)
+    padded_test_data = np.expand_dims(padded_test_data,axis=2)
+
+    (padded_test_labels,test_data_sizes) = batch.pad(test_bases)
+    padded_test_labels = padded_test_labels.astype(int)
 
 # Set up the model
 # data X are [BATCH_SIZE, MAX_INPUT_SIZE, 1]
@@ -87,7 +97,7 @@ loss = tf.reduce_mean(cross_entropy, name='loss')
 train_op = tf.train.AdamOptimizer().minimize(loss)
 
 # Start training network
-saver = tf.train.Saver(keep_checkpoint_every_n_hours=2)
+saver = tf.train.Saver(keep_checkpoint_every_n_hours=1)
 
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
@@ -103,6 +113,21 @@ with tf.Session() as sess:
         # periodically output the loss
         if (iteration+1) % LOSS_ITER == 0:
             print('iteration:',iteration+1,'epoch:',dataset.epoch,'loss:',sess.run(loss, feed_dict={X:X_batch, y:y_batch, sequence_length:sequence_length_batch}))
+
+        # periodically output test and training loss
+        if (iteration+1) % ACCURACY_ITER == 0:
+
+            if args.test_data:
+                predict_test = sess.run(prediction, feed_dict={X:padded_test_data, sequence_length:test_data_sizes})
+                test_accuracy = accuracy(test_data_sizes, predict_test, padded_test_labels)
+
+            predict_train = sess.run(prediction, feed_dict={X:padded_X, sequence_length:sizes})
+            training_accuracy = accuracy(sizes, predict_train, padded_y)
+
+            if args.test_data:
+                print('iteration:',iteration+1,'epoch:',dataset.epoch,'training_accuracy:',training_accuracy, 'test_accuracy:',test_accuracy)
+            else:
+                print('iteration:',iteration+1,'epoch:',dataset.epoch,'training_accuracy:',training_accuracy)
 
           # periodically save the current model parameters
         if (iteration+1) % CHECKPOINT_ITER == 0:

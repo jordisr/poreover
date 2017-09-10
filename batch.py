@@ -1,8 +1,21 @@
 import numpy as np
+import kmer
+
+def load_data(path):
+    raw_events = []
+    raw_bases = []
+    with open(path+'.events','r') as ef, open(path+'.bases','r') as bf:
+        for eline, bline in zip(ef,bf):
+            events = eline.split()
+            bases = bline.split()
+            if (len(events) == len(bases)):
+                raw_events.append(np.array(list(map(lambda x: float(x),events))))
+                raw_bases.append(np.array(list(map(kmer.kmer2label,bases))))
+    return(raw_events, raw_bases)
 
 # returns (padded_data, sizes)
 def pad(data):
-    sizes = [len(i) for i in data]
+    sizes = np.array([len(i) for i in data])
     rows = len(data)
     padded_data = np.zeros((rows,max(sizes)))
     for i, length in enumerate(sizes):
