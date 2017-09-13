@@ -17,13 +17,18 @@ for kmer in itertools.product(ALPHABET, repeat=KMER_SIZE):
     LABEL_TO_KMER[kmer_count] = kmer_string
     #print(kmer_count, kmer_string)
     kmer_count += 1
-NUM_KMER = kmer_count
 
 def kmer2label(kmer):
-    return(KMER_TO_LABEL[kmer])
+    if kmer == 'NNNNNN':
+        return(4097)
+    else:
+        return(KMER_TO_LABEL[kmer])
 
 def label2kmer(kmer):
-    return(LABEL_TO_KMER[kmer])
+    if kmer == 4097:
+        return('')
+    else:
+        return(LABEL_TO_KMER[kmer])
 
 def stitch_kmers(list_of_kmers,direction='+'):
     '''

@@ -18,6 +18,7 @@ import kmer
 parser = argparse.ArgumentParser(description='Train the basecaller')
 parser.add_argument('--data', help='Location of training data', required=True)
 parser.add_argument('--save_dir', default='.',help='Directory to save checkpoints')
+parser.add_argument('--name', default='run', help='Name of run')
 #parser.add_argument('--resume_from', help='Resume training from checkpoint file')
 
 parser.add_argument('--training_steps', type=int, default=1000, help='Number of iterations to run training (default: 1000)')
@@ -30,7 +31,9 @@ args = parser.parse_args()
 BATCH_SIZE = 32 # number of read fragments to use at a time
 NUM_NEURONS = 100 # how many neurons
 NUM_LAYERS = 1 # NOT CURRENTLY USED
-NUM_OUTPUTS = 4096 #number of possible 6-mers
+
+NUM_OUTPUTS = 4097 #number of possible 6-mers + NNNNNN
+INPUT_DIM = 2 # currently [event_level_mean, event_stdv]
 
 # user options
 TRAINING_STEPS = args.training_steps #number of iterations of SGD
@@ -39,21 +42,18 @@ LOSS_ITER = args.loss_every # how often to output loss
 
 # load training data into memory (small files so this is OK for now)
 (train_events, train_bases) = batch.load_data(args.data)
+EPOCH_SIZE = len(train_events)
 
-# pad data and labels
-(padded_X,sizes) = batch.pad(train_events)
-padded_X = np.expand_dims(padded_X,axis=2)
-
-(padded_y,sizes) = batch.pad(train_bases)
-padded_y = padded_y.astype(int)
+# log file for training statuts
+log_file = open(args.save_dir+'/'+args.name+'.out','w')
 
 # pass data to batch iterator class
-dataset = batch.data_helper(padded_X, padded_y, small_batch=False, return_length=True)
+dataset = batch.data_helper(train_events, train_bases, small_batch=False, return_length=True)
 
 # Set up the model
 # data X are [BATCH_SIZE, MAX_INPUT_SIZE, 1]
 # labels y are [BATCH_SIZE, MAX_INPUT_SIZE]
-X = tf.placeholder(shape=[None, None, 1], dtype=tf.float32, name='X')
+X = tf.placeholder(shape=[None, None, INPUT_DIM], dtype=tf.float32, name='X')
 y = tf.placeholder(shape=[None, None], dtype=tf.int32, name='y')
 sequence_length = tf.placeholder(shape=[None],dtype=tf.int32,name='sequence_length')
 
@@ -90,12 +90,15 @@ with tf.Session() as sess:
 
         # periodically output the minibatch loss
         if (iteration+1) % LOSS_ITER == 0:
-            print('iteration:',iteration+1,'epoch:',dataset.epoch,'minibatch_loss:',sess.run(loss, feed_dict={X:X_batch, y:y_batch, sequence_length:sequence_length_batch}))
+            print(iteration)
+            log_file.write(batch.format_string(('iteration:',iteration+1,'epoch:',dataset.epoch,'minibatch_loss:',sess.run(loss, feed_dict={X:X_batch, y:y_batch, sequence_length:sequence_length_batch}))))
 
         # periodically save the current model parameters
         if (iteration+1) % CHECKPOINT_ITER == 0:
-            saver.save(sess, args.save_dir+'/model', global_step=checkpoint_counter)
+            saver.save(sess, args.save_dir+'/'+args.name, global_step=checkpoint_counter)
+            log_file.write(batch.format_string(('iteration:',iteration+1,'epoch:',dataset.epoch, 'model:',checkpoint_counter)))
             checkpoint_counter += 1
-
+            
     # save extra model at the end of training
-    saver.save(sess, args.save_dir+'/model', global_step=checkpoint_counter)
+    checkpoint_counter += 1
+    saver.save(sess, args.save_dir+'/'+args.name, global_step=checkpoint_counter)

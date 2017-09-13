@@ -1,27 +1,40 @@
 import numpy as np
 import kmer
 
-def load_data(path):
+def format_string(l):
+    return(' '.join(list(map(str, l)))+'\n')
+
+# returns (padded_data, sizes)
+def pad(data):
+    sizes = np.array([len(i) for i in data])
+    DATA_SIZE = len(data)
+    padded_data = np.zeros((DATA_SIZE,max(sizes)))
+    for i, length in enumerate(sizes):
+        assert(len(padded_data[i,:length]) == len(np.array(data[i])))
+        padded_data[i,:length] = np.array(data[i])
+    return(padded_data)
+
+def load_data(path, dim=2):
     raw_events = []
     raw_bases = []
     with open(path+'.events','r') as ef, open(path+'.bases','r') as bf:
         for eline, bline in zip(ef,bf):
             events = eline.split()
             bases = bline.split()
-            if (len(events) == len(bases)):
+            if (len(events) == (len(bases)*dim)):
                 raw_events.append(np.array(list(map(lambda x: float(x),events))))
                 raw_bases.append(np.array(list(map(kmer.kmer2label,bases))))
-    return(raw_events, raw_bases)
 
-# returns (padded_data, sizes)
-def pad(data):
-    sizes = np.array([len(i) for i in data])
-    rows = len(data)
-    padded_data = np.zeros((rows,max(sizes)))
-    for i, length in enumerate(sizes):
-        assert(len(padded_data[i,:length]) == len(np.array(data[i])))
-        padded_data[i,:length] = np.array(data[i])
-    return((padded_data, sizes))
+    # pad data and labels
+    padded_events = pad(raw_events)
+    (DATA_SIZE, MAX_SEQ) = padded_events.shape
+    # dim is dimension of flattened input and is used for resizing to vector
+    padded_events = np.reshape(padded_events, (DATA_SIZE, -1, dim))
+
+    padded_bases = pad(raw_bases)
+    padded_bases = padded_bases.astype(int)
+
+    return(padded_events, padded_bases)
 
 class data_helper:
     '''
