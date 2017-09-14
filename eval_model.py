@@ -35,9 +35,11 @@ parser.add_argument('--sample_size', type=float, default=0.01, help='Fraction of
 parser.add_argument('--samples', type=int, default=1, help='Number of samples for accuracy')
 args = parser.parse_args()
 
+INPUT_DIM = 2
+
 # load training data into memory (small files so this is OK for now)
 #(train_events, train_bases) = batch.load_data(args.train_data)
-(padded_train_data, padded_train_labels) = batch.load_data(args.train_data)
+(padded_train_data, padded_train_labels) = batch.load_data(args.train_data, INPUT_DIM)
 
 # package in dataset iterator
 train_dataset = batch.data_helper(padded_train_data, padded_train_labels, small_batch=False, return_length=True)
@@ -46,7 +48,7 @@ train_sizes = train_dataset.sequence_length
 # for outputing test accuracy
 if args.test_data:
     #(test_events, test_bases) = batch.load_data(args.test_data)
-    (padded_test_data, padded_test_labels) = batch.load_data(args.test_data)
+    (padded_test_data, padded_test_labels) = batch.load_data(args.test_data, INPUT_DIM)
 
     test_dataset = batch.data_helper(padded_test_data, padded_test_labels, small_batch=False, return_length=True)
     test_sizes = test_dataset.sequence_length

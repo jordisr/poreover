@@ -41,7 +41,7 @@ CHECKPOINT_ITER = args.save_every
 LOSS_ITER = args.loss_every # how often to output loss
 
 # load training data into memory (small files so this is OK for now)
-(train_events, train_bases) = batch.load_data(args.data)
+(train_events, train_bases) = batch.load_data(args.data, INPUT_DIM)
 EPOCH_SIZE = len(train_events)
 
 # log file for training statuts
@@ -98,7 +98,7 @@ with tf.Session() as sess:
             saver.save(sess, args.save_dir+'/'+args.name, global_step=checkpoint_counter)
             log_file.write(batch.format_string(('iteration:',iteration+1,'epoch:',dataset.epoch, 'model:',checkpoint_counter)))
             checkpoint_counter += 1
-            
+
     # save extra model at the end of training
     checkpoint_counter += 1
     saver.save(sess, args.save_dir+'/'+args.name, global_step=checkpoint_counter)
