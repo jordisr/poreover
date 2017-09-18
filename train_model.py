@@ -3,7 +3,6 @@ TODO
 - double check loss expression
 - load model to resume training
 - add additional hidden layers
-- move model initialization and architecture to separate class for modularity
 '''
 
 import numpy as np
@@ -13,6 +12,30 @@ import argparse
 # some custom helper functions
 import batch
 import kmer
+
+def build_rnn(X,y):
+    # model parameters
+    NUM_NEURONS = 100 # how many neurons
+    NUM_OUTPUTS = 4097 #number of possible 6-mers + NNNNNN
+
+    # use dynamic RNN to allow for flexibility in input size
+    cell_fw = tf.contrib.rnn.BasicLSTMCell(num_units=NUM_NEURONS,state_is_tuple=False)
+    cell_bw = tf.contrib.rnn.BasicLSTMCell(num_units=NUM_NEURONS,state_is_tuple=False)
+    outputs, states = tf.nn.bidirectional_dynamic_rnn(cell_fw, cell_bw, X, dtype=tf.float32, time_major=False, sequence_length=sequence_length)
+    outputs = tf.concat(outputs, 2)
+
+    # dense layer connecting to output
+    logits = tf.contrib.layers.linear(outputs, NUM_OUTPUTS)
+    prediction = tf.add(tf.argmax(logits, 2),1, name='prediction') # adding one for 1-4096
+
+    # set up minimization of loss
+    # tf.one_hot(y-1...) converts 1-indexed labels to encodings (0 saved for padding)
+    cross_entropy = tf.nn.softmax_cross_entropy_with_logits(
+         labels=tf.one_hot(y-1, depth=NUM_OUTPUTS, dtype=tf.float32),logits=logits, name='cross_entropy')
+    loss = tf.reduce_mean(cross_entropy, name='loss')
+    train_op = tf.train.AdamOptimizer().minimize(loss)
+
+    return(train_op, loss)
 
 # parse command line arguments
 parser = argparse.ArgumentParser(description='Train the basecaller')
@@ -27,20 +50,14 @@ parser.add_argument('--loss_every', type=int, default=100, help='Frequency with 
 #parser.add_argument('--loss_file',type=int,help='Write loss to a file instead of stdout')
 args = parser.parse_args()
 
-# model parameters
-BATCH_SIZE = 32 # number of read fragments to use at a time
-NUM_NEURONS = 100 # how many neurons
-NUM_LAYERS = 1 # NOT CURRENTLY USED
-
-NUM_OUTPUTS = 4097 #number of possible 6-mers + NNNNNN
-INPUT_DIM = 2 # currently [event_level_mean, event_stdv]
-
 # user options
 TRAINING_STEPS = args.training_steps #number of iterations of SGD
 CHECKPOINT_ITER = args.save_every
 LOSS_ITER = args.loss_every # how often to output loss
+BATCH_SIZE = 32 # number of read fragments to use at a time
 
 # load training data into memory (small files so this is OK for now)
+INPUT_DIM = 2 # currently [event_level_mean, event_stdv]
 (train_events, train_bases) = batch.load_data(args.data, INPUT_DIM)
 EPOCH_SIZE = len(train_events)
 
@@ -56,23 +73,7 @@ dataset = batch.data_helper(train_events, train_bases, small_batch=False, return
 X = tf.placeholder(shape=[None, None, INPUT_DIM], dtype=tf.float32, name='X')
 y = tf.placeholder(shape=[None, None], dtype=tf.int32, name='y')
 sequence_length = tf.placeholder(shape=[None],dtype=tf.int32,name='sequence_length')
-
-# use dynamic RNN to allow for flexibility in input size
-cell_fw = tf.contrib.rnn.BasicLSTMCell(num_units=NUM_NEURONS,state_is_tuple=False)
-cell_bw = tf.contrib.rnn.BasicLSTMCell(num_units=NUM_NEURONS,state_is_tuple=False)
-outputs, states = tf.nn.bidirectional_dynamic_rnn(cell_fw, cell_bw, X, dtype=tf.float32, time_major=False, sequence_length=sequence_length)
-outputs = tf.concat(outputs, 2)
-
-# dense layer connecting to output
-logits = tf.contrib.layers.linear(outputs, NUM_OUTPUTS)
-prediction = tf.add(tf.argmax(logits, 2),1, name='prediction') # adding one for 1-4096
-
-# set up minimization of loss
-# tf.one_hot(y-1...) converts 1-indexed labels to encodings (0 saved for padding)
-cross_entropy = tf.nn.softmax_cross_entropy_with_logits(
-     labels=tf.one_hot(y-1, depth=NUM_OUTPUTS, dtype=tf.float32),logits=logits, name='cross_entropy')
-loss = tf.reduce_mean(cross_entropy, name='loss')
-train_op = tf.train.AdamOptimizer().minimize(loss)
+(train_op, loss) = build_rnn(X,y)
 
 # Start training network
 saver = tf.train.Saver(max_to_keep=None)

@@ -22,8 +22,8 @@ def accuracy(data_size, data_predict, data_label):
 parser = argparse.ArgumentParser(description='Run the basecaller')
 
 # data
-parser.add_argument('--train_data', help='Location of training data', required=True)
-parser.add_argument('--test_data', help='Location of test data (for test accuracy)')
+parser.add_argument('--train', help='Location of training data', required=True)
+parser.add_argument('--test', help='Location of test data (for test accuracy)')
 
 # model
 parser.add_argument('--latest', help='Load latest model in a directory', default='./')
@@ -31,24 +31,22 @@ parser.add_argument('--model', default=False, help='Saved model to run')
 parser.add_argument('--all', default=False, help='Evaluate all models in a directory')
 
 # options
-parser.add_argument('--sample_size', type=float, default=0.01, help='Fraction of points to sample for accuracy')
-parser.add_argument('--samples', type=int, default=1, help='Number of samples for accuracy')
+parser.add_argument('--fraction', type=float, default=0.01, help='Fraction of points to sample for accuracy (default: 0.01)')
+parser.add_argument('--samples', type=int, default=1, help='Number of samples for accuracy (default: 1)')
 args = parser.parse_args()
 
 INPUT_DIM = 2
 
 # load training data into memory (small files so this is OK for now)
-#(train_events, train_bases) = batch.load_data(args.train_data)
-(padded_train_data, padded_train_labels) = batch.load_data(args.train_data, INPUT_DIM)
+(padded_train_data, padded_train_labels) = batch.load_data(args.train, INPUT_DIM)
 
 # package in dataset iterator
 train_dataset = batch.data_helper(padded_train_data, padded_train_labels, small_batch=False, return_length=True)
 train_sizes = train_dataset.sequence_length
 
 # for outputing test accuracy
-if args.test_data:
-    #(test_events, test_bases) = batch.load_data(args.test_data)
-    (padded_test_data, padded_test_labels) = batch.load_data(args.test_data, INPUT_DIM)
+if args.test:
+    (padded_test_data, padded_test_labels) = batch.load_data(args.test, INPUT_DIM)
 
     test_dataset = batch.data_helper(padded_test_data, padded_test_labels, small_batch=False, return_length=True)
     test_sizes = test_dataset.sequence_length
@@ -79,8 +77,8 @@ with tf.Session() as sess:
 
         for i in range(args.samples):
 
-            if args.test_data:
-                test_subset = np.random.choice(np.arange(len(padded_test_data)), int(len(padded_test_data)*args.sample_size))
+            if args.test:
+                test_subset = np.random.choice(np.arange(len(padded_test_data)), int(len(padded_test_data)*args.fraction))
                 test_data_subset = np.take(padded_test_data, test_subset, axis=0)
                 test_sizes_subset = np.take(test_sizes, test_subset, axis=0)
                 test_labels_subset = np.take(padded_test_labels, test_subset, axis=0)
@@ -88,7 +86,7 @@ with tf.Session() as sess:
                 predict_test = sess.run(prediction, feed_dict={X:test_data_subset, sequence_length:test_sizes_subset})
                 test_accuracy.append(accuracy(test_sizes_subset, predict_test, test_labels_subset))
 
-            train_subset = np.random.choice(np.arange(len(padded_train_data)), int(len(padded_train_data)*args.sample_size))
+            train_subset = np.random.choice(np.arange(len(padded_train_data)), int(len(padded_train_data)*args.fraction))
             train_data_subset = np.take(padded_train_data, train_subset, axis=0)
             train_sizes_subset = np.take(train_sizes, train_subset, axis=0)
             train_labels_subset = np.take(padded_train_labels, train_subset, axis=0)
@@ -96,11 +94,11 @@ with tf.Session() as sess:
             predict_train = sess.run(prediction, feed_dict={X:train_data_subset, sequence_length:train_sizes_subset})
             train_accuracy.append(accuracy(train_sizes_subset, predict_train, train_labels_subset))
 
-        if args.test_data:
+        if args.test:
             print('model:',model_file,'samples:', args.samples,
             'train_accuracy_mean:',np.mean(train_accuracy),
             'train_accuracy_stdv:',np.std(train_accuracy),
             'test_accuracy_mean:',np.mean(test_accuracy),
             'test_accuracy_stdv:',np.std(test_accuracy))
         else:
-            print('model:',model_file,'sample:',arg.samples,'train_accuracy:',np.mean(train_accuracy))
+            print('model:',model_file,'samples:',args.samples,'train_accuracy:',np.mean(train_accuracy), 'train_accuracy_stdv:',np.std(train_accuracy))
