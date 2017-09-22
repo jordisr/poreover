@@ -1,5 +1,14 @@
 import numpy as np
-import kmer
+
+def base2label(b):
+    if b == 'A':
+        return 1
+    elif b == 'C':
+        return 2
+    elif b == 'G':
+        return 3
+    elif b == 'T':
+        return 4
 
 def format_string(l):
     return(' '.join(list(map(str, l)))+'\n')
@@ -14,16 +23,16 @@ def pad(data):
         padded_data[i,:length] = np.array(data[i])
     return(padded_data)
 
-def load_data(path, dim=2):
+def load_data(path, dim=1):
     raw_events = []
     raw_bases = []
-    with open(path+'.events','r') as ef, open(path+'.bases','r') as bf:
+    with open(path+'.signal','r') as ef, open(path+'.bases','r') as bf:
         for eline, bline in zip(ef,bf):
             events = eline.split()
             bases = bline.split()
             if (len(events) == (len(bases)*dim)):
                 raw_events.append(np.array(list(map(lambda x: float(x),events))))
-                raw_bases.append(np.array(list(map(kmer.kmer2label,bases))))
+                raw_bases.append(np.array(list(map(base2label,bases))))
 
     # pad data and labels
     padded_events = pad(raw_events)

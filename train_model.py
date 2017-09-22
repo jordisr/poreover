@@ -11,12 +11,11 @@ import argparse
 
 # some custom helper functions
 import batch
-import kmer
 
 def build_rnn(X,y):
     # model parameters
     NUM_NEURONS = 100 # how many neurons
-    NUM_OUTPUTS = 4097 #number of possible 6-mers + NNNNNN
+    NUM_OUTPUTS = 4 # A,C,G,T
 
     # use dynamic RNN to allow for flexibility in input size
     cell_fw = tf.contrib.rnn.BasicLSTMCell(num_units=NUM_NEURONS,state_is_tuple=False)
@@ -57,7 +56,8 @@ LOSS_ITER = args.loss_every # how often to output loss
 BATCH_SIZE = 32 # number of read fragments to use at a time
 
 # load training data into memory (small files so this is OK for now)
-INPUT_DIM = 2 # currently [event_level_mean, event_stdv]
+ALPHABET = 'ACGT'
+INPUT_DIM = 1 # Raw signal has only one dimension
 (train_events, train_bases) = batch.load_data(args.data, INPUT_DIM)
 EPOCH_SIZE = len(train_events)
 
