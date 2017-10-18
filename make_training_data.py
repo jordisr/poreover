@@ -64,7 +64,9 @@ def read_to_training(read_path):
             base_string += base.decode('UTF-8')*length
 
         # rescale signal based on range of nanoraw data (possibly other stuff in the future)
-        norm_signal = (raw_signal[nanoraw_relative_start:nanoraw_relative_start+start+length]+offset)/alpha
+        raw_signal = raw_signal[nanoraw_relative_start:nanoraw_relative_start+start+length]
+        norm_signal = raw_signal / np.median(raw_signal)
+        #norm_signal = (raw_signal+offset)/alpha
         print(len(norm_signal), len(base_string))
 
         i = 0

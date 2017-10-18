@@ -14,12 +14,18 @@ import batch
 
 def build_rnn(X,y):
     # model parameters
-    NUM_NEURONS = 100 # how many neurons
+    NUM_NEURONS = 150 # how many neurons
     NUM_OUTPUTS = 4 # A,C,G,T
+    NUM_LAYERS = 3
+
+    #cell_fw = tf.contrib.rnn.BasicLSTMCell(num_units=NUM_NEURONS,state_is_tuple=False)
+    #cell_bw = tf.contrib.rnn.BasicLSTMCell(num_units=NUM_NEURONS,state_is_tuple=False)
+
+    # use MultiRNNCell for multiple RNN layers
+    cell_fw = tf.contrib.rnn.MultiRNNCell([tf.contrib.rnn.BasicLSTMCell(num_units=NUM_NEURONS,state_is_tuple=False) for _ in range(NUM_LAYERS)])
+    cell_bw = tf.contrib.rnn.MultiRNNCell([tf.contrib.rnn.BasicLSTMCell(num_units=NUM_NEURONS,state_is_tuple=False) for _ in range(NUM_LAYERS)])
 
     # use dynamic RNN to allow for flexibility in input size
-    cell_fw = tf.contrib.rnn.BasicLSTMCell(num_units=NUM_NEURONS,state_is_tuple=False)
-    cell_bw = tf.contrib.rnn.BasicLSTMCell(num_units=NUM_NEURONS,state_is_tuple=False)
     outputs, states = tf.nn.bidirectional_dynamic_rnn(cell_fw, cell_bw, X, dtype=tf.float32, time_major=False, sequence_length=sequence_length)
     outputs = tf.concat(outputs, 2)
 
