@@ -35,7 +35,7 @@ parser.add_argument('--fraction', type=float, default=0.01, help='Fraction of po
 parser.add_argument('--samples', type=int, default=1, help='Number of samples for accuracy (default: 1)')
 args = parser.parse_args()
 
-INPUT_DIM = 2
+INPUT_DIM = 1 # raw  signal
 
 # load training data into memory (small files so this is OK for now)
 (padded_train_data, padded_train_labels) = batch.load_data(args.train, INPUT_DIM)

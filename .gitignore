@@ -1,5 +1,8 @@
 __pycache__
 *~
-model-*
+*.index
+*.meta
+*.data-*
 checkpoint
+*.out
 local

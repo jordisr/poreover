@@ -9,49 +9,70 @@ import h5py
 import os, sys, re, argparse
 
 # some custom helper functions
-import kmer
 import batch
+
+def label2base(l):
+    if l == 1:
+        return 'A'
+    elif l == 2:
+        return 'C'
+    elif l == 3:
+        return 'G'
+    elif l == 4:
+        return 'G'
+
+def fasta_format(name, seq, width=80):
+    fasta = '>'+name+'\n'
+    window = 0
+    while window+width < len(seq):
+        fasta += (seq[window:window+width]+'\n')
+        window += width
+    fasta += (seq[window:]+'\n')
+    return(fasta)
 
 # parse command line arguments
 parser = argparse.ArgumentParser(description='Run the basecaller')
 parser.add_argument('--model', help='Saved model to run')
 parser.add_argument('--model_dir', help='Directory of models (loads latest)', default='./')
-parser.add_argument('--events', help='File with events (.events)')
+parser.add_argument('--signal', help='File with raw signal (.signal)')
 parser.add_argument('--fast5', default=False, help='FAST5 file to basecall (directories not currently supported)')
-parser.add_argument('--stitch', action='store_true', default=False, help='Stitch list of kmers into one sequence')
-parser.add_argument('--fasta', action='store_true', default=False, help='Write stitched output sequence in FASTA')
+parser.add_argument('--fasta', action='store_true', default=False, help='Write output sequence in FASTA')
 args = parser.parse_args()
 
-INPUT_DIM = 2
+ALPHABET = 'ACGT'
+INPUT_DIM = 1 # raw signal
 
 if args.fast5:
     if os.path.isdir(args.fast5):
         sys.exit("FAST5 directories are not supported yet!")
     else:
-        # parse FAST5 file, for now assume full file name scheme
-        full_path = args.fast5
-        file_name = full_path.split('/')[-1]
-        path_match = re.match(r'.+_ch(\d+)_read(\d+)_strand\d?\.fast5', file_name)
-        (channel, read) = (path_match.group(1), path_match.group(2))
+        hdf = h5py.File(args.fast5,'r')
 
-        hdf = h5py.File(full_path,'r')
-        raw_events_path = '/Analyses/EventDetection_000/Reads/Read_'+read+'/Events'
+        # basic parameters
+        read_string = list(hdf['/Raw/Reads'].keys())[0]
+        read_id = hdf['/Raw/Reads/'+read_string].attrs['read_id']
+        read_start_time = hdf['/Raw/Reads/'+read_string].attrs['start_time']
+        read_duration = hdf['/Raw/Reads/'+read_string].attrs['duration']
 
-        # preparing for switch to raw signal
-        # raw_signal_path = '/Raw/Reads/Read_'+read+'/Signal'
-        # if raw_signal_path in hdf: raw_signal = hdf[raw_signal_path]
-        # ...
-        # padded_X = np.expand_dims(padded_X,axis=2)
+        # raw events and signals
+        raw_signal_path = '/Raw/Reads/'+read_string+'/Signal'
+        raw_signal = hdf[raw_signal_path]
+        assert(len(raw_signal) == read_duration)
 
-        if raw_events_path in hdf:
-            raw_events = hdf[raw_events_path]
-        sizes = [len(raw_events)]
-        padded_X = np.array([np.array([raw_events['mean'], raw_events['stdv']]).T])
+        # for converting raw signal to current (pA)
+        alpha = hdf['UniqueGlobalKey']['channel_id'].attrs['digitisation'] / hdf['UniqueGlobalKey']['channel_id'].attrs['range']
+        offset = hdf['UniqueGlobalKey']['channel_id'].attrs['offset']
+        sampling_rate = hdf['UniqueGlobalKey']['channel_id'].attrs['sampling_rate']
 
-elif args.events:
+        # rescale signal (currently no normalization or detection of abasic region)
+        norm_signal = (raw_signal+offset)/alpha
+        sizes = [len(norm_signal)]
+        padded_X = np.array([np.expand_dims(norm_signal,axis=1)])
+
+elif args.signal:
     # parse .events file
     raw_events = []
-    with open(args.events, 'r') as f:
+    with open(args.signal, 'r') as f:
         for line in f:
             if len(line.split()) > 1:
                 raw_events.append(np.array(list(map(lambda x: float(x),line.split()))))
@@ -60,7 +81,7 @@ elif args.events:
     padded_X = np.reshape(batch.pad(raw_events), (len(raw_events), -1, INPUT_DIM))
 
 else:
-    sys.exit("An input file must be specified with --events or --fast5!")
+    sys.exit("An input file must be specified with --signal or --fast5!")
 
 with tf.Session() as sess:
 
@@ -82,13 +103,10 @@ with tf.Session() as sess:
     predict_ = sess.run(prediction, feed_dict={X:padded_X,sequence_length:sizes})
     seq_counter = 0
     for length, prediction in zip(sizes,predict_):
-        kmers = list(map(kmer.label2kmer, prediction[:length]))
+        kmers = list(map(label2base, prediction[:length]))
+        sequence = ''.join(kmers) # provisional
         seq_counter += 1
-        if args.stitch or args.fasta:
-            sequence = kmer.stitch_kmers(kmers)
-            if args.fasta:
-                print(kmer.fasta_format('sequence '+str(seq_counter),sequence))
-            else:
-                print(sequence)
+        if args.fasta:
+            print(fasta_format('sequence '+str(seq_counter),sequence))
         else:
-            print(kmers)
+            print(sequence)

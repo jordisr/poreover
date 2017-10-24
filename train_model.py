@@ -11,16 +11,21 @@ import argparse
 
 # some custom helper functions
 import batch
-import kmer
 
 def build_rnn(X,y):
     # model parameters
-    NUM_NEURONS = 100 # how many neurons
-    NUM_OUTPUTS = 4097 #number of possible 6-mers + NNNNNN
+    NUM_NEURONS = 150 # how many neurons
+    NUM_OUTPUTS = 4 # A,C,G,T
+    NUM_LAYERS = 3
+
+    #cell_fw = tf.contrib.rnn.BasicLSTMCell(num_units=NUM_NEURONS,state_is_tuple=False)
+    #cell_bw = tf.contrib.rnn.BasicLSTMCell(num_units=NUM_NEURONS,state_is_tuple=False)
+
+    # use MultiRNNCell for multiple RNN layers
+    cell_fw = tf.contrib.rnn.MultiRNNCell([tf.contrib.rnn.BasicLSTMCell(num_units=NUM_NEURONS,state_is_tuple=False) for _ in range(NUM_LAYERS)])
+    cell_bw = tf.contrib.rnn.MultiRNNCell([tf.contrib.rnn.BasicLSTMCell(num_units=NUM_NEURONS,state_is_tuple=False) for _ in range(NUM_LAYERS)])
 
     # use dynamic RNN to allow for flexibility in input size
-    cell_fw = tf.contrib.rnn.BasicLSTMCell(num_units=NUM_NEURONS,state_is_tuple=False)
-    cell_bw = tf.contrib.rnn.BasicLSTMCell(num_units=NUM_NEURONS,state_is_tuple=False)
     outputs, states = tf.nn.bidirectional_dynamic_rnn(cell_fw, cell_bw, X, dtype=tf.float32, time_major=False, sequence_length=sequence_length)
     outputs = tf.concat(outputs, 2)
 
@@ -54,10 +59,11 @@ args = parser.parse_args()
 TRAINING_STEPS = args.training_steps #number of iterations of SGD
 CHECKPOINT_ITER = args.save_every
 LOSS_ITER = args.loss_every # how often to output loss
-BATCH_SIZE = 32 # number of read fragments to use at a time
+BATCH_SIZE = 64 # number of read fragments to use at a time
 
 # load training data into memory (small files so this is OK for now)
-INPUT_DIM = 2 # currently [event_level_mean, event_stdv]
+ALPHABET = 'ACGT'
+INPUT_DIM = 1 # Raw signal has only one dimension
 (train_events, train_bases) = batch.load_data(args.data, INPUT_DIM)
 EPOCH_SIZE = len(train_events)
 
@@ -101,5 +107,4 @@ with tf.Session() as sess:
             checkpoint_counter += 1
 
     # save extra model at the end of training
-    checkpoint_counter += 1
     saver.save(sess, args.save_dir+'/'+args.name, global_step=checkpoint_counter)

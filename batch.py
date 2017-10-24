@@ -1,5 +1,14 @@
 import numpy as np
-import kmer
+
+def base2label(b):
+    if b == 'A':
+        return 1
+    elif b == 'C':
+        return 2
+    elif b == 'G':
+        return 3
+    elif b == 'T':
+        return 4
 
 def format_string(l):
     return(' '.join(list(map(str, l)))+'\n')
@@ -14,16 +23,16 @@ def pad(data):
         padded_data[i,:length] = np.array(data[i])
     return(padded_data)
 
-def load_data(path, dim=2):
+def load_data(path, dim=1):
     raw_events = []
     raw_bases = []
-    with open(path+'.events','r') as ef, open(path+'.bases','r') as bf:
+    with open(path+'.signal','r') as ef, open(path+'.bases','r') as bf:
         for eline, bline in zip(ef,bf):
             events = eline.split()
             bases = bline.split()
             if (len(events) == (len(bases)*dim)):
                 raw_events.append(np.array(list(map(lambda x: float(x),events))))
-                raw_bases.append(np.array(list(map(kmer.kmer2label,bases))))
+                raw_bases.append(np.array(list(map(base2label,bases))))
 
     # pad data and labels
     padded_events = pad(raw_events)
@@ -64,26 +73,43 @@ class data_helper:
     def reset(self):
         self.batch_i = 0
 
+    # shuffle order of data
+    def shuffle(self):
+        indices = np.arange(self.LENGTH)
+        np.random.shuffle(indices)
+        self.X = self.X[indices]
+        self.y = self.y[indices]
+
     # get next minibatch
     def next_batch(self,batch_size):
         if self.batch_i+batch_size < self.LENGTH:
             batch_start = self.batch_i
             batch_end = batch_start + batch_size
             self.batch_i += batch_size
+            NEW_EPOCH = False
         elif self.SMALL_BATCH:
             batch_start = self.batch_i
             batch_end = self.LENGTH
             self.batch_i = 0
-            self.epoch += 1
+            NEW_EPOCH = True
         else:
             self.batch_i = 0
             batch_start = self.batch_i
             batch_end = batch_start + batch_size
+            NEW_EPOCH = True
+
+        batch_X = self.X[batch_start:batch_end]
+        batch_y = self.y[batch_start:batch_end]
+        batch_length = self.sequence_length[batch_start:batch_end]
+            
+        if NEW_EPOCH:
             self.epoch += 1
+            self.shuffle()
+            
         if self.RETURN_LENGTH:
-            return(self.X[batch_start:batch_end], self.y[batch_start:batch_end], self.sequence_length[batch_start:batch_end])
+            return(batch_X, batch_y, batch_length)
         else:
-            return(self.X[batch_start:batch_end], self.y[batch_start:batch_end])
+            return(batch_X, batch_y)
 
 if __name__ == '__main__':
 
