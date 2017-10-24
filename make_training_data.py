@@ -65,8 +65,9 @@ def read_to_training(read_path):
 
         # rescale signal based on range of nanoraw data (possibly other stuff in the future)
         raw_signal = raw_signal[nanoraw_relative_start:nanoraw_relative_start+start+length]
-        norm_signal = raw_signal / np.median(raw_signal)
-        #norm_signal = (raw_signal+offset)/alpha
+        #norm_signal = (raw_signal - np.mean(raw_signal))/np.std(raw_signal) # Normalize as in chiron
+        norm_signal = raw_signal / np.median(raw_signal) # divide by median
+        #norm_signal = (raw_signal+offset)/alpha # convert to pA
         print(len(norm_signal), len(base_string))
 
         i = 0

@@ -73,26 +73,43 @@ class data_helper:
     def reset(self):
         self.batch_i = 0
 
+    # shuffle order of data
+    def shuffle(self):
+        indices = np.arange(self.LENGTH)
+        np.random.shuffle(indices)
+        self.X = self.X[indices]
+        self.y = self.y[indices]
+
     # get next minibatch
     def next_batch(self,batch_size):
         if self.batch_i+batch_size < self.LENGTH:
             batch_start = self.batch_i
             batch_end = batch_start + batch_size
             self.batch_i += batch_size
+            NEW_EPOCH = False
         elif self.SMALL_BATCH:
             batch_start = self.batch_i
             batch_end = self.LENGTH
             self.batch_i = 0
-            self.epoch += 1
+            NEW_EPOCH = True
         else:
             self.batch_i = 0
             batch_start = self.batch_i
             batch_end = batch_start + batch_size
+            NEW_EPOCH = True
+
+        batch_X = self.X[batch_start:batch_end]
+        batch_y = self.y[batch_start:batch_end]
+        batch_length = self.sequence_length[batch_start:batch_end]
+            
+        if NEW_EPOCH:
             self.epoch += 1
+            self.shuffle()
+            
         if self.RETURN_LENGTH:
-            return(self.X[batch_start:batch_end], self.y[batch_start:batch_end], self.sequence_length[batch_start:batch_end])
+            return(batch_X, batch_y, batch_length)
         else:
-            return(self.X[batch_start:batch_end], self.y[batch_start:batch_end])
+            return(batch_X, batch_y)
 
 if __name__ == '__main__':
 

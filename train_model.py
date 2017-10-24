@@ -59,7 +59,7 @@ args = parser.parse_args()
 TRAINING_STEPS = args.training_steps #number of iterations of SGD
 CHECKPOINT_ITER = args.save_every
 LOSS_ITER = args.loss_every # how often to output loss
-BATCH_SIZE = 32 # number of read fragments to use at a time
+BATCH_SIZE = 64 # number of read fragments to use at a time
 
 # load training data into memory (small files so this is OK for now)
 ALPHABET = 'ACGT'
@@ -107,5 +107,4 @@ with tf.Session() as sess:
             checkpoint_counter += 1
 
     # save extra model at the end of training
-    checkpoint_counter += 1
     saver.save(sess, args.save_dir+'/'+args.name, global_step=checkpoint_counter)
