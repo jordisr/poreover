@@ -12,14 +12,36 @@ import argparse
 # some custom helper functions
 import batch
 
+'''from TensorFlow unit tests'''
+''' for converting labels to SparseTensor for CTC input'''
+def SimpleSparseTensorFrom(x):
+  """Create a very simple SparseTensor with dimensions (batch, time).
+
+  Args:
+    x: a list of lists of type int
+
+  Returns:
+    x_ix and x_val, the indices and values of the SparseTensor<2>.
+  """
+  x_ix = []
+  x_val = []
+  for batch_i, batch in enumerate(x):
+    for time, val in enumerate(batch):
+      x_ix.append([batch_i, time])
+      x_val.append(val)
+  x_shape = [len(x), np.asarray(x_ix).max(0)[1]+1]
+  x_ix = tf.constant(x_ix, tf.int64)
+  x_val = tf.constant(x_val, tf.int32)
+  x_shape = tf.constant(x_shape, tf.int64)
+
+  return tf.SparseTensor(x_ix, x_val, x_shape)
+
 def build_rnn(X,y):
     # model parameters
     NUM_NEURONS = 150 # how many neurons
-    NUM_OUTPUTS = 4 # A,C,G,T
+    NUM_LABELS = 4 # A,C,G,T
+    NUM_OUTPUTS = NUM_LABELS+1 # + blank
     NUM_LAYERS = 3
-
-    #cell_fw = tf.contrib.rnn.BasicLSTMCell(num_units=NUM_NEURONS,state_is_tuple=False)
-    #cell_bw = tf.contrib.rnn.BasicLSTMCell(num_units=NUM_NEURONS,state_is_tuple=False)
 
     # use MultiRNNCell for multiple RNN layers
     cell_fw = tf.contrib.rnn.MultiRNNCell([tf.contrib.rnn.BasicLSTMCell(num_units=NUM_NEURONS,state_is_tuple=False) for _ in range(NUM_LAYERS)])
@@ -31,13 +53,13 @@ def build_rnn(X,y):
 
     # dense layer connecting to output
     logits = tf.contrib.layers.linear(outputs, NUM_OUTPUTS)
-    prediction = tf.add(tf.argmax(logits, 2),1, name='prediction') # adding one for 1-4096
+    #prediction = tf.add(tf.argmax(logits, 2),1, name='prediction') # adding one for 1-4096
 
+    #labels = SimpleSparseTensorFrom(y)
     # set up minimization of loss
     # tf.one_hot(y-1...) converts 1-indexed labels to encodings (0 saved for padding)
-    cross_entropy = tf.nn.softmax_cross_entropy_with_logits(
-         labels=tf.one_hot(y-1, depth=NUM_OUTPUTS, dtype=tf.float32),logits=logits, name='cross_entropy')
-    loss = tf.reduce_mean(cross_entropy, name='loss')
+    #labels=tf.one_hot(y-1, depth=NUM_OUTPUTS, dtype=tf.float32)
+    loss = tf.reduce_mean(tf.nn.ctc_loss(labels=SimpleSparseTensorFrom(y), input=logits, sequence_length=sequence_length, time_major=False, preprocess_collapse_repeated=False, ctc_merge_repeated=True), name='loss')
     train_op = tf.train.AdamOptimizer().minimize(loss)
 
     return(train_op, loss)
@@ -77,7 +99,9 @@ dataset = batch.data_helper(train_events, train_bases, small_batch=False, return
 # data X are [BATCH_SIZE, MAX_INPUT_SIZE, 1]
 # labels y are [BATCH_SIZE, MAX_INPUT_SIZE]
 X = tf.placeholder(shape=[None, None, INPUT_DIM], dtype=tf.float32, name='X')
-y = tf.placeholder(shape=[None, None], dtype=tf.int32, name='y')
+#y = tf.placeholder(shape=[None, None], dtype=tf.int32, name='y')
+#y = tf.sparse_placeholder(shape=[None, None], dtype=tf.int32,name='y')
+y = tf.sparse_placeholder(dtype=tf.int32,name='y')
 sequence_length = tf.placeholder(shape=[None],dtype=tf.int32,name='sequence_length')
 (train_op, loss) = build_rnn(X,y)
 
@@ -93,6 +117,11 @@ with tf.Session() as sess:
 
         # get current minibatch and run minimization
         (X_batch, y_batch, sequence_length_batch) = dataset.next_batch(BATCH_SIZE)
+
+        #print(sess.run(labels.indices))
+        #print(labels.indices, labels.dense_shape, labels.values)
+        #print(X_batch, labels, sequence_length_batch)
+
         sess.run(train_op, feed_dict={X:X_batch, y:y_batch, sequence_length:sequence_length_batch})
 
         # periodically output the minibatch loss

@@ -2,13 +2,13 @@ import numpy as np
 
 def base2label(b):
     if b == 'A':
-        return 1
+        return 0
     elif b == 'C':
-        return 2
+        return 1
     elif b == 'G':
-        return 3
+        return 2
     elif b == 'T':
-        return 4
+        return 3
 
 def format_string(l):
     return(' '.join(list(map(str, l)))+'\n')
@@ -43,7 +43,8 @@ def load_data(path, dim=1):
     padded_bases = pad(raw_bases)
     padded_bases = padded_bases.astype(int)
 
-    return(padded_events, padded_bases)
+    #return(padded_events, padded_bases)
+    return(padded_events, raw_bases)
 
 class data_helper:
     '''
@@ -66,8 +67,8 @@ class data_helper:
         self.RETURN_LENGTH = return_length
 
         # if True return list of sequence lengths
-        if self.RETURN_LENGTH:
-            self.sequence_length = [len(i) for i in self.X]
+        #if self.RETURN_LENGTH:
+        #    self.sequence_length = [len(i) for i in self.X]
 
     # reset counter for testing purposes
     def reset(self):
@@ -100,13 +101,14 @@ class data_helper:
 
         batch_X = self.X[batch_start:batch_end]
         batch_y = self.y[batch_start:batch_end]
-        batch_length = self.sequence_length[batch_start:batch_end]
-            
+        #batch_length = self.sequence_length[batch_start:batch_end]
+
         if NEW_EPOCH:
             self.epoch += 1
             self.shuffle()
-            
+
         if self.RETURN_LENGTH:
+            batch_length = [len(i) for i in batch_X]
             return(batch_X, batch_y, batch_length)
         else:
             return(batch_X, batch_y)
@@ -126,14 +128,16 @@ if __name__ == '__main__':
 
     # generate some sample data to play with
     data = random_data(100)
-    labels = np.random.randint(low=0,high=1,size=100)
+    #labels = np.random.randint(low=0,high=4,size=100)
+    labels = data
+    print(labels)
     rows = len(data)
 
     # Pad smaller sequences with 0
-    (padded_data, sizes) = pad(data)
+    padded_data = pad(data)
     print(padded_data)
 
-    # encode data (pad with zero vector)
+    #encode data (pad with zero vector)
     encoded_padded_data = np.array([[one_hot(elem) for elem in row] for row in padded_data])
 
     print("size should be [length, max_batch_size, alphabet_length]")
@@ -146,5 +150,7 @@ if __name__ == '__main__':
     BATCH_SIZE = 16
     for i in range(100):
         (X, y) = dataset.next_batch(BATCH_SIZE)
-        print(X)
-        print("iteration",i+1,"epoch",dataset.epoch, "batch is shape", X.shape, len(y))
+        print(y)
+
+        #print(X)
+        #print("iteration",i+1,"epoch",dataset.epoch, "batch is shape", X.shape, len(y))
