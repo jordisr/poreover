@@ -12,14 +12,16 @@ import os, sys, re, argparse
 import batch
 
 def label2base(l):
-    if l == 1:
+    if l == 0:
         return 'A'
-    elif l == 2:
+    elif l == 1:
         return 'C'
+    elif l == 2:
+        return 'G'
     elif l == 3:
-        return 'G'
+        return 'T'
     elif l == 4:
-        return 'G'
+        return ''
 
 def fasta_format(name, seq, width=80):
     fasta = '>'+name+'\n'

@@ -14,6 +14,7 @@ parser.add_argument('--output', default='nanoraw', help='Prefix for output files
 parser.add_argument('--unroll', type=int, default=100, help='Break reads into fixed-width segments')
 parser.add_argument('--split', type=float, default=0.5, help='Create training/test validation split with X%% in test set')
 parser.add_argument('--threads', type=int, default=1, help='Processes to use')
+parser.add_argument('--gaps', default=False,action='store_true',help='put gaps after each base')
 args = parser.parse_args()
 
 # open filehandles for output
@@ -61,7 +62,10 @@ def read_to_training(read_path):
             absolute_start = nanoraw_relative_start + start
             absolute_end = absolute_start + length
             #print(norm_mean - np.mean(raw_signal[absolute_start:absolute_end]))
-            base_string += base.decode('UTF-8')*length
+            if not args.gaps:
+                base_string += base.decode('UTF-8')*length
+            else:
+                base_string += (base.decode('UTF-8')+'-'*(length-1))
 
         # rescale signal based on range of nanoraw data (possibly other stuff in the future)
         raw_signal = raw_signal[nanoraw_relative_start:nanoraw_relative_start+start+length]
@@ -78,16 +82,22 @@ def read_to_training(read_path):
         while i + UNROLL < len(norm_signal):
             #output_data.append ( norm_signal[i:i+UNROLL] )
             #output_labels.append( base_string[i:i+UNROLL] )
-            if args.split is not None:
-                if (random.random() > args.split):
-                    test_events_file.write(' '.join(map(str,norm_signal[i:i+UNROLL]))+'\n')
-                    test_bases_file.write(' '.join(base_string[i:i+UNROLL])+'\n')
+
+            signal_output = ' '.join(map(str,norm_signal[i:i+UNROLL]))+'\n'
+            base_output = ' '.join([b for b in base_string[i:i+UNROLL] if b != '-'])+'\n'
+
+            # only write if there are bases to output
+            if len(base_output) > 1:
+                if args.split is not None:
+                    if (random.random() > args.split):
+                        test_events_file.write(signal_output)
+                        test_bases_file.write(base_output)
+                    else:
+                        train_events_file.write(signal_output)
+                        train_bases_file.write(base_output)
                 else:
-                    train_events_file.write(' '.join(map(str,norm_signal[i:i+UNROLL]))+'\n')
-                    train_bases_file.write(' '.join(base_string[i:i+UNROLL])+'\n')
-            else:
-                events_file.write(' '.join(map(str,norm_signal[i:i+UNROLL]))+'\n')
-                bases_file.write(' '.join(base_string[i:i+UNROLL])+'\n')
+                    events_file.write(signal_output)
+                    bases_file.write(base_output)
             i += UNROLL
 
     else:

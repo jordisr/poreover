@@ -11,30 +11,7 @@ import argparse
 
 # some custom helper functions
 import batch
-
-'''from TensorFlow unit tests'''
-''' for converting labels to SparseTensor for CTC input'''
-def SimpleSparseTensorFrom(x):
-  """Create a very simple SparseTensor with dimensions (batch, time).
-
-  Args:
-    x: a list of lists of type int
-
-  Returns:
-    x_ix and x_val, the indices and values of the SparseTensor<2>.
-  """
-  x_ix = []
-  x_val = []
-  for batch_i, batch in enumerate(x):
-    for time, val in enumerate(batch):
-      x_ix.append([batch_i, time])
-      x_val.append(val)
-  x_shape = [len(x), np.asarray(x_ix).max(0)[1]+1]
-  x_ix = tf.constant(x_ix, tf.int64)
-  x_val = tf.constant(x_val, tf.int32)
-  x_shape = tf.constant(x_shape, tf.int64)
-
-  return tf.SparseTensor(x_ix, x_val, x_shape)
+from helpers import sparse_tuple_from
 
 def build_rnn(X,y):
     # model parameters
@@ -44,8 +21,8 @@ def build_rnn(X,y):
     NUM_LAYERS = 3
 
     # use MultiRNNCell for multiple RNN layers
-    cell_fw = tf.contrib.rnn.MultiRNNCell([tf.contrib.rnn.BasicLSTMCell(num_units=NUM_NEURONS,state_is_tuple=False) for _ in range(NUM_LAYERS)])
-    cell_bw = tf.contrib.rnn.MultiRNNCell([tf.contrib.rnn.BasicLSTMCell(num_units=NUM_NEURONS,state_is_tuple=False) for _ in range(NUM_LAYERS)])
+    cell_fw = tf.contrib.rnn.MultiRNNCell([tf.contrib.rnn.BasicLSTMCell(num_units=NUM_NEURONS,state_is_tuple=True) for _ in range(NUM_LAYERS)])
+    cell_bw = tf.contrib.rnn.MultiRNNCell([tf.contrib.rnn.BasicLSTMCell(num_units=NUM_NEURONS,state_is_tuple=True) for _ in range(NUM_LAYERS)])
 
     # use dynamic RNN to allow for flexibility in input size
     outputs, states = tf.nn.bidirectional_dynamic_rnn(cell_fw, cell_bw, X, dtype=tf.float32, time_major=False, sequence_length=sequence_length)
@@ -53,16 +30,22 @@ def build_rnn(X,y):
 
     # dense layer connecting to output
     logits = tf.contrib.layers.linear(outputs, NUM_OUTPUTS)
-    #prediction = tf.add(tf.argmax(logits, 2),1, name='prediction') # adding one for 1-4096
 
-    #labels = SimpleSparseTensorFrom(y)
+    # decoding and log probabilities
+    decoded, log_prob = tf.nn.ctc_beam_search_decoder(inputs=tf.transpose(logits, (1, 0, 2)), top_paths=1, beam_width=100, sequence_length=sequence_length, merge_repeated=False)
+
+    # tensor of top prediction
+    prediction = tf.sparse_tensor_to_dense(decoded[0], name='prediction', default_value=4)
+
+    # edit distance
+    #error = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32), y))
+
     # set up minimization of loss
     # tf.one_hot(y-1...) converts 1-indexed labels to encodings (0 saved for padding)
-    #labels=tf.one_hot(y-1, depth=NUM_OUTPUTS, dtype=tf.float32)
-    loss = tf.reduce_mean(tf.nn.ctc_loss(labels=SimpleSparseTensorFrom(y), input=logits, sequence_length=sequence_length, time_major=False, preprocess_collapse_repeated=False, ctc_merge_repeated=True), name='loss')
+    loss = tf.reduce_mean(tf.nn.ctc_loss(labels=y, inputs=logits, sequence_length=sequence_length, time_major=False, preprocess_collapse_repeated=True, ctc_merge_repeated=False), name='loss')
     train_op = tf.train.AdamOptimizer().minimize(loss)
 
-    return(train_op, loss)
+    return(train_op, loss, decoded[0], prediction, log_prob)
 
 # parse command line arguments
 parser = argparse.ArgumentParser(description='Train the basecaller')
@@ -74,7 +57,6 @@ parser.add_argument('--name', default='run', help='Name of run')
 parser.add_argument('--training_steps', type=int, default=1000, help='Number of iterations to run training (default: 1000)')
 parser.add_argument('--save_every', type=int, default=10000, help='Frequency with which to save checkpoint files (default: 10000)')
 parser.add_argument('--loss_every', type=int, default=100, help='Frequency with which to output minibatch loss')
-#parser.add_argument('--loss_file',type=int,help='Write loss to a file instead of stdout')
 args = parser.parse_args()
 
 # user options
@@ -97,13 +79,15 @@ dataset = batch.data_helper(train_events, train_bases, small_batch=False, return
 
 # Set up the model
 # data X are [BATCH_SIZE, MAX_INPUT_SIZE, 1]
-# labels y are [BATCH_SIZE, MAX_INPUT_SIZE]
 X = tf.placeholder(shape=[None, None, INPUT_DIM], dtype=tf.float32, name='X')
-#y = tf.placeholder(shape=[None, None], dtype=tf.int32, name='y')
-#y = tf.sparse_placeholder(shape=[None, None], dtype=tf.int32,name='y')
+
+# labels y are [BATCH_SIZE, MAX_INPUT_SIZE]
 y = tf.sparse_placeholder(dtype=tf.int32,name='y')
+
+# sequence length is [BATCH_SIZE]
 sequence_length = tf.placeholder(shape=[None],dtype=tf.int32,name='sequence_length')
-(train_op, loss) = build_rnn(X,y)
+
+(train_op, loss, decoded, prediction, log_prob) = build_rnn(X,y)
 
 # Start training network
 saver = tf.train.Saver(max_to_keep=None)
@@ -118,16 +102,25 @@ with tf.Session() as sess:
         # get current minibatch and run minimization
         (X_batch, y_batch, sequence_length_batch) = dataset.next_batch(BATCH_SIZE)
 
+        # For checking sparse representation of targets
         #print(sess.run(labels.indices))
         #print(labels.indices, labels.dense_shape, labels.values)
         #print(X_batch, labels, sequence_length_batch)
 
-        sess.run(train_op, feed_dict={X:X_batch, y:y_batch, sequence_length:sequence_length_batch})
+        sparse_tuple = sparse_tuple_from(y_batch)
+        sess.run(train_op, feed_dict={X:X_batch, y:sparse_tuple, sequence_length:sequence_length_batch})
 
         # periodically output the minibatch loss
         if (iteration+1) % LOSS_ITER == 0:
+            print(len(X_batch), len(sequence_length_batch))
             print(iteration)
-            log_file.write(batch.format_string(('iteration:',iteration+1,'epoch:',dataset.epoch,'minibatch_loss:',sess.run(loss, feed_dict={X:X_batch, y:y_batch, sequence_length:sequence_length_batch}))))
+            #print(sess.run(log_prob, feed_dict={X:X_batch, y:sparse_tuple, sequence_length:sequence_length_batch}))
+            decoded_out = sess.run(decoded, feed_dict={X:X_batch, y:sparse_tuple, sequence_length:sequence_length_batch})
+            print('Values decoded:',len(decoded_out.values),'Decoding values:',decoded_out.values)
+            pred_out = sess.run(prediction, feed_dict={X:X_batch, y:sparse_tuple, sequence_length:sequence_length_batch})
+            print('Prediction shape:',pred_out.shape)
+            print(list(map(batch.decode_list,pred_out)))
+            log_file.write(batch.format_string(('iteration:',iteration+1,'epoch:',dataset.epoch,'minibatch_loss:',sess.run(loss, feed_dict={X:X_batch, y:sparse_tuple, sequence_length:sequence_length_batch}))))
 
         # periodically save the current model parameters
         if (iteration+1) % CHECKPOINT_ITER == 0:

@@ -1,5 +1,23 @@
 import numpy as np
 
+BLANK_INDEX = 4
+BLANK_VALUE = ''
+
+def label2base(l):
+    if l == 0:
+        return 'A'
+    elif l == 1:
+        return 'C'
+    elif l == 2:
+        return 'G'
+    elif l == 3:
+        return 'T'
+    elif l == 4:
+        return ''
+
+def decode_list(l):
+    return(''.join(list(map(label2base,l))))
+
 def base2label(b):
     if b == 'A':
         return 0
@@ -30,9 +48,9 @@ def load_data(path, dim=1):
         for eline, bline in zip(ef,bf):
             events = eline.split()
             bases = bline.split()
-            if (len(events) == (len(bases)*dim)):
-                raw_events.append(np.array(list(map(lambda x: float(x),events))))
-                raw_bases.append(np.array(list(map(base2label,bases))))
+            #if (len(events) == (len(bases)*dim)): # output length doesnt need to equal input lenght
+            raw_events.append(np.array(list(map(lambda x: float(x),events))))
+            raw_bases.append(np.array(list(map(base2label,bases))))
 
     # pad data and labels
     padded_events = pad(raw_events)
@@ -40,10 +58,11 @@ def load_data(path, dim=1):
     # dim is dimension of flattened input and is used for resizing to vector
     padded_events = np.reshape(padded_events, (DATA_SIZE, -1, dim))
 
-    padded_bases = pad(raw_bases)
-    padded_bases = padded_bases.astype(int)
-
+    #padded_bases = pad(raw_bases)
+    #padded_bases = padded_bases.astype(int)
     #return(padded_events, padded_bases)
+
+    # pad signal but not bases
     return(padded_events, raw_bases)
 
 class data_helper:
@@ -115,6 +134,43 @@ class data_helper:
 
 if __name__ == '__main__':
 
+    print("Testing package with real data!")
+
+    (train_events, train_bases) = load_data('/home/jordi/work/nanopore/poreover/data/toy')
+
+    assert(len(train_events) == len(train_bases))
+    print('NUMBER OF SEQUENCES:',len(train_events))
+
+    print('PADDED RAW SIGNAL')
+    print(train_events[:5])
+    print('PADDED BASES')
+    print(train_bases[:5])
+
+    def sparse_tuple_from(sequences, dtype=np.int32):
+        """Create a sparse representention of x.
+        Args:
+            sequences: a list of lists of type dtype where each element is a sequence
+        Returns:
+            A tuple with (indices, values, shape)
+        """
+        indices = []
+        values = []
+
+        for n, seq in enumerate(sequences):
+            indices.extend(zip([n]*len(seq), range(len(seq))))
+            values.extend(seq)
+
+        indices = np.asarray(indices, dtype=np.int64)
+        values = np.asarray(values, dtype=dtype)
+        shape = np.asarray([len(sequences), np.asarray(indices).max(0)[1]+1], dtype=np.int64)
+
+        return (indices, values, shape)
+
+    sparse_tuple = sparse_tuple_from(train_bases)
+    print('INDICES', sparse_tuple[0][:200])
+    print('VALUES', sparse_tuple[1][:200])
+    print('SHAPE',sparse_tuple[2])
+
     def one_hot(n, depth=4):
         v = np.zeros(depth)
         if n > 0:
@@ -123,6 +179,8 @@ if __name__ == '__main__':
 
     def random_data(length):
         return [np.random.randint(low=1,high=5, size=np.random.randint(1,11)) for i in range(length) ]
+
+    '''
 
     print("Testing package with random data!")
 
@@ -154,3 +212,5 @@ if __name__ == '__main__':
 
         #print(X)
         #print("iteration",i+1,"epoch",dataset.epoch, "batch is shape", X.shape, len(y))
+
+    '''
