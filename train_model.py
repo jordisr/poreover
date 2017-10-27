@@ -38,14 +38,14 @@ def build_rnn(X,y):
     prediction = tf.sparse_tensor_to_dense(decoded[0], name='prediction', default_value=4)
 
     # edit distance
-    #error = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32), y))
+    edit_distance = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32), y), name='edit_distance')
 
     # set up minimization of loss
     # tf.one_hot(y-1...) converts 1-indexed labels to encodings (0 saved for padding)
-    loss = tf.reduce_mean(tf.nn.ctc_loss(labels=y, inputs=logits, sequence_length=sequence_length, time_major=False, preprocess_collapse_repeated=True, ctc_merge_repeated=False), name='loss')
+    loss = tf.reduce_mean(tf.nn.ctc_loss(labels=y, inputs=logits, sequence_length=sequence_length, time_major=False, preprocess_collapse_repeated=False, ctc_merge_repeated=False), name='loss')
     train_op = tf.train.AdamOptimizer().minimize(loss)
 
-    return(train_op, loss, decoded[0], prediction, log_prob)
+    return(train_op, loss, decoded[0], prediction, log_prob, edit_distance)
 
 # parse command line arguments
 parser = argparse.ArgumentParser(description='Train the basecaller')
@@ -87,7 +87,7 @@ y = tf.sparse_placeholder(dtype=tf.int32,name='y')
 # sequence length is [BATCH_SIZE]
 sequence_length = tf.placeholder(shape=[None],dtype=tf.int32,name='sequence_length')
 
-(train_op, loss, decoded, prediction, log_prob) = build_rnn(X,y)
+(train_op, loss, decoded, prediction, log_prob, edit_distance) = build_rnn(X,y)
 
 # Start training network
 saver = tf.train.Saver(max_to_keep=None)
@@ -119,8 +119,9 @@ with tf.Session() as sess:
             print('Values decoded:',len(decoded_out.values),'Decoding values:',decoded_out.values)
             pred_out = sess.run(prediction, feed_dict={X:X_batch, y:sparse_tuple, sequence_length:sequence_length_batch})
             print('Prediction shape:',pred_out.shape)
+            #print('Edit distance:',sess.run(edit_distance, feed_dict={X:X_batch, y:sparse_tuple, sequence_length:sequence_length_batch}))
             print(list(map(batch.decode_list,pred_out)))
-            log_file.write(batch.format_string(('iteration:',iteration+1,'epoch:',dataset.epoch,'minibatch_loss:',sess.run(loss, feed_dict={X:X_batch, y:sparse_tuple, sequence_length:sequence_length_batch}))))
+            log_file.write(batch.format_string(('iteration:',iteration+1,'epoch:',dataset.epoch,'minibatch_loss:',sess.run(loss, feed_dict={X:X_batch, y:sparse_tuple, sequence_length:sequence_length_batch}),'edit_distance:',sess.run(edit_distance, feed_dict={X:X_batch, y:sparse_tuple, sequence_length:sequence_length_batch}))))
 
         # periodically save the current model parameters
         if (iteration+1) % CHECKPOINT_ITER == 0:
@@ -130,3 +131,6 @@ with tf.Session() as sess:
 
     # save extra model at the end of training
     saver.save(sess, args.save_dir+'/'+args.name, global_step=checkpoint_counter)
+
+    #print("NAMED TENSORS")
+    #[print(tensor.name) for tensor in tf.get_default_graph().as_graph_def().node]

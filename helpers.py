@@ -1,8 +1,7 @@
 import tensorflow as tf
 import numpy as np
 
-'''from TensorFlow unit tests'''
-''' for converting labels to SparseTensor for CTC input'''
+# from TensorFlow unit test test_ctc_loss_op.py
 def SimpleSparseTensorFrom(x):
   """Create a very simple SparseTensor with dimensions (batch, time).
 
@@ -26,6 +25,7 @@ def SimpleSparseTensorFrom(x):
   #return tf.SparseTensor(x_ix, x_val, x_shape)
   return ([x_ix, x_val, x_shape])
 
+# from https://github.com/igormq/ctc_tensorflow_example/blob/master/utils.py
 def sparse_tuple_from(sequences, dtype=np.int32):
     """Create a sparse representention of x.
     Args:

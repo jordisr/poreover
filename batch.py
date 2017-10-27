@@ -85,9 +85,7 @@ class data_helper:
         self.SMALL_BATCH = small_batch
         self.RETURN_LENGTH = return_length
 
-        # if True return list of sequence lengths
-        #if self.RETURN_LENGTH:
-        #    self.sequence_length = [len(i) for i in self.X]
+        self.sequence_length = [len(i) for i in self.X]
 
     # reset counter for testing purposes
     def reset(self):
