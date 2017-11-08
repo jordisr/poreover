@@ -1,32 +1,23 @@
 '''
-Generate raw signal training data from nanoraw genome_resquiggle output
+Generate labeled training/testing data from nanoraw genome_resquiggle output
 '''
 
 import numpy as np
-import pandas as pd
 import h5py
 from multiprocessing import Pool
 import argparse, random, sys, glob, os
 
-parser = argparse.ArgumentParser(description='Make training data from nanopolish')
+parser = argparse.ArgumentParser(description='Make training data from resquiggled reads')
 parser.add_argument('--input', help='Location of nanoraw-processed FAST5 file/directory', required=True)
 parser.add_argument('--output', default='nanoraw', help='Prefix for output files')
 parser.add_argument('--unroll', type=int, default=100, help='Break reads into fixed-width segments')
-parser.add_argument('--split', type=float, default=0.5, help='Create training/test validation split with X%% in test set')
 parser.add_argument('--threads', type=int, default=1, help='Processes to use')
-parser.add_argument('--gaps', default=False,action='store_true',help='put gaps after each base')
+parser.add_argument('--expand', default=False,action='store_true',help='Output one base per signal')
 args = parser.parse_args()
 
-# open filehandles for output
-if args.split is not None:
-    print("opening training/test split filehandles")
-    train_events_file = open(args.output+'.train.signal','w')
-    train_bases_file = open(args.output+'.train.bases','w')
-    test_events_file = open(args.output+'.test.signal','w')
-    test_bases_file = open(args.output+'.test.bases','w')
-else:
-    events_file = open(args.output+'.signal','w')
-    bases_file = open(args.output+'.bases','w')
+# open files for output
+signal_file = open(args.output+'.signal','w')
+bases_file = open(args.output+'.bases','w')
 
 def read_to_training(read_path):
     hdf = h5py.File(read_path,'r')
@@ -52,6 +43,7 @@ def read_to_training(read_path):
     # nanoraw genome_resquiggle
     nanoraw_path = '/Analyses/RawGenomeCorrected_000/BaseCalled_template/Events'
     if nanoraw_path in hdf:
+        print(os.path.basename(read_path))
         nanoraw_events = hdf[nanoraw_path]
         nanoraw_relative_start = hdf[nanoraw_path].attrs['read_start_rel_to_raw']
         #print(read_string, len(raw_signal))
@@ -62,59 +54,49 @@ def read_to_training(read_path):
             absolute_start = nanoraw_relative_start + start
             absolute_end = absolute_start + length
             #print(norm_mean - np.mean(raw_signal[absolute_start:absolute_end]))
-            if not args.gaps:
+            if args.expand:
                 base_string += base.decode('UTF-8')*length
             else:
                 base_string += (base.decode('UTF-8')+'-'*(length-1))
 
-        # rescale signal based on range of nanoraw data (possibly other stuff in the future)
         raw_signal = raw_signal[nanoraw_relative_start:nanoraw_relative_start+start+length]
+
+        # rescale signal based on range of nanoraw data (possibly other stuff in the future)
+        #norm_signal = (raw_signal+offset)/alpha # convert to pA
         #norm_signal = (raw_signal - np.mean(raw_signal))/np.std(raw_signal) # Normalize as in chiron
         norm_signal = raw_signal / np.median(raw_signal) # divide by median
-        #norm_signal = (raw_signal+offset)/alpha # convert to pA
-        print(len(norm_signal), len(base_string))
+        assert(len(norm_signal) == len(base_string))
 
         i = 0
-        #output_data = []
-        #output_labels = []
-
         UNROLL = args.unroll
         while i + UNROLL < len(norm_signal):
-            #output_data.append ( norm_signal[i:i+UNROLL] )
-            #output_labels.append( base_string[i:i+UNROLL] )
-
             signal_output = ' '.join(map(str,norm_signal[i:i+UNROLL]))+'\n'
             base_output = ' '.join([b for b in base_string[i:i+UNROLL] if b != '-'])+'\n'
 
             # only write if there are bases to output
             if len(base_output) > 1:
-                if args.split is not None:
-                    if (random.random() > args.split):
-                        test_events_file.write(signal_output)
-                        test_bases_file.write(base_output)
-                    else:
-                        train_events_file.write(signal_output)
-                        train_bases_file.write(base_output)
-                else:
-                    events_file.write(signal_output)
-                    bases_file.write(base_output)
+                signal_file.write(signal_output)
+                bases_file.write(base_output)
             i += UNROLL
-
     else:
-        print('Read has not be resquiggled', read_path)
+        print('# read has not be resquiggled:', os.path.basename(read_path))
 
 if __name__ == '__main__':
 
     path = args.input
 
-    # for parallel processing of directories
-    NUM_THREADS = args.threads
+    # for future parallel processing of directories
+    NUM_THREADS = 1
 
-    function_to_map = read_to_training
+    # summarize options
+    print('# input:',args.input)
+    print('# output:',args.output)
+    print('# unroll:',args.unroll)
+    print('# expand:',args.expand)
 
     if os.path.isdir(path):
         fast5_files = glob.glob(path+'/*.fast5')
         pool = Pool(processes=NUM_THREADS)
-        pool.map(function_to_map, fast5_files)
+        pool.map(read_to_training, fast5_files)
     else:
         function_to_map(path)
