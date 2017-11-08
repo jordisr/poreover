@@ -1,10 +1,6 @@
 '''
-TODO
-- double check loss expression
-- load model to resume training
-- add additional hidden layers
+Build multilayer RNN and train it for basecalling
 '''
-
 import numpy as np
 import tensorflow as tf
 import argparse
@@ -52,7 +48,6 @@ parser = argparse.ArgumentParser(description='Train the basecaller')
 parser.add_argument('--data', help='Location of training data', required=True)
 parser.add_argument('--save_dir', default='.',help='Directory to save checkpoints')
 parser.add_argument('--name', default='run', help='Name of run')
-#parser.add_argument('--resume_from', help='Resume training from checkpoint file')
 
 parser.add_argument('--training_steps', type=int, default=1000, help='Number of iterations to run training (default: 1000)')
 parser.add_argument('--save_every', type=int, default=10000, help='Frequency with which to save checkpoint files (default: 10000)')
@@ -115,10 +110,10 @@ with tf.Session() as sess:
             print(len(X_batch), len(sequence_length_batch))
             print(iteration)
             #print(sess.run(log_prob, feed_dict={X:X_batch, y:sparse_tuple, sequence_length:sequence_length_batch}))
-            decoded_out = sess.run(decoded, feed_dict={X:X_batch, y:sparse_tuple, sequence_length:sequence_length_batch})
-            print('Values decoded:',len(decoded_out.values),'Decoding values:',decoded_out.values)
-            pred_out = sess.run(prediction, feed_dict={X:X_batch, y:sparse_tuple, sequence_length:sequence_length_batch})
-            print('Prediction shape:',pred_out.shape)
+            #decoded_out = sess.run(decoded, feed_dict={X:X_batch, y:sparse_tuple, sequence_length:sequence_length_batch})
+            #print('Values decoded:',len(decoded_out.values),'Decoding values:',decoded_out.values)
+            #pred_out = sess.run(prediction, feed_dict={X:X_batch, y:sparse_tuple, sequence_length:sequence_length_batch})
+            #print('Prediction shape:',pred_out.shape)
             #print('Edit distance:',sess.run(edit_distance, feed_dict={X:X_batch, y:sparse_tuple, sequence_length:sequence_length_batch}))
             print(list(map(batch.decode_list,pred_out)))
             log_file.write(batch.format_string(('iteration:',iteration+1,'epoch:',dataset.epoch,'minibatch_loss:',sess.run(loss, feed_dict={X:X_batch, y:sparse_tuple, sequence_length:sequence_length_batch}),'edit_distance:',sess.run(edit_distance, feed_dict={X:X_batch, y:sparse_tuple, sequence_length:sequence_length_batch}))))

@@ -7,7 +7,6 @@ import argparse
 import glob, os
 
 # some custom helper functions
-import kmer
 import batch
 from helpers import sparse_tuple_from
 
