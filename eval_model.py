@@ -7,8 +7,8 @@ import argparse
 import glob, os
 
 # some custom helper functions
-import kmer
 import batch
+from helpers import sparse_tuple_from
 
 def accuracy(data_size, data_predict, data_label):
     total_kmers = 0
@@ -70,7 +70,14 @@ with tf.Session() as sess:
         # load tensors needed for inference
         prediction = graph.get_tensor_by_name('prediction:0')
         X=graph.get_tensor_by_name('X:0')
+
+        # (indices, values, shape)
+        y_indices=graph.get_tensor_by_name('y/indices:0')
+        y_values=graph.get_tensor_by_name('y/values:0')
+        y_shape=graph.get_tensor_by_name('y/shape:0')
+
         sequence_length=graph.get_tensor_by_name('sequence_length:0')
+        edit_distance=graph.get_tensor_by_name('edit_distance:0')
 
         test_accuracy = []
         train_accuracy = []
@@ -82,23 +89,27 @@ with tf.Session() as sess:
                 test_data_subset = np.take(padded_test_data, test_subset, axis=0)
                 test_sizes_subset = np.take(test_sizes, test_subset, axis=0)
                 test_labels_subset = np.take(padded_test_labels, test_subset, axis=0)
+                sparse_test_labels = sparse_tuple_from(test_labels_subset)
 
-                predict_test = sess.run(prediction, feed_dict={X:test_data_subset, sequence_length:test_sizes_subset})
-                test_accuracy.append(accuracy(test_sizes_subset, predict_test, test_labels_subset))
+                #predict_test = sess.run(prediction, feed_dict={X:test_data_subset, sequence_length:test_sizes_subset})
+                #test_accuracy.append(accuracy(test_sizes_subset, predict_test, test_labels_subset))
+                test_accuracy.append(sess.run(edit_distance, feed_dict={X:test_data_subset, y_indices:sparse_test_labels[0],  y_values:sparse_test_labels[1],  y_shape:sparse_test_labels[2], sequence_length:test_sizes_subset}))
 
             train_subset = np.random.choice(np.arange(len(padded_train_data)), int(len(padded_train_data)*args.fraction))
             train_data_subset = np.take(padded_train_data, train_subset, axis=0)
             train_sizes_subset = np.take(train_sizes, train_subset, axis=0)
             train_labels_subset = np.take(padded_train_labels, train_subset, axis=0)
+            sparse_train_labels = sparse_tuple_from(train_labels_subset)
 
-            predict_train = sess.run(prediction, feed_dict={X:train_data_subset, sequence_length:train_sizes_subset})
-            train_accuracy.append(accuracy(train_sizes_subset, predict_train, train_labels_subset))
+            #predict_train = sess.run(prediction, feed_dict={X:train_data_subset, sequence_length:train_sizes_subset})
+            #train_accuracy.append(accuracy(train_sizes_subset, predict_train, train_labels_subset))
+            train_accuracy.append(sess.run(edit_distance, feed_dict={X:train_data_subset, y_indices:sparse_train_labels[0],  y_values:sparse_train_labels[1],  y_shape:sparse_train_labels[2], sequence_length:train_sizes_subset}))
 
         if args.test:
             print('model:',model_file,'samples:', args.samples,
-            'train_accuracy_mean:',np.mean(train_accuracy),
-            'train_accuracy_stdv:',np.std(train_accuracy),
-            'test_accuracy_mean:',np.mean(test_accuracy),
-            'test_accuracy_stdv:',np.std(test_accuracy))
+            'train_editdist_mean:',np.mean(train_accuracy),
+            'train_editdist_stdv:',np.std(train_accuracy),
+            'test_editdist_mean:',np.mean(test_accuracy),
+            'test_editdist_stdv:',np.std(test_accuracy))
         else:
-            print('model:',model_file,'samples:',args.samples,'train_accuracy:',np.mean(train_accuracy), 'train_accuracy_stdv:',np.std(train_accuracy))
+            print('model:',model_file,'samples:',args.samples,'train_editdist:',np.mean(train_accuracy), 'train_editdist_stdv:',np.std(train_accuracy))
