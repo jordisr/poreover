@@ -1,24 +1,27 @@
 ![Logo](logo.png)
 # PoreOver: Nanopore basecalling in TensorFlow
 ### Introduction
-PoreOver is an RNN basecaller for the Oxford Nanopore sequencing platform and is under active development. The current version uses a bidirectional RNN with LSTM cells to call bases from raw signal (without using events).
+PoreOver is an RNN basecaller for the Oxford Nanopore sequencing platform and is under active development. The current version uses a bidirectional RNN with LSTM cells and CTC loss to call bases from raw signal.
 
 ### Requirements
-* TensorFlow 1.2
+* TensorFlow 1.2 (GPU installation recommended)
 * Python 3
-* sense of adventure
 
-### Example
+### Toy training example
 Full options for `train_model.py` and `run_model.py` available with the `--help` flag.
 
-We can first train the model for a few iterations on a toy training set.
+First, we need to extract the toy training data set in `data/`
+```
+cd data
+tar -xzf train.tar.gz
+gunzip read.fast5
+```
 
-`python train_model.py --data data/tiny.train`
+We can now train the model for a few iterations.
 
-Once there is a model to load, we can make a basecall on a sample "read".
+`python train_model.py --data data/train --training_steps 100`
 
-`python run_model.py --signal data/test.signal`
+Once there is a model to load, we can make a basecall on a sample read (of course,
+    after only a little training on a toy dataset we would expect it to be very accurate).
 
-Finally the model can be evaluated in terms of accuracy on a test set.
-
-`python eval_model.py --test data/tiny.test --train data/tiny.train`
+`python run_model.py --fast5 data/read.fast5 --model run-0`
