@@ -22,6 +22,6 @@ We can now train the model for a few iterations.
 `python train_model.py --data data/train --training_steps 100`
 
 Once there is a model to load, we can make a basecall on a sample read (of course,
-    after only a little training on a toy dataset we would expect it to be very accurate).
+    after only a little training on a toy dataset we would not expect it to be very accurate).
 
 `python run_model.py --fast5 data/read.fast5 --model run-0`
