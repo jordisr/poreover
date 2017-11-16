@@ -14,7 +14,7 @@ First, we need to extract the toy training data set in `data/`
 ```
 cd data
 tar -xzf train.tar.gz
-gunzip read.fast5
+gunzip read.fast5.gz
 ```
 
 We can now train the model for a few iterations.
