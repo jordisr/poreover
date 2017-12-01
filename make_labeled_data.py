@@ -11,6 +11,7 @@ parser = argparse.ArgumentParser(description='Make training data from resquiggle
 parser.add_argument('--input', help='Location of nanoraw-processed FAST5 file/directory', required=True)
 parser.add_argument('--output', default='nanoraw', help='Prefix for output files')
 parser.add_argument('--unroll', type=int, default=100, help='Break reads into fixed-width segments')
+parser.add_argument('--scaling', default='standard', choices=['standard', 'current', 'median', 'rescale'], help='Type of normalization')
 parser.add_argument('--threads', type=int, default=1, help='Processes to use')
 parser.add_argument('--expand', default=False,action='store_true',help='Output one base per signal')
 args = parser.parse_args()
@@ -28,9 +29,11 @@ def read_to_training(read_path):
     read_start_time = hdf['/Raw/Reads/'+read_string].attrs['start_time']
     read_duration = hdf['/Raw/Reads/'+read_string].attrs['duration']
 
-    # raw events and signals
-    raw_events_path = '/Analyses/EventDetection_000/Reads/'+read_string+'/Events'
-    raw_events = hdf[raw_events_path]
+    # events (not used)
+    #raw_events_path = '/Analyses/EventDetection_000/Reads/'+read_string+'/Events'
+    #raw_events = hdf[raw_events_path]
+
+    # raw signal
     raw_signal_path = '/Raw/Reads/'+read_string+'/Signal'
     raw_signal = hdf[raw_signal_path]
     assert(len(raw_signal) == read_duration)
@@ -61,10 +64,19 @@ def read_to_training(read_path):
 
         raw_signal = raw_signal[nanoraw_relative_start:nanoraw_relative_start+start+length]
 
-        # rescale signal based on range of nanoraw data (possibly other stuff in the future)
-        #norm_signal = (raw_signal+offset)/alpha # convert to pA
-        #norm_signal = (raw_signal - np.mean(raw_signal))/np.std(raw_signal) # Normalize as in chiron
-        norm_signal = raw_signal / np.median(raw_signal) # divide by median
+        # rescale signal
+        if args.scaling == 'standard':
+            # standardize
+            norm_signal = (raw_signal - np.mean(raw_signal))/np.std(raw_signal)
+        elif args.scaling == 'current':
+            # convert to current
+            norm_signal = (raw_signal+offset)/alpha # convert to pA
+        elif args.scaling == 'median':
+            # divide by median
+            norm_signal = raw_signal / np.median(raw_signal)
+        elif args.scaling == 'rescale':
+            norm_signal = (raw_signal - np.mean(raw_signal))/(np.max(raw_signal) - np.min(raw_signal))
+
         assert(len(norm_signal) == len(base_string))
 
         i = 0
@@ -93,10 +105,11 @@ if __name__ == '__main__':
     print('# output:',args.output)
     print('# unroll:',args.unroll)
     print('# expand:',args.expand)
+    print('# scaling:',args.scaling)
 
     if os.path.isdir(path):
         fast5_files = glob.glob(path+'/*.fast5')
         pool = Pool(processes=NUM_THREADS)
         pool.map(read_to_training, fast5_files)
     else:
-        function_to_map(path)
+        read_to_training(path)

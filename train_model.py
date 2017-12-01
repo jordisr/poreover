@@ -25,7 +25,8 @@ def build_rnn(X,y):
     outputs = tf.concat(outputs, 2)
 
     # dense layer connecting to output
-    logits = tf.contrib.layers.linear(outputs, NUM_OUTPUTS)
+    #logits = tf.contrib.layers.linear(outputs, NUM_OUTPUTS)
+    logits = tf.add(tf.layers.dense(outputs, NUM_OUTPUTS, activation=None),0,name="logits")
 
     # decoding and log probabilities
     decoded, log_prob = tf.nn.ctc_beam_search_decoder(inputs=tf.transpose(logits, (1, 0, 2)), top_paths=1, beam_width=100, sequence_length=sequence_length, merge_repeated=False)
@@ -37,18 +38,16 @@ def build_rnn(X,y):
     edit_distance = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32), y), name='edit_distance')
 
     # set up minimization of loss
-    # tf.one_hot(y-1...) converts 1-indexed labels to encodings (0 saved for padding)
-    loss = tf.reduce_mean(tf.nn.ctc_loss(labels=y, inputs=logits, sequence_length=sequence_length, time_major=False, preprocess_collapse_repeated=False, ctc_merge_repeated=False), name='loss')
+    loss = tf.reduce_mean(tf.nn.ctc_loss(labels=y, inputs=logits, sequence_length=sequence_length, time_major=False, preprocess_collapse_repeated=False, ctc_merge_repeated=True), name='loss')
     train_op = tf.train.AdamOptimizer().minimize(loss)
 
-    return(train_op, loss, decoded[0], prediction, log_prob, edit_distance)
+    return(train_op, logits, loss, decoded[0], prediction, log_prob, edit_distance)
 
 # parse command line arguments
 parser = argparse.ArgumentParser(description='Train the basecaller')
 parser.add_argument('--data', help='Location of training data', required=True)
 parser.add_argument('--save_dir', default='.',help='Directory to save checkpoints')
 parser.add_argument('--name', default='run', help='Name of run')
-
 parser.add_argument('--training_steps', type=int, default=1000, help='Number of iterations to run training (default: 1000)')
 parser.add_argument('--save_every', type=int, default=10000, help='Frequency with which to save checkpoint files (default: 10000)')
 parser.add_argument('--loss_every', type=int, default=100, help='Frequency with which to output minibatch loss')
@@ -61,7 +60,6 @@ LOSS_ITER = args.loss_every # how often to output loss
 BATCH_SIZE = 64 # number of read fragments to use at a time
 
 # load training data into memory (small files so this is OK for now)
-ALPHABET = 'ACGT'
 INPUT_DIM = 1 # Raw signal has only one dimension
 (train_events, train_bases) = batch.load_data(args.data, INPUT_DIM)
 EPOCH_SIZE = len(train_events)
@@ -82,7 +80,7 @@ y = tf.sparse_placeholder(dtype=tf.int32,name='y')
 # sequence length is [BATCH_SIZE]
 sequence_length = tf.placeholder(shape=[None],dtype=tf.int32,name='sequence_length')
 
-(train_op, loss, decoded, prediction, log_prob, edit_distance) = build_rnn(X,y)
+(train_op, logits, loss, decoded, prediction, log_prob, edit_distance) = build_rnn(X,y)
 
 # Start training network
 saver = tf.train.Saver(max_to_keep=None)
@@ -115,7 +113,7 @@ with tf.Session() as sess:
             #pred_out = sess.run(prediction, feed_dict={X:X_batch, y:sparse_tuple, sequence_length:sequence_length_batch})
             #print('Prediction shape:',pred_out.shape)
             #print('Edit distance:',sess.run(edit_distance, feed_dict={X:X_batch, y:sparse_tuple, sequence_length:sequence_length_batch}))
-            print(list(map(batch.decode_list,pred_out)))
+            #print(list(map(batch.decode_list,pred_out)))
             log_file.write(batch.format_string(('iteration:',iteration+1,'epoch:',dataset.epoch,'minibatch_loss:',sess.run(loss, feed_dict={X:X_batch, y:sparse_tuple, sequence_length:sequence_length_batch}),'edit_distance:',sess.run(edit_distance, feed_dict={X:X_batch, y:sparse_tuple, sequence_length:sequence_length_batch}))))
 
         # periodically save the current model parameters
@@ -124,8 +122,10 @@ with tf.Session() as sess:
             log_file.write(batch.format_string(('iteration:',iteration+1,'epoch:',dataset.epoch, 'model:',checkpoint_counter)))
             checkpoint_counter += 1
 
-    # save extra model at the end of training
-    saver.save(sess, args.save_dir+'/'+args.name, global_step=checkpoint_counter)
+    # save extra model at the end of training unless you just saved one
+    if (iteration+1) % CHECKPOINT_ITER != 0:
+        saver.save(sess, args.save_dir+'/'+args.name, global_step=checkpoint_counter)
+        log_file.write(batch.format_string(('iteration:',iteration+1,'epoch:',dataset.epoch, 'model:',checkpoint_counter)))
 
     #print("NAMED TENSORS")
     #[print(tensor.name) for tensor in tf.get_default_graph().as_graph_def().node]

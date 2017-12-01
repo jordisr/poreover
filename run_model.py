@@ -32,12 +32,13 @@ def fasta_format(name, seq, width=60):
 
 # parse command line arguments
 parser = argparse.ArgumentParser(description='Run the basecaller')
-parser.add_argument('--model', help='Saved model to run')
-parser.add_argument('--model_dir', help='Directory of models (loads latest from checkpoint file)', default='./')
+parser.add_argument('--model', help='Saved model to load (if directory, loads latest from checkpoint file)', default='./models/')
+parser.add_argument('--scaling', default='standard', choices=['standard', 'current', 'median', 'rescale'], help='Type of preprocessing (should be same as training)')
 parser.add_argument('--signal', help='File with space-delimited signal for testing')
 parser.add_argument('--fast5', default=False, help='FAST5 file to basecall (directories not currently supported)')
 parser.add_argument('--fasta', action='store_true', default=False, help='Write output sequence in FASTA')
 parser.add_argument('--window', type=int, default=200, help='Call read using chunks of this size')
+parser.add_argument('--debug', default=False, action='store_true', help='Print out extra things for debugging')
 args = parser.parse_args()
 
 INPUT_DIM = 1 # raw signal
@@ -65,11 +66,18 @@ if args.fast5:
         offset = hdf['UniqueGlobalKey']['channel_id'].attrs['offset']
         sampling_rate = hdf['UniqueGlobalKey']['channel_id'].attrs['sampling_rate']
 
-        # rescale signal (currently no normalization or detection of abasic region)
-        #norm_signal = (raw_signal+offset)/alpha
-
-        # rescale signal by median (dont scale to pA)
-        signal = raw_signal / np.median(raw_signal)
+        # rescale signal (should be same as option selected in make_labeled_data.py)
+        if args.scaling == 'standard':
+            # standardize
+            signal = (raw_signal - np.mean(raw_signal))/np.std(raw_signal)
+        elif args.scaling == 'current':
+            # convert to current
+            signal = (raw_signal+offset)/alpha # convert to pA
+        elif args.scaling == 'median':
+            # divide by median
+            signal = raw_signal / np.median(raw_signal)
+        elif args.scaling == 'rescale':
+            signal = (raw_signal - np.mean(raw_signal))/(np.max(raw_signal) - np.min(raw_signal))
 
 elif args.signal:
     raw_events = []
@@ -92,23 +100,22 @@ else:
 rounded = int(len(signal)/WINDOW_SIZE)*WINDOW_SIZE
 stacked = np.reshape(signal[:rounded], (-1, WINDOW_SIZE, INPUT_DIM))
 sizes = [len(i) for i in stacked]
-#print(len(signal), rounded)
-#print(stacked.shape)
+
 if rounded < len(signal):
     last_row = np.zeros(WINDOW_SIZE)
     last_row[:len(signal)-rounded] = signal[rounded:]
     last_row = np.expand_dims(last_row,1)
     sizes.append(len(signal)-rounded)
     stacked = np.vstack((stacked,np.expand_dims(last_row,0)))
-#print(stacked.shape)
 
 with tf.Session() as sess:
 
-    # load model from checkpoint
-    if args.model is not None:
-        model_file = args.model
+    # if model argument is a directory load the latest model in it
+    if os.path.isdir(args.model):
+        model_file = tf.train.latest_checkpoint(args.model)
     else:
-        model_file = tf.train.latest_checkpoint(args.model_dir)
+        model_file = args.model
+
     saver = tf.train.import_meta_graph(model_file+'.meta') # loads latest model
     saver.restore(sess,model_file)
     graph = tf.get_default_graph()
@@ -119,11 +126,23 @@ with tf.Session() as sess:
     sequence_length=graph.get_tensor_by_name('sequence_length:0')
 
     # make prediction
-    predict_ = sess.run(prediction, feed_dict={X:stacked,sequence_length:sizes})
+    prediction_ = sess.run(prediction, feed_dict={X:stacked,sequence_length:sizes})
+
+    if args.debug:
+        logits=graph.get_tensor_by_name('logits:0')
+        logits_ = sess.run(logits, feed_dict={X:stacked,sequence_length:sizes})
+        print("Writing CTC softmax logits to ctc_prob.csv ...")
+        softmax = sess.run(tf.nn.softmax(logits_))
+        print(softmax)
+        np.savetxt('ctc_prob.csv',np.array(softmax[0]), delimiter=',')
+
+    # stitch decoded sequence together
     sequence = ''
-    for length, prediction in zip(sizes,predict_):
-        kmers = list(map(label2base, prediction[:length]))
-        sequence += ''.join(kmers) # provisional, may check for overlap
+    for length_iter, pred_iter in zip(sizes,prediction_):
+        sequence_segment = list(map(label2base, pred_iter[:length_iter]))
+        sequence += ''.join(sequence_segment)
+
+    # output decoded sequence
     if args.fasta:
         print(fasta_format(read_id.decode('UTF-8'),sequence))
     else:
