@@ -38,7 +38,7 @@ def build_rnn(X,y):
     edit_distance = tf.reduce_mean(tf.edit_distance(tf.cast(decoded[0], tf.int32), y), name='edit_distance')
 
     # set up minimization of loss
-    loss = tf.reduce_mean(tf.nn.ctc_loss(labels=y, inputs=logits, sequence_length=sequence_length, time_major=False, preprocess_collapse_repeated=False, ctc_merge_repeated=True), name='loss')
+    loss = tf.reduce_mean(tf.nn.ctc_loss(labels=y, inputs=logits, sequence_length=sequence_length, time_major=False, preprocess_collapse_repeated=False, ctc_merge_repeated=bool(args.ctc_merge_repeated)), name='loss')
     train_op = tf.train.AdamOptimizer().minimize(loss)
 
     return(train_op, logits, loss, decoded[0], prediction, log_prob, edit_distance)
@@ -51,7 +51,10 @@ parser.add_argument('--name', default='run', help='Name of run')
 parser.add_argument('--training_steps', type=int, default=1000, help='Number of iterations to run training (default: 1000)')
 parser.add_argument('--save_every', type=int, default=10000, help='Frequency with which to save checkpoint files (default: 10000)')
 parser.add_argument('--loss_every', type=int, default=100, help='Frequency with which to output minibatch loss')
+parser.add_argument('--ctc_merge_repeated', type=int, default=1, help='boolean option for tf.nn.ctc_loss, 0:False/1:True')
 args = parser.parse_args()
+
+print("CTC_MERGE_REPEATED:",bool(args.ctc_merge_repeated))
 
 # user options
 TRAINING_STEPS = args.training_steps #number of iterations of SGD

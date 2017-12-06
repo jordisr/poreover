@@ -7,14 +7,13 @@ PoreOver is an RNN basecaller for the Oxford Nanopore sequencing platform and is
 * TensorFlow 1.2 (GPU installation recommended)
 * Python 3
 
-### Toy training example
+### Training example
 Full options for `train_model.py` and `run_model.py` available with the `--help` flag.
 
 First, we need to extract the toy training data set in `data/`
 ```
 cd data
 tar -xzf train.tar.gz
-gunzip read.fast5.gz
 ```
 
 We can now train the model for a few iterations.
@@ -24,4 +23,8 @@ We can now train the model for a few iterations.
 Once there is a model to load, we can make a basecall on a sample read (of course,
     after only a little training on a toy dataset we would not expect it to be very accurate).
 
-`python run_model.py --fast5 data/read.fast5 --model run-0`
+`python run_model.py --fast5 data/read.fast5 --model run-0 --fasta`
+ 
+We can compare this to the output of a model that has seen more training on a larger dataset.
+
+`python run_model.py --fast5 data/read.fast5 --model models/r9 --fasta`

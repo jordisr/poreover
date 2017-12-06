@@ -1,0 +1,2 @@
+model_checkpoint_path: "r9.400.ctc1.standard-1"
+all_model_checkpoint_paths: "r9.400.ctc1.standard-1"

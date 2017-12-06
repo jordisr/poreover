@@ -32,13 +32,14 @@ def fasta_format(name, seq, width=60):
 
 # parse command line arguments
 parser = argparse.ArgumentParser(description='Run the basecaller')
-parser.add_argument('--model', help='Saved model to load (if directory, loads latest from checkpoint file)', default='./models/')
+parser.add_argument('--model', help='Saved model to load (if directory, loads latest from checkpoint file)', default='./models/r9')
 parser.add_argument('--scaling', default='standard', choices=['standard', 'current', 'median', 'rescale'], help='Type of preprocessing (should be same as training)')
 parser.add_argument('--signal', help='File with space-delimited signal for testing')
 parser.add_argument('--fast5', default=False, help='FAST5 file to basecall (directories not currently supported)')
 parser.add_argument('--fasta', action='store_true', default=False, help='Write output sequence in FASTA')
 parser.add_argument('--window', type=int, default=200, help='Call read using chunks of this size')
 parser.add_argument('--debug', default=False, action='store_true', help='Print out extra things for debugging')
+parser.add_argument('--no_stack', default=False, action='store_true', help='Basecall [1xSIGNAL_LENGTH] tensor instead of splitting it into windows (slower)')
 args = parser.parse_args()
 
 INPUT_DIM = 1 # raw signal
@@ -65,6 +66,8 @@ if args.fast5:
         alpha = hdf['UniqueGlobalKey']['channel_id'].attrs['digitisation'] / hdf['UniqueGlobalKey']['channel_id'].attrs['range']
         offset = hdf['UniqueGlobalKey']['channel_id'].attrs['offset']
         sampling_rate = hdf['UniqueGlobalKey']['channel_id'].attrs['sampling_rate']
+
+        raw_signal = [s for s in raw_signal if 200 < s < 800] # very rough heuristic for abasic region
 
         # rescale signal (should be same as option selected in make_labeled_data.py)
         if args.scaling == 'standard':
@@ -93,20 +96,22 @@ elif args.signal:
 else:
     sys.exit("An input file must be specified with --signal or --fast5!")
 
-#padded_X = np.reshape(np.expand_dims(signal,axis=1), (len(signal), -1, INPUT_DIM))
-#sizes = [len(i) for i in padded_X]
+if not args.no_stack:
+    # split signal into blocks to allow for faster basecalling with the GPU
+    rounded = int(len(signal)/WINDOW_SIZE)*WINDOW_SIZE
+    stacked = np.reshape(signal[:rounded], (-1, WINDOW_SIZE, INPUT_DIM))
+    sizes = [len(i) for i in stacked]
 
-# split signal into blocks to allow for faster basecalling with the GPU
-rounded = int(len(signal)/WINDOW_SIZE)*WINDOW_SIZE
-stacked = np.reshape(signal[:rounded], (-1, WINDOW_SIZE, INPUT_DIM))
-sizes = [len(i) for i in stacked]
-
-if rounded < len(signal):
-    last_row = np.zeros(WINDOW_SIZE)
-    last_row[:len(signal)-rounded] = signal[rounded:]
-    last_row = np.expand_dims(last_row,1)
-    sizes.append(len(signal)-rounded)
-    stacked = np.vstack((stacked,np.expand_dims(last_row,0)))
+    if rounded < len(signal):
+        last_row = np.zeros(WINDOW_SIZE)
+        last_row[:len(signal)-rounded] = signal[rounded:]
+        last_row = np.expand_dims(last_row,1)
+        sizes.append(len(signal)-rounded)
+        stacked = np.vstack((stacked,np.expand_dims(last_row,0)))
+else:
+    stacked = np.reshape(np.expand_dims(signal,axis=1), (1, len(signal), INPUT_DIM))
+    sizes = [len(i) for i in stacked]
+#print(stacked.shape)
 
 with tf.Session() as sess:
 
@@ -144,6 +149,10 @@ with tf.Session() as sess:
 
     # output decoded sequence
     if args.fasta:
-        print(fasta_format(read_id.decode('UTF-8'),sequence))
+        if args.fast5:
+            fasta_header = os.path.basename(args.fast5)
+        elif args.signal:
+            fasta_header = os.path.basename(args.signal)
+        print(fasta_format(fasta_header,sequence))
     else:
         print(sequence)
