@@ -5,6 +5,8 @@ import numpy as np
 import tensorflow as tf
 import h5py
 import os, sys, re, argparse
+import pickle
+import ctc
 
 # some custom helper functions
 import batch
@@ -38,7 +40,8 @@ parser.add_argument('--signal', help='File with space-delimited signal for testi
 parser.add_argument('--fast5', default=False, help='FAST5 file to basecall (directories not currently supported)')
 parser.add_argument('--fasta', action='store_true', default=False, help='Write output sequence in FASTA')
 parser.add_argument('--window', type=int, default=200, help='Call read using chunks of this size')
-parser.add_argument('--debug', default=False, action='store_true', help='Print out extra things for debugging')
+parser.add_argument('--logits', default=False, help='Pickle output logits to file')
+parser.add_argument('--debug_ctc', default=False, action='store_true', help='Use own implementation of CTC decoding (WARNING: Does not collapse repeated characters)')
 parser.add_argument('--no_stack', default=False, action='store_true', help='Basecall [1xSIGNAL_LENGTH] tensor instead of splitting it into windows (slower)')
 args = parser.parse_args()
 
@@ -111,7 +114,6 @@ if not args.no_stack:
 else:
     stacked = np.reshape(np.expand_dims(signal,axis=1), (1, len(signal), INPUT_DIM))
     sizes = [len(i) for i in stacked]
-#print(stacked.shape)
 
 with tf.Session() as sess:
 
@@ -129,23 +131,37 @@ with tf.Session() as sess:
     prediction = graph.get_tensor_by_name('prediction:0')
     X=graph.get_tensor_by_name('X:0')
     sequence_length=graph.get_tensor_by_name('sequence_length:0')
+    logits=graph.get_tensor_by_name('logits:0')
 
-    # make prediction
-    prediction_ = sess.run(prediction, feed_dict={X:stacked,sequence_length:sizes})
-
-    if args.debug:
-        logits=graph.get_tensor_by_name('logits:0')
+    if args.debug_ctc:
         logits_ = sess.run(logits, feed_dict={X:stacked,sequence_length:sizes})
-        print("Writing CTC softmax logits to ctc_prob.csv ...")
         softmax = sess.run(tf.nn.softmax(logits_))
-        print(softmax)
-        np.savetxt('ctc_prob.csv',np.array(softmax[0]), delimiter=',')
+        prediction_ = list()
+        beam_search_counter = 0
+        beam_search_total = len(softmax)
 
-    # stitch decoded sequence together
-    sequence = ''
-    for length_iter, pred_iter in zip(sizes,prediction_):
-        sequence_segment = list(map(label2base, pred_iter[:length_iter]))
-        sequence += ''.join(sequence_segment)
+        for size_i,softmax_i in zip(sizes,softmax):
+            prediction_.append(ctc.prefix_search(softmax_i[:size_i])[0])
+            print('Prefix search done:',beam_search_counter,'of',beam_search_total, file=sys.stderr)
+            beam_search_counter += 1
+
+        # stitch decoded sequence together
+        sequence = ''
+        for s in prediction_:
+            sequence += s
+    else:
+        # make prediction
+        prediction_ = sess.run(prediction, feed_dict={X:stacked,sequence_length:sizes})
+
+        # stitch decoded sequence together
+        sequence = ''
+        for length_iter, pred_iter in zip(sizes,prediction_):
+            sequence_segment = list(map(label2base, pred_iter[:length_iter]))
+            sequence += ''.join(sequence_segment)
+
+    if args.logits:
+        logits_ = sess.run(logits, feed_dict={X:stacked,sequence_length:sizes})
+        pickle.dump(logits_, open(args.logits,'wb'))
 
     # output decoded sequence
     if args.fasta:
