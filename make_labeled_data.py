@@ -5,23 +5,25 @@ Generate labeled training/testing data from nanoraw genome_resquiggle output
 import numpy as np
 import h5py
 from multiprocessing import Pool
-import argparse, random, sys, glob, os
+import argparse, random, sys, glob, os, re
 
 parser = argparse.ArgumentParser(description='Make training data from resquiggled reads')
 parser.add_argument('--input', help='Location of nanoraw-processed FAST5 file/directory', required=True)
 parser.add_argument('--output', default='nanoraw', help='Prefix for output files')
 parser.add_argument('--unroll', type=int, default=100, help='Break reads into fixed-width segments')
-parser.add_argument('--scaling', default='standard', choices=['standard', 'current', 'median', 'rescale'], help='Type of normalization')
+parser.add_argument('--scaling', default='standard', choices=['standard', 'current', 'median', 'rescale', 'none'], help='Type of normalization')
 parser.add_argument('--threads', type=int, default=1, help='Processes to use')
 parser.add_argument('--expand', default=False,action='store_true',help='Output one base per signal')
 args = parser.parse_args()
 
 # open files for output
-signal_file = open(args.output+'.signal','w')
-bases_file = open(args.output+'.bases','w')
+#signal_file = open(args.output+'.signal','w')
+#bases_file = open(args.output+'.bases','w')
 
 def read_to_training(read_path):
     hdf = h5py.File(read_path,'r')
+
+    read_path_base = ''.join(read_path.split('.')[:-1])
 
     # basic parameters
     read_string = list(hdf['/Raw/Reads'].keys())[0]
@@ -46,6 +48,8 @@ def read_to_training(read_path):
     # nanoraw genome_resquiggle
     nanoraw_path = '/Analyses/RawGenomeCorrected_000/BaseCalled_template/Events'
     if nanoraw_path in hdf:
+        signal_file = open(read_path_base+'.signal','w')
+        bases_file = open(read_path_base+'.bases','w')
         print(os.path.basename(read_path))
         nanoraw_events = hdf[nanoraw_path]
         nanoraw_relative_start = hdf[nanoraw_path].attrs['read_start_rel_to_raw']
@@ -76,6 +80,8 @@ def read_to_training(read_path):
             norm_signal = raw_signal / np.median(raw_signal)
         elif args.scaling == 'rescale':
             norm_signal = (raw_signal - np.mean(raw_signal))/(np.max(raw_signal) - np.min(raw_signal))
+        elif args.scaling == 'none':
+            norm_signal = raw_signal
 
         assert(len(norm_signal) == len(base_string))
 
@@ -98,7 +104,8 @@ if __name__ == '__main__':
     path = args.input
 
     # for future parallel processing of directories
-    NUM_THREADS = 1
+    #NUM_THREADS = 1
+    NUM_THREADS = args.threads
 
     # summarize options
     print('# input:',args.input)
