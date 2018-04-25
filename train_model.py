@@ -54,8 +54,6 @@ parser.add_argument('--loss_every', type=int, default=100, help='Frequency with 
 parser.add_argument('--ctc_merge_repeated', type=int, default=1, help='boolean option for tf.nn.ctc_loss, 0:False/1:True')
 args = parser.parse_args()
 
-print("CTC_MERGE_REPEATED:",bool(args.ctc_merge_repeated))
-
 # user options
 TRAINING_STEPS = args.training_steps #number of iterations of SGD
 CHECKPOINT_ITER = args.save_every
@@ -69,6 +67,10 @@ EPOCH_SIZE = len(train_events)
 
 # log file for training statuts
 log_file = open(args.save_dir+'/'+args.name+'.out','w')
+
+print('Command-line arguments:',file=log_file)
+for k,v in args.__dict__.items():
+    print(k,'=',v, file=log_file)
 
 # pass data to batch iterator class
 dataset = batch.data_helper(train_events, train_bases, small_batch=False, return_length=True)
@@ -129,6 +131,3 @@ with tf.Session() as sess:
     if (iteration+1) % CHECKPOINT_ITER != 0:
         saver.save(sess, args.save_dir+'/'+args.name, global_step=checkpoint_counter)
         log_file.write(batch.format_string(('iteration:',iteration+1,'epoch:',dataset.epoch, 'model:',checkpoint_counter)))
-
-    #print("NAMED TENSORS")
-    #[print(tensor.name) for tensor in tf.get_default_graph().as_graph_def().node]
