@@ -47,7 +47,7 @@ class alignment_envelope_dense:
         self.envelope = np.zeros(shape=(U,V),dtype=int)
         self.keys_ = []
     def __contains__(self,t):
-        if self.envelope[t[0],t[1]]:
+        if self.envelope[t[0],t[1]] == 1:
             return True
         else:
             return False
@@ -86,7 +86,8 @@ def pair_forward(l, y1, y2, mask=None, previous=None):
     Naive implementation.
     Alphas are stored in dense numpy arrays, iteration is done over all SxUxV
     elements, though if an alignment envelope is present, only values are
-    calculated for entries in the envelope.
+    calculated for entries in the envelope (better soultion would be to just
+    iterate directly over entries in envelope).
     '''
     U = len(y1)
     V = len(y2)
@@ -141,10 +142,12 @@ def pair_prefix_prob(alpha_ast_ast,gamma, envelope=None):
             prefix_prob += alpha_ast_ast[-1,u+2,v+2]*gamma[u+1,v+1]
     return(prefix_prob)
 
-def pair_prefix_search(y1, y2, envelope=None, alphabet=DNA_alphabet):
+def pair_prefix_search(y1, y2, envelope=None, alphabet=DNA_alphabet, forward_algorithm=pair_forward):
     '''
     Do 2d prefix search. Arguments are softmax probabilities of each read,
-    an alignment_envelope object, and an OrderedDict with the alphabet
+    an alignment_envelope object, and an OrderedDict with the alphabet.
+    Additionally, takes forward algorithm function (for testing different
+    implementations).
     '''
     gamma_ = pair_gamma(y1,y2)
 
@@ -168,14 +171,14 @@ def pair_prefix_search(y1, y2, envelope=None, alphabet=DNA_alphabet):
             prefix_int = [alphabet[i] for i in prefix]
 
             if search_level == 0:
-                prefix_alphas.append(pair_forward(prefix_int,y1,y2,mask=envelope))
+                prefix_alphas.append(forward_algorithm(prefix_int,y1,y2,mask=envelope))
             else:
-                prefix_alphas.append(pair_forward(prefix_int, y1,y2, mask=envelope, previous=curr_label_alphas))
+                prefix_alphas.append(forward_algorithm(prefix_int, y1,y2, mask=envelope, previous=curr_label_alphas))
 
             label_prob[prefix] = pair_label_prob(prefix_alphas[-1][0])
             prefix_prob[prefix] = pair_prefix_prob(prefix_alphas[-1][1], gamma_, envelope=envelope)
 
-            print(search_level, 'extending by prefix:',c, 'Prefix Probability:',prefix_prob[prefix], 'Label probability:',label_prob[prefix])
+            #print(search_level, 'extending by prefix:',c, 'Prefix Probability:',prefix_prob[prefix], 'Label probability:',label_prob[prefix])
 
         best_prefix = max(prefix_prob.items(), key=operator.itemgetter(1))[0]
 
