@@ -161,7 +161,9 @@ with tf.Session() as sess:
 
     if args.logits:
         logits_ = sess.run(logits, feed_dict={X:stacked,sequence_length:sizes})
-        pickle.dump(logits_, open(args.logits,'wb'))
+        #pickle.dump(logits_, open(args.logits,'wb'))
+        print(sess.run(tf.nn.softmax(logits_)).shape)
+        np.array(sess.run(tf.nn.softmax(logits_))).astype('float32').tofile(args.logits)
 
     # output decoded sequence
     if args.fasta:

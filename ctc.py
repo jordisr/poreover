@@ -13,6 +13,21 @@ from collections import OrderedDict
 # Default alphabet
 DNA_alphabet = OrderedDict([('A',0),('C',1),('G',2),('T',3)])
 
+def remove_gaps(a):
+    # only needed for greedy decoding
+    # unlike standard CTC, does not remove repeated characters
+    label = ''
+    for i in a:
+        if i != '-':
+            label += i
+    return(label)
+
+def greedy_search(logits, alphabet=['A','C','G','T','-']):
+    # take highest probability label at each step
+    argmax_ = np.argmax(logits, axis=1)
+    chars_ = np.take(alphabet, argmax_)
+    return(remove_gaps(chars_))
+
 def forward(l,y):
     t_max = len(y)
     s_max = len(l)
