@@ -1,17 +1,14 @@
 '''
-Decode consensus sequence from two RNN output
+Consensus decoding from a pair of RNN outputs (logits).
+Currently breaks the signal into blocks and finds a consensus from each block,
+before concatenating. In the future, this segmentation will be informed by the
+sequence alignment of invidually basecalled reads.
 '''
 import numpy as np
 #import tensorflow as tf
 from multiprocessing import Pool
 import argparse, random, sys, glob, os, re
 import consensus
-
-parser = argparse.ArgumentParser(description='Consensus decoding')
-parser.add_argument('--logits', default='.', help='Paths to both logits', required=True, nargs='+')
-parser.add_argument('--window', type=int, default=200, help='Segment size used for splitting reads')
-parser.add_argument('--threads', type=int, default=1, help='Processes to use')
-args = parser.parse_args()
 
 def fasta_format(name, seq, width=60):
     fasta = '>'+name+'\n'
@@ -35,10 +32,19 @@ def load_logits(file_path, reverse_complement=False):
     return(read_logits)
 
 def basecall_box(u1,u2,v1,v2):
+    '''
+    Function to be run in parallel.
+    '''
     print(u1,u2,v1,v2)
     return(consensus.pair_prefix_search(logits1[u1:u2],logits2[v1:v2])[0])
 
 if __name__ == '__main__':
+
+    parser = argparse.ArgumentParser(description='Consensus decoding')
+    parser.add_argument('--logits', default='.', help='Paths to both logits', required=True, nargs='+')
+    parser.add_argument('--window', type=int, default=200, help='Segment size used for splitting reads')
+    parser.add_argument('--threads', type=int, default=1, help='Processes to use')
+    args = parser.parse_args()
 
     if len(args.logits) != 2:
         raise "Exactly two reads are required"

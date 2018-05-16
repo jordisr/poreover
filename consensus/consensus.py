@@ -83,7 +83,7 @@ def sample_gamma(y1,y2,n=1):
 
 def pair_forward(l, y1, y2, mask=None, previous=None):
     '''
-    Most naive implementation.
+    Naive implementation.
     Alphas are stored in dense numpy arrays, iteration is done over all SxUxV
     elements, though if an alignment envelope is present, only values are
     calculated for entries in the envelope.
@@ -112,7 +112,7 @@ def pair_forward(l, y1, y2, mask=None, previous=None):
                     alpha_ast_ast[s,u,v] = 1
                     alpha_eps = 0
                     alpha_ast_eps = 0
-                elif (mask is None) or ((mask is not None) and ((u-shift,v-shift) in mask)):
+                elif (s==1 and (u==1 or v==1)) or (mask is None) or ((mask is not None) and ((u-shift,v-shift) in mask)):
                     alpha_eps = y1[u-shift,-1]*alpha[s,u-1,v]
                     alpha_ast_eps = y2[v-shift,-1]*alpha_ast[s,u,v-1]
                     alpha_ast_ast[s,u,v] = y1[u-shift,l[s-shift]]*y2[v-shift,l[s-shift]]*alpha[s-1,u-1,v-1]
@@ -128,12 +128,17 @@ def pair_label_prob(alpha):
     '''
     return(alpha[-1,-1,-1])
 
-def pair_prefix_prob(alpha_ast_ast,gamma):
+def pair_prefix_prob(alpha_ast_ast,gamma, envelope=None):
     U,V = gamma.shape
     prefix_prob = 0
-    for u in range(2,U+1):
-        for v in range(2,V+1):
-            prefix_prob += alpha_ast_ast[-1,u,v]*gamma[u-2,v-2]
+    if envelope == None:
+        for u in range(2,U+1):
+            for v in range(2,V+1):
+                prefix_prob += alpha_ast_ast[-1,u,v]*gamma[u-1,v-1]
+    else:
+        for k in envelope.keys():
+            (u,v) = k
+            prefix_prob += alpha_ast_ast[-1,u+2,v+2]*gamma[u+1,v+1]
     return(prefix_prob)
 
 def pair_prefix_search(y1, y2, envelope=None, alphabet=DNA_alphabet):
@@ -168,9 +173,9 @@ def pair_prefix_search(y1, y2, envelope=None, alphabet=DNA_alphabet):
                 prefix_alphas.append(pair_forward(prefix_int, y1,y2, mask=envelope, previous=curr_label_alphas))
 
             label_prob[prefix] = pair_label_prob(prefix_alphas[-1][0])
-            prefix_prob[prefix] = pair_prefix_prob(prefix_alphas[-1][1], gamma_)
+            prefix_prob[prefix] = pair_prefix_prob(prefix_alphas[-1][1], gamma_, envelope=envelope)
 
-            #print(search_level, 'extending by prefix:',c, 'Prefix Probability:',prefix_prob[prefix], 'Label probability:',label_prob[prefix])
+            print(search_level, 'extending by prefix:',c, 'Prefix Probability:',prefix_prob[prefix], 'Label probability:',label_prob[prefix])
 
         best_prefix = max(prefix_prob.items(), key=operator.itemgetter(1))[0]
 
@@ -180,7 +185,7 @@ def pair_prefix_search(y1, y2, envelope=None, alphabet=DNA_alphabet):
             # get highest probability label
             top_label = max(label_prob.items(), key=operator.itemgetter(1))[0]
             # then move to prefix with highest label probability
-            curr_label = max(prefix_prob.items(), key=operator.itemgetter(1))[0]
+            curr_label = best_prefix
             curr_label_alphas = prefix_alphas[alphabet[curr_label[-1]]]
 
         search_level += 1
