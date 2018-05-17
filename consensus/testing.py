@@ -108,7 +108,7 @@ if __name__ == '__main__':
     print('--- Testing forward algorithm ---')
     y1 = np.array([[0.8,0.1,0.1],[0.1,0.3,0.6],[0.7,0.2,0.1],[0.1,0.1,0.8]])
     y2 = np.array([[0.7,0.2,0.1],[0.2,0.3,0.5],[0.7,0.2,0.1],[0.05,0.05,0.9]])
-    examples = ['AAAA','ABBA','ABA','BB','A','B']
+    examples = ['AAAA','ABBA','ABA','AA','BB','A','B']
     test_pair_forward(y1,y2,examples=examples)
 
     print('--- Testing forward algorithm with full alignment envelope ---')
@@ -119,3 +119,28 @@ if __name__ == '__main__':
         for v in range(V):
             full_envelope.add(u,v)
     test_pair_forward(y1,y2,examples=examples,envelope=full_envelope)
+
+    print('--- Testing banded alignment envelope ---')
+    (U, V) = (5,5)
+    print('width=0\n',consensus.diagonal_band_envelope(U,V,0).toarray())
+    print('width=1\n',consensus.diagonal_band_envelope(U,V,1).toarray())
+    print('width=2\n',consensus.diagonal_band_envelope(U,V,2).toarray())
+    print('width=3\n',consensus.diagonal_band_envelope(U,V,3).toarray())
+
+    (U, V) = (5,4)
+    print('width=0\n',consensus.diagonal_band_envelope(U,V,0).toarray())
+    print('width=1\n',consensus.diagonal_band_envelope(U,V,1).toarray())
+    print('width=2\n',consensus.diagonal_band_envelope(U,V,2).toarray())
+    print('width=3\n',consensus.diagonal_band_envelope(U,V,3).toarray())
+
+    (U, V) = (2,10)
+    print('width=0\n',consensus.diagonal_band_envelope(U,V,0).toarray())
+    print('width=1\n',consensus.diagonal_band_envelope(U,V,1).toarray())
+    print('width=2\n',consensus.diagonal_band_envelope(U,V,2).toarray())
+    print('width=3\n',consensus.diagonal_band_envelope(U,V,3).toarray())
+
+    y1 = np.array([[0.8,0.1,0.1],[0.1,0.3,0.6],[0.7,0.2,0.1],[0.1,0.1,0.8]])
+    y2 = np.array([[0.7,0.2,0.1],[0.2,0.3,0.5],[0.7,0.2,0.1],[0.05,0.05,0.9]])
+    (U, V) = (len(y1),len(y2))
+    band_envelope = consensus.diagonal_band_envelope(U,V,0)
+    test_pair_forward(y1,y2,examples=examples,envelope=band_envelope)

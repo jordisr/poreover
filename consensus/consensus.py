@@ -59,6 +59,17 @@ class alignment_envelope_dense:
     def toarray(self):
         return self.envelope
 
+def diagonal_band_envelope(U,V,width):
+    envelope = alignment_envelope_dense(U,V)
+    for u in range(U):
+        # just steps across main diagonal line. Width is size above and below
+        # the main diagonal
+        center = int(np.round(V/U*u))
+        for v in range(center-width, center+width+1):
+            if 0 <= v < V:
+                envelope.add(u,v)
+    return(envelope)
+
 def sample_gamma(y1,y2,n=1):
     U = len(y1)
     V = len(y2)
@@ -109,10 +120,10 @@ def pair_forward(l, y1, y2, mask=None, previous=None):
     for s in s_range:
         for u in range(1,U+shift):
             for v in range(1,V+shift):
+                alpha_eps = 0
+                alpha_ast_eps = 0
                 if s==1 and u==1 and v==1:
                     alpha_ast_ast[s,u,v] = 1
-                    alpha_eps = 0
-                    alpha_ast_eps = 0
                 elif (s==1 and (u==1 or v==1)) or (mask is None) or ((mask is not None) and ((u-shift,v-shift) in mask)):
                     alpha_eps = y1[u-shift,-1]*alpha[s,u-1,v]
                     alpha_ast_eps = y2[v-shift,-1]*alpha_ast[s,u,v-1]
