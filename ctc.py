@@ -5,7 +5,6 @@ This version does not collapse repeated characters so is only valid if the model
 has been trained with ctc_merge_repeated=False.
 '''
 
-import matplotlib.pyplot as plt
 import numpy as np
 import operator
 from collections import OrderedDict
