@@ -84,7 +84,7 @@ def forward_prefix_prob(fw,y,k):
         prefix_prob_ = np.sum([y[t,k[-1]]*np.product(y[:t,-1]) for t in range(len(y))])
     return(prefix_prob_)
 
-def prefix_search(y, alphabet=OrderedDict([('A',0),('C',1),('G',2),('T',3)])):
+def prefix_search(y, alphabet=OrderedDict([('A',0),('C',1),('G',2),('T',3)]),return_forward=False):
     # y: np array of softmax probabilities
     # alphabet: ordered dict of label to index
 
@@ -95,6 +95,9 @@ def prefix_search(y, alphabet=OrderedDict([('A',0),('C',1),('G',2),('T',3)])):
     label_prob = {'':gap_prob}
 
     top_label = ''
+    top_label_prob = 0
+    top_fw = np.array([])
+
     curr_label = ''
     curr_label_fw = np.array([])
 
@@ -115,17 +118,24 @@ def prefix_search(y, alphabet=OrderedDict([('A',0),('C',1),('G',2),('T',3)])):
                 prefix_fw.append(forward_add_column(curr_label_fw, y, prefix_int))
 
             label_prob[prefix] = prefix_fw[-1][-1,-1]
+            if label_prob[prefix] > top_label_prob:
+                top_label = prefix
+                top_label_prob = label_prob[prefix]
+                top_label_fw = prefix_fw[-1]
+
             prefix_prob[prefix] = forward_prefix_prob(prefix_fw[-1], y, prefix_int)
             #print('extending by prefix:',c, 'Prefix Probability:',prefix_prob[prefix], 'Label probability:',label_prob[prefix])
 
         # get best prefix probability
         best_prefix = max(prefix_prob.items(), key=operator.itemgetter(1))[0]
 
-        if prefix_prob[best_prefix] < label_prob[top_label]:
+        if prefix_prob[best_prefix] < top_label_prob:
             stop_search = True
         else:
             # get highest probability label
-            top_label = max(label_prob.items(), key=operator.itemgetter(1))[0]
+            #top_label = max(label_prob.items(), key=operator.itemgetter(1))[0]
+            # top_label should be set each iteration, along with top_fw
+
             # move to prefix with highest label probability
             curr_label = max(prefix_prob.items(), key=operator.itemgetter(1))[0]
             curr_label_fw = prefix_fw[alphabet[curr_label[-1]]]
@@ -133,5 +143,7 @@ def prefix_search(y, alphabet=OrderedDict([('A',0),('C',1),('G',2),('T',3)])):
         search_level += 1
 
     #print("Search finished! Top label is",top_label, label_prob[top_label])
-    #print(len(label_prob))
-    return(top_label, label_prob[top_label])
+    if return_forward:
+        return(top_label, top_fw)
+    else:
+        return(top_label, label_prob[top_label])

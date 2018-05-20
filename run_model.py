@@ -42,6 +42,7 @@ parser.add_argument('--fasta', action='store_true', default=False, help='Write o
 parser.add_argument('--window', type=int, default=200, help='Call read using chunks of this size')
 parser.add_argument('--logits', default=False, help='Pickle output logits to file')
 parser.add_argument('--debug_ctc', default=False, action='store_true', help='Use own implementation of CTC decoding (WARNING: Does not collapse repeated characters)')
+parser.add_argument('--ctc_threads', type=int, default=1, help='Number of threads to use for decoding')
 parser.add_argument('--no_stack', default=False, action='store_true', help='Basecall [1xSIGNAL_LENGTH] tensor instead of splitting it into windows (slower)')
 args = parser.parse_args()
 
@@ -140,6 +141,21 @@ with tf.Session() as sess:
         beam_search_counter = 0
         beam_search_total = len(softmax)
 
+        from multiprocessing import Pool
+
+        assert(len(softmax)==len(sizes))
+
+        def basecall_segment(i):
+            return(ctc.prefix_search(softmax[i][:sizes[i]])[0])
+
+        NUM_THREADS = args.ctc_threads
+        with Pool(processes=NUM_THREADS) as pool:
+            basecalls = pool.map(basecall_segment, range(len(softmax)))
+
+        sequence = ''.join(basecalls)
+
+        '''
+        # version without multiprocessing
         for size_i,softmax_i in zip(sizes,softmax):
             prediction_.append(ctc.prefix_search(softmax_i[:size_i])[0])
             print('Prefix search done:',beam_search_counter,'of',beam_search_total, file=sys.stderr)
@@ -149,6 +165,8 @@ with tf.Session() as sess:
         sequence = ''
         for s in prediction_:
             sequence += s
+        '''
+
     else:
         # make prediction
         prediction_ = sess.run(prediction, feed_dict={X:stacked,sequence_length:sizes})
