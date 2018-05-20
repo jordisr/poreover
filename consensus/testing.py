@@ -120,6 +120,9 @@ if __name__ == '__main__':
             full_envelope.add(u,v)
     test_pair_forward(y1,y2,examples=examples,envelope=full_envelope)
 
+    print('alternative implementation (should be the same)')
+    test_pair_forward(y1,y2,examples=examples,envelope=full_envelope,forward_algorithm=consensus.pair_forward_sparse)
+
     print('--- Testing banded alignment envelope ---')
     (U, V) = (5,5)
     print('width=0\n',consensus.diagonal_band_envelope(U,V,0).toarray())

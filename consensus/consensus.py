@@ -134,6 +134,67 @@ def pair_forward(l, y1, y2, mask=None, previous=None):
 
     return(alpha, alpha_ast_ast, alpha_ast)
 
+def pair_forward_sparse(l, y1, y2, mask, previous=None):
+    '''
+    Requires alignment envelope. Iteration is only done over entries in the envelope.
+    '''
+    U = len(y1)
+    V = len(y2)
+    S = len(l)
+    shift = 2
+
+    alpha = np.zeros(shape=(S+shift,U+shift,V+shift))
+    alpha_ast_ast = np.zeros(shape=(S+shift,U+shift,V+shift))
+    alpha_ast = np.zeros(shape=(S+shift,U+shift,V+shift))
+
+    if previous is not None:
+        alpha[:-1] = previous[0]
+        alpha_ast[:-1] = previous[1]
+        alpha_ast_ast[:-1] = previous[2]
+        s_range = [S + shift - 1]
+    else:
+        s_range = range(1,S+shift)
+
+    alpha_ast_ast[1][1,1] = 1
+    alpha_ast[1][1,1] = 1
+    alpha[1][1,1] = 1
+
+    # list of (u,v) tuples in alignment envelope
+    sorted_keys = sorted(mask.keys())
+    envelope_size = len(sorted_keys)
+
+    s=1
+    for u in range(2,U+shift):
+        v = 1
+        alpha_eps = y1[u-shift,-1]*alpha[s][u-1,v]
+        alpha_ast_eps = y2[v-shift,-1]*alpha_ast[s][u,v-1]
+        alpha_ast_ast[s][u,v] = y1[u-shift,l[s-shift]]*y2[v-shift,l[s-shift]]*alpha[s-1][u-1,v-1]
+        alpha_ast[s][u,v] = alpha_ast_ast[s][u,v] + alpha_ast_eps
+        alpha[s][u,v] = alpha_eps + alpha_ast[s][u,v]
+
+    for v in range(2,V+shift):
+        u = 1
+        alpha_eps = y1[u-shift,-1]*alpha[s][u-1,v]
+        alpha_ast_eps = y2[v-shift,-1]*alpha_ast[s][u,v-1]
+        alpha_ast_ast[s][u,v] = y1[u-shift,l[s-shift]]*y2[v-shift,l[s-shift]]*alpha[s-1][u-1,v-1]
+        alpha_ast[s][u,v] = alpha_ast_ast[s][u,v] + alpha_ast_eps
+        alpha[s][u,v] = alpha_eps + alpha_ast[s][u,v]
+
+    for s in s_range:
+        for i,k in enumerate(sorted_keys):
+            (u_env, v_env) = k
+            u = u_env + shift
+            v = v_env + shift
+
+            alpha_eps = y1[u-shift,-1]*alpha[s][u-1,v]
+            alpha_ast_eps = y2[v-shift,-1]*alpha_ast[s][u,v-1]
+            alpha_ast_ast[s][u,v] = y1[u-shift,l[s-shift]]*y2[v-shift,l[s-shift]]*alpha[s-1][u-1,v-1]
+
+            alpha_ast[s][u,v] = alpha_ast_ast[s][u,v] + alpha_ast_eps
+            alpha[s][u,v] = alpha_eps + alpha_ast[s][u,v]
+
+    return(alpha, alpha_ast_ast, alpha_ast)
+
 def pair_label_prob(alpha):
     '''
     Returns last element, corresponding to label probability
