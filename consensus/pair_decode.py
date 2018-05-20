@@ -35,6 +35,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Consensus decoding')
     parser.add_argument('--logits', default='.', help='Paths to both logits', required=True, nargs='+')
+    parser.add_argument('--logits_size', type=int, default=200, help='Window width used for basecalling')
     parser.add_argument('--window', type=int, default=200, help='Segment size used for splitting reads')
     parser.add_argument('--band', action='store_true', help='Reduce computation through diagonal band')
     parser.add_argument('--width', type=int, default=0, help='Diagonal band size')
@@ -47,9 +48,9 @@ if __name__ == '__main__':
     file1 = args.logits[0]
     file2 = args.logits[1]
 
-    # reverse complement logist of one read, doesn't matter which one
-    logits1 = load_logits(file1)
-    logits2 = load_logits(file2, reverse_complement=True)
+    # reverse complement logits of one read, doesn't matter which one
+    logits1 = load_logits(file1, window=args.logits_size)
+    logits2 = load_logits(file2, reverse_complement=True, window=args.logits_size)
 
     U = len(logits1)
     V = len(logits2)
@@ -71,11 +72,11 @@ if __name__ == '__main__':
 
     # calculate ranges on which to split read
     # currently just splitting in boxes that follow the main diagonal
-    # for first test am omitting signals that are not evenly divisible
     box_ranges = []
     u_step = args.window
     for u in range(u_step,U,u_step):
         box_ranges.append((u-u_step,u,int(V/U*(u-u_step)),int(V/U*u)))
+    box_ranges.append((box_ranges[-1][1],U,box_ranges[-1][3],V)) # add in last box with uneven
 
     NUM_THREADS = args.threads
     with Pool(processes=NUM_THREADS) as pool:

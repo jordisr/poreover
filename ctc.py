@@ -143,6 +143,6 @@ def prefix_search(y, alphabet=OrderedDict([('A',0),('C',1),('G',2),('T',3)]),ret
 
     #print("Search finished! Top label is",top_label, label_prob[top_label])
     if return_forward:
-        return(top_label, top_fw)
+        return(top_label, top_label_fw)
     else:
         return(top_label, label_prob[top_label])
