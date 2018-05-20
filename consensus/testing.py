@@ -81,7 +81,7 @@ def test_pair_forward(y1,y2, examples,envelope=None,forward_algorithm=consensus.
         alpha,_,_  = forward_algorithm(label_int,y1,y2,mask=envelope)
         print(label,consensus.pair_label_prob(alpha), joint_label_prob[label])
 
-def test_prefix_search(y1,y2):
+def test_prefix_search(y1,y2,envelope=None):
     alphabet = ('A','B','')
     toy_alphabet = OrderedDict([('A',0),('B',1)])
 
@@ -91,7 +91,7 @@ def test_prefix_search(y1,y2):
 
     top_label = max(joint_label_prob.items(), key=operator.itemgetter(1))[0]
     print('top_label:',top_label, 'probability:',joint_label_prob[top_label],
-    'prefix_search:',consensus.pair_prefix_search(y1,y2,alphabet=toy_alphabet))
+    'prefix_search:',consensus.pair_prefix_search(y1,y2,alphabet=toy_alphabet, envelope=envelope))
 
 if __name__ == '__main__':
 
@@ -142,8 +142,15 @@ if __name__ == '__main__':
     print('width=2\n',consensus.diagonal_band_envelope(U,V,2).toarray())
     print('width=3\n',consensus.diagonal_band_envelope(U,V,3).toarray())
 
-    y1 = np.array([[0.8,0.1,0.1],[0.1,0.3,0.6],[0.7,0.2,0.1],[0.1,0.1,0.8]])
-    y2 = np.array([[0.7,0.2,0.1],[0.2,0.3,0.5],[0.7,0.2,0.1],[0.05,0.05,0.9]])
+    print('--- Single diagonal band doesn\'t match ---')
+    y1 = y2 = np.array([[0.8,0.1,0.1],[0.1,0.3,0.6],[0.7,0.2,0.1],[0.8,0.1,0.1]])
     (U, V) = (len(y1),len(y2))
     band_envelope = consensus.diagonal_band_envelope(U,V,0)
     test_pair_forward(y1,y2,examples=examples,envelope=band_envelope)
+    test_prefix_search(y1,y2,envelope=band_envelope)
+
+    print('except when most of the probability passes through it')
+    y1 = y2 = np.array([[1,0,0],[0,1,0]])
+    (U, V) = (len(y1),len(y2))
+    band_envelope = consensus.diagonal_band_envelope(U,V,0)
+    test_prefix_search(y1,y2,envelope=band_envelope)

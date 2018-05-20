@@ -19,30 +19,25 @@ def fasta_format(name, seq, width=60):
     fasta += (seq[window:]+'\n')
     return(fasta)
 
-def load_logits(file_path, reverse_complement=False):
+def load_logits(file_path, reverse_complement=False, window=200):
     # this is assuming logits are in binary file which does not preserve shape
     # information... for portability will need to change this, but for now
     # assuming we know how it was generated.
     read_raw = np.fromfile(file_path,dtype=np.float32)
-    read_reshape = read_raw.reshape(-1,200,5) # assuming alphabet of 5 and window size of 200
+    read_reshape = read_raw.reshape(-1,window,5) # assuming alphabet of 5 and window size of 200
     if reverse_complement:
         # logit reordering: (A,C,G,T,-)/(0,1,2,3,4) => (T,G,C,A,-)/(3,2,1,0,4)
         read_reshape = read_reshape[::-1,::-1,[3,2,1,0,4]]
     read_logits = np.concatenate(read_reshape)
     return(read_logits)
 
-def basecall_box(u1,u2,v1,v2):
-    '''
-    Function to be run in parallel.
-    '''
-    print(u1,u2,v1,v2)
-    return(consensus.pair_prefix_search(logits1[u1:u2],logits2[v1:v2])[0])
-
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Consensus decoding')
     parser.add_argument('--logits', default='.', help='Paths to both logits', required=True, nargs='+')
     parser.add_argument('--window', type=int, default=200, help='Segment size used for splitting reads')
+    parser.add_argument('--band', action='store_true', help='Reduce computation through diagonal band')
+    parser.add_argument('--width', type=int, default=0, help='Diagonal band size')
     parser.add_argument('--threads', type=int, default=1, help='Processes to use')
     args = parser.parse_args()
 
@@ -59,6 +54,21 @@ if __name__ == '__main__':
     U = len(logits1)
     V = len(logits2)
 
+    def basecall_box(u1,u2,v1,v2):
+        '''
+        Function to be run in parallel.
+        '''
+        print(u1,u2,v1,v2)
+        return(consensus.pair_prefix_search(logits1[u1:u2],logits2[v1:v2])[0])
+
+    def basecall_box_envelope(u1,u2,v1,v2):
+        '''
+        Function to be run in parallel.
+        '''
+        print(u1,u2,v1,v2)
+        envelope = consensus.diagonal_band_envelope(u2-u1,v2-v1,args.width)
+        return(consensus.pair_prefix_search(logits1[u1:u2],logits2[v1:v2], envelope=envelope, forward_algorithm=consensus.pair_forward_sparse)[0])
+
     # calculate ranges on which to split read
     # currently just splitting in boxes that follow the main diagonal
     # for first test am omitting signals that are not evenly divisible
@@ -69,7 +79,10 @@ if __name__ == '__main__':
 
     NUM_THREADS = args.threads
     with Pool(processes=NUM_THREADS) as pool:
-        basecalls = pool.starmap(basecall_box, box_ranges)
+        if args.band:
+            basecalls = pool.starmap(basecall_box_envelope, box_ranges)
+        else:
+            basecalls = pool.starmap(basecall_box, box_ranges)
 
     joined_basecalls = ''.join(basecalls)
     print(fasta_format('consensus;'+file1+';'+file2,joined_basecalls))
