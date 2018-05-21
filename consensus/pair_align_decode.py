@@ -64,7 +64,6 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Consensus decoding')
     parser.add_argument('--logits', default='.', help='Paths to both logits', required=True, nargs='+')
-    parser.add_argument('--window', type=int, default=200, help='Segment size used for splitting reads')
     parser.add_argument('--logits_size', type=int, default=200, help='Window width used for basecalling')
     parser.add_argument('--threads', type=int, default=1, help='Processes to use')
     parser.add_argument('--matches', type=int, default=1, help='Match size for building anchors')
@@ -137,7 +136,7 @@ if __name__ == '__main__':
                 alignment_to_sequence[j,i] = alignment_to_sequence[j,i-1] + 1
 
     # find alignment 'anchors' from contiguous stretches of matches
-    match_threshold = 4
+    match_threshold = args.matches
     match = 0
     matches = []
     match_start = 0
