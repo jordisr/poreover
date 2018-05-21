@@ -1,7 +1,16 @@
 '''
 Consensus decoding from a pair of RNN outputs (logits).
-Basecall each sequence individually, align, and then use alignment
-to guide consensus basecalling on mismatched/gapped regions.
+Basecall each sequence individually, align, and then use alignment to guide
+consensus basecalling on mismatched/gapped regions. Take contiguous matches of
+length match_threshold, and use as anchors. Divide signal in between these
+anchors and basecall separately. Finally stitch anchors back with basecalled
+sequences. Could also imagine doing something with large indels in the future.
+
+    indel             match segment
+    ______            ****
+    TTTTTA-GCA-GACGCAGGAAGAGACGAA
+         |            |||| ||| ||
+    -----AGCATACCCAG--GAAG-GACAAA
 '''
 import numpy as np
 from multiprocessing import Pool
@@ -56,7 +65,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Consensus decoding')
     parser.add_argument('--logits', default='.', help='Paths to both logits', required=True, nargs='+')
     parser.add_argument('--window', type=int, default=200, help='Segment size used for splitting reads')
-    parser.add_argument('--width', type=int, default=200, help='Alignment band size')
+    parser.add_argument('--logits_size', type=int, default=200, help='Window width used for basecalling')
     parser.add_argument('--threads', type=int, default=1, help='Processes to use')
     parser.add_argument('--matches', type=int, default=1, help='Match size for building anchors')
     args = parser.parse_args()
@@ -68,8 +77,8 @@ if __name__ == '__main__':
     file2 = args.logits[1]
 
     # reverse complement logist of one read, doesn't matter which one
-    logits1_reshape = load_logits(file1)
-    logits2_reshape = load_logits(file2, reverse_complement=True)
+    logits1_reshape = load_logits(file1, window=args.logits_size)
+    logits2_reshape = load_logits(file2, reverse_complement=True,window=args.logits_size)
 
     # smaller test data for your poor laptop
     logits1_reshape = logits1_reshape[:10]
@@ -134,14 +143,6 @@ if __name__ == '__main__':
     match_start = 0
     match_end = 0
 
-    '''
-    indel             match
-    ______            ____
-    TTTTTA-GCA-GACGCAGGAAGAGACGAA
-    -----AGCATACCCAG--GAAG-GACAAA
-
-    '''
-
     for i,(a1,a2) in enumerate(alignment.T):
         if a1 == a2:
             if match > 0:
@@ -195,5 +196,6 @@ if __name__ == '__main__':
     #print('ANCHORS', basecall_anchors)
     #print('BASECALLS', basecalls)
 
+    # sort each segment by its first signal index
     joined_basecalls = ''.join([i[1] for i in sorted(basecalls + basecall_anchors)])
     print(fasta_format('consensus_from_alignment;'+file1+';'+file2,joined_basecalls))
