@@ -40,7 +40,7 @@ parser.add_argument('--signal', help='File with space-delimited signal for testi
 parser.add_argument('--fast5', default=False, help='FAST5 file to basecall (directories not currently supported)')
 parser.add_argument('--fasta', action='store_true', default=False, help='Write output sequence in FASTA')
 parser.add_argument('--window', type=int, default=200, help='Call read using chunks of this size')
-parser.add_argument('--logits', default=False, help='Pickle output logits to file')
+parser.add_argument('--logits', default=False, help='Save output logits (and softmax probabilities) to file')
 parser.add_argument('--debug_ctc', default=False, action='store_true', help='Use own implementation of CTC decoding (WARNING: Does not collapse repeated characters)')
 parser.add_argument('--ctc_threads', type=int, default=1, help='Number of threads to use for decoding')
 parser.add_argument('--no_stack', default=False, action='store_true', help='Basecall [1xSIGNAL_LENGTH] tensor instead of splitting it into windows (slower)')
@@ -181,7 +181,8 @@ with tf.Session() as sess:
         logits_ = sess.run(logits, feed_dict={X:stacked,sequence_length:sizes})
         #pickle.dump(logits_, open(args.logits,'wb'))
         #print(sess.run(tf.nn.softmax(logits_)).shape)
-        np.array(sess.run(tf.nn.softmax(logits_))).astype('float32').tofile(args.logits)
+        np.array(sess.run(tf.nn.softmax(logits_))).astype('float32').tofile(args.logits+'.softmax')
+        np.array(logits_.astype('float32')).tofile(args.logits+'.logits')
 
     # output decoded sequence
     if args.fasta:
