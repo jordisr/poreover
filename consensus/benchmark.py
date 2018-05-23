@@ -95,12 +95,15 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Consensus decoding')
     parser.add_argument('--iter', type=int, default=1, help='Interations on each segment')
+    parser.add_argument('--logits', type=int, default=1, help='File with logits')
+    parser.add_argument('--logits_size', type=int, default=1, help='File with logits')
+    parser.add_argument('--segments', type=int, default=1, help='Number of segments in file to use')
     parser.add_argument('--threads', type=int, default=1, help='Processes to use')
     args = parser.parse_args()
 
     # load logits output by an RNN
     #logits_from_file = pickle.load(open('logits2.p','rb'))
-    logits_from_file = load_logits('benchmark.logits',window=400)
+    logits_from_file = load_logits(args.logits,window=args.logits_size)
     #sequence_length = [len(i) for i in logits_from_file]
 
     def run_segment(i):
@@ -115,5 +118,7 @@ if __name__ == '__main__':
             single_run(logits, truth_basecall, 1.5)
             single_run(logits, truth_basecall, 2)
 
+    n_segments = min(len(logits_from_file), args.segments)
+
     with Pool(processes=args.threads) as pool:
-        pool.map(run_segment, range(0,1))
+        pool.map(run_segment, range(n_segments))
