@@ -95,8 +95,8 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Consensus decoding')
     parser.add_argument('--iter', type=int, default=1, help='Interations on each segment')
-    parser.add_argument('--logits', type=int, default=1, help='File with logits')
-    parser.add_argument('--logits_size', type=int, default=1, help='File with logits')
+    parser.add_argument('--logits', help='File with logits')
+    parser.add_argument('--logits_size', type=int, default=200, help='File with logits')
     parser.add_argument('--segments', type=int, default=1, help='Number of segments in file to use')
     parser.add_argument('--threads', type=int, default=1, help='Processes to use')
     args = parser.parse_args()
