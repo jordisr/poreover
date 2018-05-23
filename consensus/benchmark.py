@@ -27,8 +27,7 @@ def load_logits(file_path, reverse_complement=False, window=200):
     if reverse_complement:
         # logit reordering: (A,C,G,T,-)/(0,1,2,3,4) => (T,G,C,A,-)/(3,2,1,0,4)
         read_reshape = read_reshape[::-1,::-1,[3,2,1,0,4]]
-    read_logits = np.concatenate(read_reshape)
-    return(read_logits)
+    return(read_reshape)
 
 def softmax_with_noise(logits, noise_sd=1):
     noise_tensor1 = np.random.standard_normal(logits.shape)*noise_sd
