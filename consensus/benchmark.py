@@ -112,9 +112,10 @@ if __name__ == '__main__':
         # repeat each segment
         for i in range(args.iter):
             # use a variety of error magnitudes
+            single_run(logits, truth_basecall, 0.01)
+            single_run(logits, truth_basecall, 0.1)
             single_run(logits, truth_basecall, 0.5)
             single_run(logits, truth_basecall, 1)
-            single_run(logits, truth_basecall, 1.5)
             single_run(logits, truth_basecall, 2)
 
     n_segments = min(len(logits_from_file), args.segments)
