@@ -38,15 +38,14 @@ def load_logits(file_path, reverse_complement=False, window=200):
     if reverse_complement:
         # logit reordering: (A,C,G,T,-)/(0,1,2,3,4) => (T,G,C,A,-)/(3,2,1,0,4)
         read_reshape = read_reshape[::-1,::-1,[3,2,1,0,4]]
-    #read_logits = np.concatenate(read_reshape)
     return(read_reshape)
 
 def basecall_box(u1,u2,v1,v2):
     '''
     Function to be run in parallel.
     '''
-    #print(u1,u2,v1,v2)
-    return(consensus.pair_prefix_search(logits1[u1:u2],logits2[v1:v2])[0])
+    print(u1,u2,v1,v2)
+    return((u1, consensus.pair_prefix_search_vec(logits1[u1:u2],logits2[v1:v2])[0]))
 
 def basecall_box_envelope(u1,u2,v1,v2):
     '''
@@ -58,7 +57,6 @@ def basecall_box_envelope(u1,u2,v1,v2):
     #print(u1,u2,v1,v2,width)
     envelope = consensus.diagonal_band_envelope(u2-u1,v2-v1,width)
     return((u1, consensus.pair_prefix_search(logits1[u1:u2],logits2[v1:v2], envelope=envelope, forward_algorithm=consensus.pair_forward_sparse)[0]))
-
 
 if __name__ == '__main__':
 
@@ -80,8 +78,8 @@ if __name__ == '__main__':
     logits2_reshape = load_logits(file2, reverse_complement=True,window=args.logits_size)
 
     # smaller test data for your poor laptop
-    logits1_reshape = logits1_reshape[:10]
-    logits2_reshape = logits2_reshape[:10]
+    #logits1_reshape = logits1_reshape[:30]
+    #logits2_reshape = logits2_reshape[:30]
 
     logits1 = np.concatenate(logits1_reshape)
     logits2 = np.concatenate(logits2_reshape)
@@ -185,15 +183,15 @@ if __name__ == '__main__':
             ))
 
     assert(abs(len(basecall_boxes) - len(basecall_anchors))==1)
-    #print(basecall_boxes)
-    #print(basecall_anchors)
+    print(basecall_boxes)
+    print(basecall_anchors)
 
     NUM_THREADS = args.threads
     with Pool(processes=NUM_THREADS) as pool:
-        basecalls = pool.starmap(basecall_box_envelope, basecall_boxes)
+        basecalls = pool.starmap(basecall_box, basecall_boxes)
 
-    #print('ANCHORS', basecall_anchors)
-    #print('BASECALLS', basecalls)
+    print('ANCHORS', basecall_anchors)
+    print('BASECALLS', basecalls)
 
     # sort each segment by its first signal index
     joined_basecalls = ''.join([i[1] for i in sorted(basecalls + basecall_anchors)])
