@@ -1,10 +1,10 @@
 '''
 Consensus decoding from a pair of RNN outputs (logits).
 Basecall each sequence individually, align, and then use alignment to guide
-consensus basecalling on mismatched/gapped regions. Take contiguous matches of
-length match_threshold, and use as anchors. Divide signal in between these
+consensus basecalling on mismatched/gapped regions. Take contiguous matches or
+indels above the threshold, and use as anchors. Divide signal in between these
 anchors and basecall separately. Finally stitch anchors back with basecalled
-sequences. Could also imagine doing something with large indels in the future.
+sequences.
 
     indel             match segment
     ______            ****
@@ -44,8 +44,11 @@ def basecall_box(u1,u2,v1,v2):
     '''
     Function to be run in parallel.
     '''
-    print(u1,u2,v1,v2)
-    return((u1, consensus.pair_prefix_search_vec(logits1[u1:u2],logits2[v1:v2])[0]))
+    print('basecalling segment:',u1,u2,v1,v2,file=sys.stderr)
+    if (u2-u1)+(v2-v1) < 1:
+        return(u1,'')
+    else:
+        return((u1, consensus.pair_prefix_search_vec(logits1[u1:u2],logits2[v1:v2])[0]))
 
 def basecall_box_envelope(u1,u2,v1,v2):
     '''
@@ -64,7 +67,8 @@ if __name__ == '__main__':
     parser.add_argument('--logits', default='.', help='Paths to both logits', required=True, nargs='+')
     parser.add_argument('--logits_size', type=int, default=200, help='Window width used for basecalling')
     parser.add_argument('--threads', type=int, default=1, help='Processes to use')
-    parser.add_argument('--matches', type=int, default=1, help='Match size for building anchors')
+    parser.add_argument('--matches', type=int, default=4, help='Match size for building anchors')
+    parser.add_argument('--indels', type=int, default=4, help='Indel size for building anchors')
     args = parser.parse_args()
 
     if len(args.logits) != 2:
@@ -119,8 +123,6 @@ if __name__ == '__main__':
 
     # alignment should be replaced with a more efficient implementation
     alignment = align.global_align(read1_prefix, read2_prefix)
-    #print(alignment[0])
-    #print(alignment[1])
 
     # get alignment-sequence mapping
     # no boundary case for first element but it will wrap around to the last (which is zero)
@@ -153,45 +155,74 @@ if __name__ == '__main__':
                 matches.append((match_start,match_end))
             match = 0
 
-    #print(matches)
+    # find alignment 'anchors' from contiguous stretches of matches (or indels)
+    state_start = 0
+    state_counter = 0
+    prev_state = 'START'
+    anchor_ranges = []
+    anchor_type = []
+
+    for i,(a1,a2) in enumerate(alignment.T):
+        # options are match/insertion/deletion/mismatch
+        if a1 == a2:
+            state = 'mat'
+        elif a1 == '-':
+            state = 'ins'
+        elif a2 == '-':
+            state = 'del'
+        else:
+            state = 'mis'
+
+        if prev_state == state and state != 'mis':
+            state_counter += 1
+        else:
+            if prev_state == 'ins' and state_counter > args.indels:
+                anchor_ranges.append((state_start,i))
+                anchor_type.append(prev_state)
+            if prev_state == 'del' and state_counter > args.indels:
+                anchor_ranges.append((state_start,i))
+                anchor_type.append(prev_state)
+            if prev_state == 'mat' and state_counter > args.matches:
+                anchor_ranges.append((state_start,i))
+                anchor_type.append(prev_state)
+
+            prev_state = state
+            state_counter = 0
+            state_start = i
+
+    #for i, r in enumerate(anchor_ranges):
+    #    print(anchor_type[i], alignment[0, r[0]:r[1]], alignment[1, r[0]:r[1]])
 
     basecall_boxes = []
     basecall_anchors = []
 
-    #for (curr_start, curr_end) in matches:
-    #    print(alignment[0,curr_start:curr_end])
-    #    print(alignment[1,curr_start:curr_end])
-
     # double check boundary conditions, leaving any out at the beginning/end?
-    for i,(curr_start, curr_end) in enumerate(matches):
-        # print for each match (want regions in between matches)
-        #print(
-        #signal_to_sequence1[alignment_to_sequence[0,match_start]],
-        #signal_to_sequence1[alignment_to_sequence[0,match_end]],
-        #signal_to_sequence2[alignment_to_sequence[1,match_start]],
-        #signal_to_sequence2[alignment_to_sequence[1,match_end]]
-        #)
+    for i,(curr_start, curr_end) in enumerate(anchor_ranges):
 
-        basecall_anchors.append((signal_to_sequence1[alignment_to_sequence[0,curr_start]],''.join(alignment[0,curr_start:curr_end])))
+        # get anchor sequences
+        if anchor_type[i] == 'mat':
+            basecall_anchors.append((signal_to_sequence1[alignment_to_sequence[0,curr_start]],''.join(alignment[0,curr_start:curr_end])))
+        elif anchor_type[i] == 'ins':
+            basecall_anchors.append((signal_to_sequence1[alignment_to_sequence[1,curr_start]],''.join(alignment[1,curr_start:curr_end])))
+        elif anchor_type[i] == 'del':
+            basecall_anchors.append((signal_to_sequence1[alignment_to_sequence[0,curr_start]],''.join(alignment[0,curr_start:curr_end])))
 
         if i > 0:
             basecall_boxes.append((
-            signal_to_sequence1[alignment_to_sequence[0,matches[i-1][1]]],
-            signal_to_sequence1[alignment_to_sequence[0,matches[i][0]]],
-            signal_to_sequence2[alignment_to_sequence[1,matches[i-1][1]]],
-            signal_to_sequence2[alignment_to_sequence[1,matches[i][0]]]
+            signal_to_sequence1[alignment_to_sequence[0,anchor_ranges[i-1][1]]],
+            signal_to_sequence1[alignment_to_sequence[0,anchor_ranges[i][0]]],
+            signal_to_sequence2[alignment_to_sequence[1,anchor_ranges[i-1][1]]],
+            signal_to_sequence2[alignment_to_sequence[1,anchor_ranges[i][0]]]
             ))
 
     assert(abs(len(basecall_boxes) - len(basecall_anchors))==1)
-    print(basecall_boxes)
-    print(basecall_anchors)
 
     NUM_THREADS = args.threads
     with Pool(processes=NUM_THREADS) as pool:
         basecalls = pool.starmap(basecall_box, basecall_boxes)
 
-    print('ANCHORS', basecall_anchors)
-    print('BASECALLS', basecalls)
+    #print('ANCHORS', basecall_anchors, file=sys.stderr)
+    #print('BASECALLS', basecalls, file=sys.stderr)
 
     # sort each segment by its first signal index
     joined_basecalls = ''.join([i[1] for i in sorted(basecalls + basecall_anchors)])

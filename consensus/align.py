@@ -2,7 +2,7 @@ import numpy as np
 
 # default parameter values
 MATCH_DEFAULT = 5
-MISMATCH_DEFAULT = -4
+MISMATCH_DEFAULT = -5
 GAP_DEFAULT = -5
 
 def global_align(seq1,seq2, match=MATCH_DEFAULT, mismatch=MISMATCH_DEFAULT, gap_cost=GAP_DEFAULT):

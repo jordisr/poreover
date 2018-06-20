@@ -1,5 +1,5 @@
 import numpy as np
-import operator
+import operator, sys
 from collections import OrderedDict
 
 # Default alphabet
@@ -250,9 +250,8 @@ def pair_prefix_search(y1, y2, envelope=None, alphabet=DNA_alphabet, forward_alg
             label_prob[prefix] = pair_label_prob(prefix_alphas[-1][0])
             prefix_prob[prefix] = pair_prefix_prob(prefix_alphas[-1][1], gamma_, envelope=envelope)
 
-            print(search_level, 'extending by prefix:',c, 'Prefix Probability:',prefix_prob[prefix], 'Label probability:',label_prob[prefix])
+            print(search_level, 'extending by prefix:',c, 'Prefix Probability:',prefix_prob[prefix], 'Label probability:',label_prob[prefix], file=sys.stderr)
 
-        print(prefix_prob)
         best_prefix = max(prefix_prob.items(), key=operator.itemgetter(1))[0]
 
         if prefix_prob[best_prefix] < label_prob[top_label]:
@@ -303,10 +302,14 @@ def forward_vec(s,i,y,previous=None):
     return(fw)
 
 def alpha_ast_1d(l,y,fw0):
-    if (len(l) == 1):
-        return(fw0[:-1]*y[1:,l[-1]]+y[0,l[-1]])
-    else:
-        return(fw0[:-1]*y[1:,l[-1]])
+    try:
+        if (len(l) == 1):
+            return(fw0[:-1]*y[1:,l[-1]]+y[0,l[-1]])
+        else:
+            return(fw0[:-1]*y[1:,l[-1]])
+    except IndexError:
+        print('Ran into IndexError!', file=sys.stderr)
+        return 1
 
 def prefix_prob_vec(l,y,fw0):
     if (len(l) == 1):
@@ -335,10 +338,10 @@ def pair_prefix_search_vec(y1, y2, alphabet=DNA_alphabet):
     '''
 
     # calculate full gamma matrix
-    print('Calculating gamma...')
+    sys.stderr.write('Calculating gamma...')
     gamma = pair_gamma(y1,y2)
     #gamma, envelope = sample_gamma(y1,y2,50)
-    print('...done!')
+    sys.stderr.write('done!\n')
 
     # initialize prefix search variables
     stop_search = False
@@ -377,11 +380,10 @@ def pair_prefix_search_vec(y1, y2, alphabet=DNA_alphabet):
             label_prob[prefix] = alpha1[-1]*alpha2[-1]/gamma[0,0]
             prefix_alphas.append((alpha1,alpha2))
 
-            print(search_level, 'extending by prefix:',c, 'Prefix Probability:',prefix_prob[prefix], 'Label probability:',label_prob[prefix])
+            print(search_level, 'extending by prefix:',c, 'Prefix Probability:',prefix_prob[prefix], 'Label probability:',label_prob[prefix], file=sys.stderr)
 
-        print(prefix_prob)
         best_prefix = max(prefix_prob.items(), key=operator.itemgetter(1))[0]
-        print('best prefix is:',best_prefix)
+        print('best prefix is:',best_prefix, file=sys.stderr)
 
         if prefix_prob[best_prefix] < label_prob[top_label]:
             stop_search = True
