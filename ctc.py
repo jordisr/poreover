@@ -83,7 +83,7 @@ def forward_prefix_prob(fw,y,k):
         prefix_prob_ = np.sum([y[t,k[-1]]*np.product(y[:t,-1]) for t in range(len(y))])
     return(prefix_prob_)
 
-def prefix_search(y, alphabet=OrderedDict([('A',0),('C',1),('G',2),('T',3)]),return_forward=False):
+def prefix_search(y, alphabet=OrderedDict([('A',0),('C',1),('G',2),('T',3)]),return_forward=False, return_search=False):
     # y: np array of softmax probabilities
     # alphabet: ordered dict of label to index
 
@@ -99,6 +99,8 @@ def prefix_search(y, alphabet=OrderedDict([('A',0),('C',1),('G',2),('T',3)]),ret
 
     curr_label = ''
     curr_label_fw = np.array([])
+
+    search_intermediates = []
 
     while not stop_search:
         #print('Level:',search_level, 'Top Hit:',top_label, 'Label Probability:',label_prob[top_label])
@@ -128,6 +130,8 @@ def prefix_search(y, alphabet=OrderedDict([('A',0),('C',1),('G',2),('T',3)]),ret
         # get best prefix probability
         best_prefix = max(prefix_prob.items(), key=operator.itemgetter(1))[0]
 
+        search_intermediates.append([ (p,prefix_prob[p],label_prob[p]) for p in sorted(prefix_prob.keys())])
+
         if prefix_prob[best_prefix] < top_label_prob:
             stop_search = True
         else:
@@ -143,6 +147,9 @@ def prefix_search(y, alphabet=OrderedDict([('A',0),('C',1),('G',2),('T',3)]),ret
 
     #print("Search finished! Top label is",top_label, label_prob[top_label])
     if return_forward:
-        return(top_label, top_label_fw)
+        if return_search:
+            return(top_label, top_label_fw, search_intermediates)
+        else:
+            return(top_label, top_label_fw)
     else:
         return(top_label, label_prob[top_label])
