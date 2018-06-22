@@ -6,7 +6,7 @@ import tensorflow as tf
 import h5py
 import os, sys, re, argparse
 import pickle
-import ctc
+import decoding.ctc
 
 # some custom helper functions
 import batch
@@ -146,7 +146,7 @@ with tf.Session() as sess:
         assert(len(softmax)==len(sizes))
 
         def basecall_segment(i):
-            return(ctc.prefix_search(softmax[i][:sizes[i]])[0])
+            return(decoding.ctc.prefix_search(softmax[i][:sizes[i]])[0])
 
         NUM_THREADS = args.ctc_threads
         with Pool(processes=NUM_THREADS) as pool:
