@@ -247,8 +247,8 @@ def pair_prefix_search(y1, y2, envelope=None, alphabet=DNA_alphabet, forward_alg
             else:
                 prefix_alphas.append(forward_algorithm(prefix_int, y1,y2, mask=envelope, previous=curr_label_alphas))
 
-            label_prob[prefix] = pair_label_prob(prefix_alphas[-1][0])
-            prefix_prob[prefix] = pair_prefix_prob(prefix_alphas[-1][1], gamma_, envelope=envelope)
+            label_prob[prefix] = pair_label_prob(prefix_alphas[-1][0])/gamma_[0,0]
+            prefix_prob[prefix] = pair_prefix_prob(prefix_alphas[-1][1], gamma_, envelope=envelope)/gamma_[0,0]
 
             print(search_level, 'extending by prefix:',c, 'Prefix Probability:',prefix_prob[prefix], 'Label probability:',label_prob[prefix], file=sys.stderr)
 
@@ -304,25 +304,26 @@ def forward_vec(s,i,y,previous=None):
 def alpha_ast_1d(l,y,fw0):
     try:
         if (len(l) == 1):
-            return(fw0[:-1]*y[1:,l[-1]]+y[0,l[-1]])
+            return(np.insert(fw0[:-1],0,1)*y[:,l[-1]])
         else:
-            return(fw0[:-1]*y[1:,l[-1]])
+            #return(fw0[:-1]*y[1:,l[-1]])
+            return(np.insert(fw0[:-1],0,0)*y[:,l[-1]])
     except IndexError:
         print('Ran into IndexError!', file=sys.stderr)
         return 1
 
 def prefix_prob_vec(l,y,fw0):
     if (len(l) == 1):
-        return(np.sum(np.dot(fw0[:-1],y[1:,l[-1]]))+y[0,l[-1]])
+        return(np.dot(fw0[:-1],y[1:,l[-1]])+y[0,l[-1]])
     else:
-        return(np.sum(np.dot(fw0[:-1],y[1:,l[-1]])))
+        return(np.dot(fw0[:-1],y[1:,l[-1]]))
 
 def pair_prefix_prob_vec(alpha_ast_ast,gamma, envelope=None):
     U,V = alpha_ast_ast.shape
     prefix_prob = 0
     if envelope == None:
-        # double check bounds are correct
-        prefix_prob = np.sum(alpha_ast_ast[1:U,1:V]*gamma[1:U,1:V])
+        #prefix_prob = np.sum(alpha_ast_ast[1:U,1:V]*gamma[1:U,1:V])
+        prefix_prob = np.sum(alpha_ast_ast*gamma[1:,1:])
     else:
         for k in envelope.keys():
             (u,v) = k
@@ -393,6 +394,54 @@ def pair_prefix_search_vec(y1, y2, alphabet=DNA_alphabet):
             # then move to prefix with highest prefix probability
             curr_label = best_prefix
             (alpha1_prev, alpha2_prev) = prefix_alphas[alphabet[curr_label[-1]]]
+
+    return(top_label, label_prob[top_label])
+
+def prefix_search_vec(y, alphabet=DNA_alphabet):
+    # 1d prefix search using same format (for debugging)
+
+    # initialize prefix search variables
+    stop_search = False
+    search_level = 0
+    top_label = ''
+    curr_label = ''
+    curr_label_alphas = []
+    gap_prob = np.product(y[:,-1])
+    label_prob = {'':gap_prob}
+
+    # initalize variables for 1d forward probabilities
+    alpha_prev = forward_vec(-1,search_level,y)
+
+    while not stop_search:
+        prefix_prob = {}  # store in dict
+        prefix_alphas = []
+        search_level += 1
+
+        for c,c_i in alphabet.items():
+            prefix = curr_label + c
+            prefix_int = [alphabet[i] for i in prefix]
+
+            alpha_ast = alpha_ast_1d(prefix_int,y,alpha_prev)
+            prefix_prob[prefix] = np.sum(alpha_ast)
+
+            # calculate label probability
+            alpha = forward_vec(c_i,search_level,y, previous=alpha_prev)
+            label_prob[prefix] = alpha[-1]
+            prefix_alphas.append(alpha)
+
+            print(search_level, 'extending by prefix:',c, 'Prefix Probability:',prefix_prob[prefix], 'Label probability:',label_prob[prefix], file=sys.stderr)
+
+        best_prefix = max(prefix_prob.items(), key=operator.itemgetter(1))[0]
+        print('best prefix is:',best_prefix, file=sys.stderr)
+
+        if prefix_prob[best_prefix] < label_prob[top_label]:
+            stop_search = True
+        else:
+            # get highest probability label
+            top_label = max(label_prob.items(), key=operator.itemgetter(1))[0]
+            # then move to prefix with highest prefix probability
+            curr_label = best_prefix
+            alpha_prev = prefix_alphas[alphabet[curr_label[-1]]]
 
     return(top_label, label_prob[top_label])
 
