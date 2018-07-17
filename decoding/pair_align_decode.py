@@ -35,7 +35,8 @@ def load_logits(file_path, reverse_complement=False, window=200):
     # assuming we know how it was generated.
     read_raw = np.fromfile(file_path,dtype=np.float32)
     read_reshape = read_raw.reshape(-1,window,5) # assuming alphabet of 5 and window size of 200
-    if np.abs(np.sum(read_reshape[0])) > 1:
+    #print(read_reshape.shape)
+    if np.abs(np.sum(read_reshape[0,0])) > 1:
         import tensorflow as tf
         print('WARNING: Logits are not probabilities. Running softmax operation.',file=sys.stderr)
         sess = tf.Session()
@@ -74,6 +75,7 @@ if __name__ == '__main__':
     parser.add_argument('--threads', type=int, default=1, help='Processes to use')
     parser.add_argument('--matches', type=int, default=4, help='Match size for building anchors')
     parser.add_argument('--indels', type=int, default=4, help='Indel size for building anchors')
+    parser.add_argument('--out', default='out',help='Output file name')
     args = parser.parse_args()
 
     if len(args.logits) != 2:
@@ -122,6 +124,10 @@ if __name__ == '__main__':
         assert(s_len == len(forward_indices))
         signal_to_sequence2.append(forward_indices+args.logits_size*i)
         read2_prefix += ctc.prefix_search(y)[0]
+
+    with open(args.out+'.1d.fasta','w') as f:
+        print(fasta_format(file1,read1_prefix),file=f)
+        print(fasta_format(file2,read2_prefix),file=f)
 
     signal_to_sequence1 = np.concatenate(np.array(signal_to_sequence1))
     signal_to_sequence2 = np.concatenate(np.array(signal_to_sequence2))
@@ -235,4 +241,6 @@ if __name__ == '__main__':
 
     # sort each segment by its first signal index
     joined_basecalls = ''.join([i[1] for i in sorted(basecalls + basecall_anchors)])
-    print(fasta_format('consensus_from_alignment;'+file1+';'+file2,joined_basecalls))
+
+    with open(args.out+'.2d.fasta','w') as f:
+        print(fasta_format('consensus_from_alignment;'+file1+';'+file2,joined_basecalls), file=f)
