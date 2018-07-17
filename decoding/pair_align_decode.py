@@ -36,6 +36,7 @@ def load_logits(file_path, reverse_complement=False, window=200):
     read_raw = np.fromfile(file_path,dtype=np.float32)
     read_reshape = read_raw.reshape(-1,window,5) # assuming alphabet of 5 and window size of 200
     if np.abs(np.sum(read_reshape[0])) > 1:
+        import tensorflow as tf
         print('WARNING: Logits are not probabilities. Running softmax operation.',file=sys.stderr)
         sess = tf.Session()
         read_reshape = sess.run(tf.nn.softmax(read_reshape))
@@ -86,8 +87,8 @@ if __name__ == '__main__':
     logits2_reshape = load_logits(file2, reverse_complement=True,window=args.logits_size)
 
     # smaller test data for your poor laptop
-    #logits1_reshape = logits1_reshape[:30]
-    #logits2_reshape = logits2_reshape[:30]
+    #logits1_reshape = logits1_reshape[:10]
+    #logits2_reshape = logits2_reshape[:10]
 
     logits1 = np.concatenate(logits1_reshape)
     logits2 = np.concatenate(logits2_reshape)
@@ -103,6 +104,7 @@ if __name__ == '__main__':
     signal_to_sequence1 = []
     signal_to_sequence2 = []
 
+    print('Performing 1D basecalling...',file=sys.stderr)
     # Perform 1d basecalling and get signal-sequence mapping by taking
     # argmax of final forward matrix.
     for i,y in enumerate(logits1_reshape):
@@ -110,7 +112,7 @@ if __name__ == '__main__':
         s_len = len(prefix)
         forward_indices = np.argmax(forward,axis=0)
         assert(s_len == len(forward_indices))
-        signal_to_sequence1.append(forward_indices+200*i)
+        signal_to_sequence1.append(forward_indices+args.logits_size*i)
         read1_prefix += ctc.prefix_search(y)[0]
 
     for i,y in enumerate(logits2_reshape):
@@ -118,13 +120,16 @@ if __name__ == '__main__':
         s_len = len(prefix)
         forward_indices = np.argmax(forward,axis=0)
         assert(s_len == len(forward_indices))
-        signal_to_sequence2.append(forward_indices+200*i)
+        signal_to_sequence2.append(forward_indices+args.logits_size*i)
         read2_prefix += ctc.prefix_search(y)[0]
 
     signal_to_sequence1 = np.concatenate(np.array(signal_to_sequence1))
     signal_to_sequence2 = np.concatenate(np.array(signal_to_sequence2))
-    #print(U,len(signal_to_sequence1), len(read1_prefix))
 
+    #print(U,len(signal_to_sequence1), len(read1_prefix))
+    #print(V,len(signal_to_sequence2), len(read2_prefix))
+
+    print('Aligning basecalled sequences...',file=sys.stderr)
     # alignment should be replaced with a more efficient implementation
     alignment = align.global_align(read1_prefix, read2_prefix)
 
