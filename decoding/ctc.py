@@ -95,7 +95,7 @@ def prefix_search(y, alphabet=OrderedDict([('A',0),('C',1),('G',2),('T',3)]),ret
 
     top_label = ''
     top_label_prob = 0
-    top_fw = np.array([])
+    top_label_fw = np.array([])
 
     curr_label = ''
     curr_label_fw = np.array([])

@@ -35,6 +35,10 @@ def load_logits(file_path, reverse_complement=False, window=200):
     # assuming we know how it was generated.
     read_raw = np.fromfile(file_path,dtype=np.float32)
     read_reshape = read_raw.reshape(-1,window,5) # assuming alphabet of 5 and window size of 200
+    if np.abs(np.sum(read_reshape[0])) > 1:
+        print('WARNING: Logits are not probabilities. Running softmax operation.',file=sys.stderr)
+        sess = tf.Session()
+        read_reshape = sess.run(tf.nn.softmax(read_reshape))
     if reverse_complement:
         # logit reordering: (A,C,G,T,-)/(0,1,2,3,4) => (T,G,C,A,-)/(3,2,1,0,4)
         read_reshape = read_reshape[::-1,::-1,[3,2,1,0,4]]

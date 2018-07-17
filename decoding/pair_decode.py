@@ -25,6 +25,11 @@ def load_logits(file_path, reverse_complement=False, window=200):
     # assuming we know how it was generated.
     read_raw = np.fromfile(file_path,dtype=np.float32)
     read_reshape = read_raw.reshape(-1,window,5) # assuming alphabet of 5 and window size of 200
+    if np.abs(np.sum(read_reshape[0])) > 1:
+        import tensorflow as tf
+        print('WARNING: Logits are not probabilities. Running softmax operation.',file=sys.stderr)
+        sess = tf.Session()
+        read_reshape = sess.run(tf.nn.softmax(read_reshape))
     if reverse_complement:
         # logit reordering: (A,C,G,T,-)/(0,1,2,3,4) => (T,G,C,A,-)/(3,2,1,0,4)
         read_reshape = read_reshape[::-1,::-1,[3,2,1,0,4]]
@@ -59,14 +64,14 @@ if __name__ == '__main__':
         '''
         Function to be run in parallel.
         '''
-        print(u1,u2,v1,v2)
-        return(consensus.pair_prefix_search(logits1[u1:u2],logits2[v1:v2])[0])
+        if args.threads == 1 :
+            print(u1,u2,v1,v2,file=sys.stderr)
+        return(consensus.pair_prefix_search_vec(logits1[u1:u2],logits2[v1:v2])[0])
 
     def basecall_box_envelope(u1,u2,v1,v2):
         '''
         Function to be run in parallel.
         '''
-        print(u1,u2,v1,v2)
         envelope = consensus.diagonal_band_envelope(u2-u1,v2-v1,args.width)
         return(consensus.pair_prefix_search(logits1[u1:u2],logits2[v1:v2], envelope=envelope, forward_algorithm=consensus.pair_forward_sparse)[0])
 
