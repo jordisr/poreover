@@ -107,23 +107,26 @@ if __name__ == '__main__':
     signal_to_sequence2 = []
 
     print('Performing 1D basecalling...',file=sys.stderr)
-    # Perform 1d basecalling and get signal-sequence mapping by taking
-    # argmax of final forward matrix.
-    for i,y in enumerate(logits1_reshape):
-        (prefix, forward) = ctc.prefix_search(y, return_forward=True)
-        s_len = len(prefix)
-        forward_indices = np.argmax(forward,axis=0)
-        assert(s_len == len(forward_indices))
-        signal_to_sequence1.append(forward_indices+args.logits_size*i)
-        read1_prefix += ctc.prefix_search(y)[0]
 
-    for i,y in enumerate(logits2_reshape):
+    def basecall1d(y):
+        # Perform 1d basecalling and get signal-sequence mapping by taking
+        # argmax of final forward matrix.
         (prefix, forward) = ctc.prefix_search(y, return_forward=True)
         s_len = len(prefix)
         forward_indices = np.argmax(forward,axis=0)
         assert(s_len == len(forward_indices))
-        signal_to_sequence2.append(forward_indices+args.logits_size*i)
-        read2_prefix += ctc.prefix_search(y)[0]
+        return((prefix,forward_indices))
+
+    with Pool(processes=args.threads) as pool:
+        basecalls1d_1 = pool.map(basecall1d, logits1_reshape)
+        for i,out in enumerate(basecalls1d_1):
+            read1_prefix += out[0]
+            signal_to_sequence1.append(out[1]+args.logits_size*i)
+
+        basecalls1d_2 = pool.map(basecall1d, logits2_reshape)
+        for i,out in enumerate(basecalls1d_2):
+            read2_prefix += out[0]
+            signal_to_sequence2.append(out[1]+args.logits_size*i)
 
     with open(args.out+'.1d.fasta','w') as f:
         print(fasta_format(file1,read1_prefix),file=f)
@@ -232,6 +235,7 @@ if __name__ == '__main__':
 
     assert(abs(len(basecall_boxes) - len(basecall_anchors))==1)
 
+    print('Starting consensus basecalling...',file=sys.stderr)
     NUM_THREADS = args.threads
     with Pool(processes=NUM_THREADS) as pool:
         basecalls = pool.starmap(basecall_box, basecall_boxes)
