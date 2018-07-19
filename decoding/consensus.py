@@ -37,61 +37,6 @@ def pair_gamma(y1,y2):
 
     return(gamma_)
 
-class alignment_envelope_dense:
-    '''
-    Store envelope in dense numpy array and keep list of tuples of entries.
-    '''
-    def __init__(self,U,V):
-        self.U = U
-        self.V = V
-        self.envelope = np.zeros(shape=(U,V),dtype=int)
-        self.keys_ = []
-    def __contains__(self,t):
-        if self.envelope[t[0],t[1]] == 1:
-            return True
-        else:
-            return False
-    def add(self,u,v):
-        self.envelope[u,v] = 1
-        self.keys_.append((u,v))
-    def keys(self):
-        return(sorted(self.keys_))
-    def toarray(self):
-        return self.envelope
-
-def diagonal_band_envelope(U,V,width):
-    envelope = alignment_envelope_dense(U,V)
-    for u in range(U):
-        # just steps across main diagonal line. Width is size above and below
-        # the main diagonal
-        center = int(np.round(V/U*u))
-        for v in range(center-width, center+width+1):
-            if 0 <= v < V:
-                envelope.add(u,v)
-    return(envelope)
-
-def sample_gamma(y1,y2,n=1):
-    U = len(y1)
-    V = len(y2)
-
-    # get gamma matrix
-    gamma_ = pair_gamma(y1,y2)
-    gamma_[:,-1] = gamma_[-1,:] = 0
-
-    # initialize alignment envelope
-    envelope = alignment_envelope_dense(U,V)
-    envelope.add(0,0)
-
-    for i in range(n):
-        (u,v) = (0,0)
-        while (u < U-1) or (v < V-1):
-            samples = np.array([gamma_[u+1,v],gamma_[u,v+1],gamma_[u+1,v+1]])
-            (u,v) = np.array([u,v]) + [(1,0),(0,1),(1,1)][np.random.choice([0,1,2], p=samples/np.sum(samples))]
-            if (u,v) not in envelope:
-                envelope.add(u,v)
-
-    return(gamma_, envelope)
-
 def pair_forward(l, y1, y2, mask=None, previous=None):
     '''
     Naive implementation.
@@ -131,67 +76,6 @@ def pair_forward(l, y1, y2, mask=None, previous=None):
 
                 alpha_ast[s,u,v] = alpha_ast_ast[s,u,v] + alpha_ast_eps
                 alpha[s,u,v] = alpha_eps + alpha_ast[s,u,v]
-
-    return(alpha, alpha_ast_ast, alpha_ast)
-
-def pair_forward_sparse(l, y1, y2, mask, previous=None):
-    '''
-    Requires alignment envelope. Iteration is only done over entries in the envelope.
-    '''
-    U = len(y1)
-    V = len(y2)
-    S = len(l)
-    shift = 2
-
-    alpha = np.zeros(shape=(S+shift,U+shift,V+shift))
-    alpha_ast_ast = np.zeros(shape=(S+shift,U+shift,V+shift))
-    alpha_ast = np.zeros(shape=(S+shift,U+shift,V+shift))
-
-    if previous is not None:
-        alpha[:-1] = previous[0]
-        alpha_ast[:-1] = previous[1]
-        alpha_ast_ast[:-1] = previous[2]
-        s_range = [S + shift - 1]
-    else:
-        s_range = range(1,S+shift)
-
-    alpha_ast_ast[1][1,1] = 1
-    alpha_ast[1][1,1] = 1
-    alpha[1][1,1] = 1
-
-    # list of (u,v) tuples in alignment envelope
-    sorted_keys = sorted(mask.keys())
-    envelope_size = len(sorted_keys)
-
-    s=1
-    for u in range(2,U+shift):
-        v = 1
-        alpha_eps = y1[u-shift,-1]*alpha[s][u-1,v]
-        alpha_ast_eps = y2[v-shift,-1]*alpha_ast[s][u,v-1]
-        alpha_ast_ast[s][u,v] = y1[u-shift,l[s-shift]]*y2[v-shift,l[s-shift]]*alpha[s-1][u-1,v-1]
-        alpha_ast[s][u,v] = alpha_ast_ast[s][u,v] + alpha_ast_eps
-        alpha[s][u,v] = alpha_eps + alpha_ast[s][u,v]
-
-    for v in range(2,V+shift):
-        u = 1
-        alpha_eps = y1[u-shift,-1]*alpha[s][u-1,v]
-        alpha_ast_eps = y2[v-shift,-1]*alpha_ast[s][u,v-1]
-        alpha_ast_ast[s][u,v] = y1[u-shift,l[s-shift]]*y2[v-shift,l[s-shift]]*alpha[s-1][u-1,v-1]
-        alpha_ast[s][u,v] = alpha_ast_ast[s][u,v] + alpha_ast_eps
-        alpha[s][u,v] = alpha_eps + alpha_ast[s][u,v]
-
-    for s in s_range:
-        for i,k in enumerate(sorted_keys):
-            (u_env, v_env) = k
-            u = u_env + shift
-            v = v_env + shift
-
-            alpha_eps = y1[u-shift,-1]*alpha[s][u-1,v]
-            alpha_ast_eps = y2[v-shift,-1]*alpha_ast[s][u,v-1]
-            alpha_ast_ast[s][u,v] = y1[u-shift,l[s-shift]]*y2[v-shift,l[s-shift]]*alpha[s-1][u-1,v-1]
-
-            alpha_ast[s][u,v] = alpha_ast_ast[s][u,v] + alpha_ast_eps
-            alpha[s][u,v] = alpha_eps + alpha_ast[s][u,v]
 
     return(alpha, alpha_ast_ast, alpha_ast)
 
@@ -267,14 +151,6 @@ def pair_prefix_search(y1, y2, envelope=None, alphabet=DNA_alphabet, forward_alg
 
     return(top_label, label_prob[top_label])
 
-################################################################################
-'''
-Working on faster vectorized version
-- Add column to each of individual forward matrices
-- last*last = new label probability
-- outer product gives next slice of alpha**, sum for prefix Probability
-'''
-
 def forward_vec(s,i,y,previous=None):
     '''
     Arguments:
@@ -335,7 +211,8 @@ def pair_prefix_search_vec(y1, y2, alphabet=DNA_alphabet):
     '''
     Do 2d prefix search. Arguments are softmax probabilities of each read,
     an alignment_envelope object, and an OrderedDict with the alphabet.
-    Tries to be more clever about vectorization and not iterating over full alpha 2d matrix.
+    Tries to be more clever about vectorization and not iterating over
+    full alpha 2d matrix.
     '''
 
     # calculate full gamma matrix
@@ -444,5 +321,3 @@ def prefix_search_vec(y, alphabet=DNA_alphabet):
             alpha_prev = prefix_alphas[alphabet[curr_label[-1]]]
 
     return(top_label, label_prob[top_label])
-
-################################################################################

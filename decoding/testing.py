@@ -2,16 +2,32 @@ import itertools
 import operator
 import numpy as np
 from collections import OrderedDict
-import consensus
 
-def remove_gaps(a):
-    # only needed for greedy decoding
-    # unlike standard CTC, does not remove repeated characters
-    label = ''
-    for i in a:
-        if i != '-':
-            label += i
-    return(label)
+import consensus
+from ctc import remove_gaps
+
+'''
+Tests to write/modify:
+ctc.greedy_search
+ctc.remove_gaps
+ctc.forward
+ctc.forward_add_column
+ctc.forward_prefix_prob
+ctc.prefix_search
+
+consensus.pair_gamma
+consensus.pair_forward
+consensus.pair_label_prob
+consensus.pair_prefix_prob
+consensus.pair_prefix_search
+
+consensus.forward_vec
+consensus.alpha_ast_1d
+consensus.prefix_prob_vec
+consensus.prefix_prob_vec
+consensus.pair_prefix_search_vec
+consensus.prefix_search_vec
+'''
 
 class profile:
     '''
@@ -46,6 +62,9 @@ class profile:
     def top_label_prob(self):
         for k,v in reversed(sorted(self.label_prob.items(), key=operator.itemgetter(1), reverse=False)[-20:]):
             print(k,v)
+
+    def label_prob(self,label):
+        return(self.label_prob[label])
 
     def prefix_prob(self,prefix):
         prefix_prob_ = 0
@@ -91,7 +110,8 @@ def test_prefix_search(y1,y2,envelope=None):
 
     top_label = max(joint_label_prob.items(), key=operator.itemgetter(1))[0]
     print('top_label:',top_label, 'probability:',joint_label_prob[top_label],
-    'prefix_search:',consensus.pair_prefix_search(y1,y2,alphabet=toy_alphabet, envelope=envelope))
+    #'prefix_search:',consensus.pair_prefix_search(y1,y2,alphabet=toy_alphabet, envelope=envelope))
+    'prefix_search:',consensus.pair_prefix_search_vec(y1,y2,alphabet=toy_alphabet))
 
 if __name__ == '__main__':
 
@@ -110,47 +130,3 @@ if __name__ == '__main__':
     y2 = np.array([[0.7,0.2,0.1],[0.2,0.3,0.5],[0.7,0.2,0.1],[0.05,0.05,0.9]])
     examples = ['AAAA','ABBA','ABA','AA','BB','A','B']
     test_pair_forward(y1,y2,examples=examples)
-
-    print('--- Testing forward algorithm with full alignment envelope ---')
-    U = len(y1)
-    V = len(y2)
-    full_envelope = consensus.alignment_envelope_dense(U,V)
-    for u in range(U):
-        for v in range(V):
-            full_envelope.add(u,v)
-    test_pair_forward(y1,y2,examples=examples,envelope=full_envelope)
-
-    print('alternative implementation (should be the same)')
-    test_pair_forward(y1,y2,examples=examples,envelope=full_envelope,forward_algorithm=consensus.pair_forward_sparse)
-
-    print('--- Testing banded alignment envelope ---')
-    (U, V) = (5,5)
-    print('width=0\n',consensus.diagonal_band_envelope(U,V,0).toarray())
-    print('width=1\n',consensus.diagonal_band_envelope(U,V,1).toarray())
-    print('width=2\n',consensus.diagonal_band_envelope(U,V,2).toarray())
-    print('width=3\n',consensus.diagonal_band_envelope(U,V,3).toarray())
-
-    (U, V) = (5,4)
-    print('width=0\n',consensus.diagonal_band_envelope(U,V,0).toarray())
-    print('width=1\n',consensus.diagonal_band_envelope(U,V,1).toarray())
-    print('width=2\n',consensus.diagonal_band_envelope(U,V,2).toarray())
-    print('width=3\n',consensus.diagonal_band_envelope(U,V,3).toarray())
-
-    (U, V) = (2,10)
-    print('width=0\n',consensus.diagonal_band_envelope(U,V,0).toarray())
-    print('width=1\n',consensus.diagonal_band_envelope(U,V,1).toarray())
-    print('width=2\n',consensus.diagonal_band_envelope(U,V,2).toarray())
-    print('width=3\n',consensus.diagonal_band_envelope(U,V,3).toarray())
-
-    print('--- Single diagonal band doesn\'t match ---')
-    y1 = y2 = np.array([[0.8,0.1,0.1],[0.1,0.3,0.6],[0.7,0.2,0.1],[0.8,0.1,0.1]])
-    (U, V) = (len(y1),len(y2))
-    band_envelope = consensus.diagonal_band_envelope(U,V,0)
-    test_pair_forward(y1,y2,examples=examples,envelope=band_envelope)
-    test_prefix_search(y1,y2,envelope=band_envelope)
-
-    print('except when most of the probability passes through it')
-    y1 = y2 = np.array([[1,0,0],[0,1,0]])
-    (U, V) = (len(y1),len(y2))
-    band_envelope = consensus.diagonal_band_envelope(U,V,0)
-    test_prefix_search(y1,y2,envelope=band_envelope)
