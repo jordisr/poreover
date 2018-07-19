@@ -6,67 +6,59 @@ from collections import OrderedDict
 import consensus
 from ctc import remove_gaps
 
-'''
-Tests to write/modify:
-ctc.greedy_search
-ctc.remove_gaps
-ctc.forward
-ctc.forward_add_column
-ctc.forward_prefix_prob
-ctc.prefix_search
-
-consensus.pair_gamma
-consensus.pair_forward
-consensus.pair_label_prob
-consensus.pair_prefix_prob
-consensus.pair_prefix_search
-
-consensus.forward_vec
-consensus.alpha_ast_1d
-consensus.prefix_prob_vec
-consensus.prefix_prob_vec
-consensus.pair_prefix_search_vec
-consensus.prefix_search_vec
-'''
-
 class profile:
     '''
     Simple class for probabilistic profiles. Label probabilities are calculated
     by enumerating all paths. Useful for unit testing of CTC code on toy examples.
 
     Arguments:
-    sofmax: numpy array of softmax probabilities, shape is Lx|alphabet|, where L is
-        the number of observations
+    sofmax: numpy array of softmax probabilities, shape is Lx|alphabet|, where
+        L is the number of observations
     alphabet: tuple of the character alphabet, including the gap character
     merge_function: function used to map paths to label sequences, this could
         involve collapsing repeated labels or just removing gaps.
     '''
-    def __init__(self,softmax, alphabet, merge_function=remove_gaps):
+    def __init__(self, softmax, alphabet, merge_function=remove_gaps):
         self.softmax = softmax
         self.alphabet = alphabet
         self.merge_function = merge_function
 
-        self.label_prob = dict()
+        self.label_prob_ = dict()
         self.path_prob = dict()
+
+        total_path_prob  = 0
 
         for path in itertools.product(range(len(alphabet)),repeat=len(self.softmax)):
             path_prob_ = np.product(self.softmax[np.arange(len(self.softmax)),np.array(path)])
+            total_path_prob += path_prob_
             self.path_prob[path] = path_prob_
 
             label = self.merge_function([self.alphabet[l] for l in path])
-            if label in self.label_prob:
-                self.label_prob[label] += path_prob_
+            if label in self.label_prob_:
+                self.label_prob_[label] += path_prob_
             else:
-                self.label_prob[label] = path_prob_
+                self.label_prob_[label] = path_prob_
 
-    def top_label_prob(self):
-        for k,v in reversed(sorted(self.label_prob.items(), key=operator.itemgetter(1), reverse=False)[-20:]):
-            print(k,v)
+        assert(np.isclose(total_path_prob, 1.0))
 
-    def label_prob(self,label):
-        return(self.label_prob[label])
+        self.label_prob_ = OrderedDict(sorted(self.label_prob_.items(), key=operator.itemgetter(1), reverse=True))
 
-    def prefix_prob(self,prefix):
+    def top_label(self, n=1):
+        l = list(self.label_prob_.items())
+        if n == 1:
+            return(l[0])
+        elif n > len(l):
+            return(l)
+        else:
+            return(l[:n])
+
+    def label_prob(self, label):
+        return(self.label_prob_.get(label,0.))
+
+    def all_labels(self):
+        return(self.label_prob_.keys())
+
+    def prefix_prob(self, prefix):
         prefix_prob_ = 0
         for t in range(len(self.softmax)):
             for path in itertools.product(range(len(self.alphabet)),repeat=(t+1)):
@@ -77,15 +69,27 @@ class profile:
                         prefix_prob_ += path_prob_
         return(prefix_prob_)
 
-def joint_prob(profile1, profile2):
-    joint_label_prob = dict()
-    for k,v1 in profile1.label_prob.items():
-        if k in profile2.label_prob:
-            v2 = profile2.label_prob[k]
-            joint_label_prob[k] = v1*v2
+class joint_profile:
+    def __init__(self, prof1, prof2):
+        self.joint_label_prob_ = dict()
+        self.prob_agree = 0.
+        for label in prof1.all_labels():
+            joint_prob = prof1.label_prob(label)*prof2.label_prob(label)
+            self.joint_label_prob_[label] = joint_prob
+            self.prob_agree += joint_prob
+        self.joint_label_prob_ = OrderedDict(sorted(self.joint_label_prob_.items(), key=operator.itemgetter(1), reverse=True))
+
+    def top_label(self, n=1):
+        l = list(self.joint_label_prob_.items())
+        if n == 1:
+            return(l[0])
+        elif n > len(l):
+            return(l)
         else:
-            joint_label_prob[k] = 0
-    return(joint_label_prob)
+            return(l[:n])
+
+    def label_prob(self, label):
+        return(self.joint_label_prob_.get(label,0.))
 
 def test_pair_forward(y1,y2, examples,envelope=None,forward_algorithm=consensus.pair_forward):
     alphabet = ('A','B','')
@@ -93,25 +97,24 @@ def test_pair_forward(y1,y2, examples,envelope=None,forward_algorithm=consensus.
 
     profile1=profile(y1,alphabet,remove_gaps)
     profile2=profile(y2,alphabet,remove_gaps)
-    joint_label_prob = joint_prob(profile1,profile2)
+    joint_prof = joint_profile(profile1, profile2)
 
     for label in examples:
         label_int = [alphabet_dict[i] for i in label]
         alpha,_,_  = forward_algorithm(label_int,y1,y2,mask=envelope)
-        print(label,consensus.pair_label_prob(alpha), joint_label_prob[label])
+        assert(np.isclose(consensus.pair_label_prob(alpha), joint_prof.label_prob(label)))
 
 def test_prefix_search(y1,y2,envelope=None):
     alphabet = ('A','B','')
     toy_alphabet = OrderedDict([('A',0),('B',1)])
 
-    profile1=profile(y1,alphabet,remove_gaps)
+    profile1= profile(y1,alphabet,remove_gaps)
     profile2=profile(y2,alphabet,remove_gaps)
-    joint_label_prob = joint_prob(profile1,profile2)
+    joint_prof = joint_profile(profile1, profile2)
 
-    top_label = max(joint_label_prob.items(), key=operator.itemgetter(1))[0]
-    print('top_label:',top_label, 'probability:',joint_label_prob[top_label],
-    #'prefix_search:',consensus.pair_prefix_search(y1,y2,alphabet=toy_alphabet, envelope=envelope))
-    'prefix_search:',consensus.pair_prefix_search_vec(y1,y2,alphabet=toy_alphabet))
+    top_label = joint_prof.top_label()
+    search_top_label = consensus.pair_prefix_search_vec(y1,y2,alphabet=toy_alphabet)
+    assert((top_label[0] == search_top_label[0]) and np.isclose(top_label[1] / joint_prof.prob_agree, search_top_label[1]))
 
 if __name__ == '__main__':
 
