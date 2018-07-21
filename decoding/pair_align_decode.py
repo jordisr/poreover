@@ -46,15 +46,15 @@ def load_logits(file_path, reverse_complement=False, window=200):
         read_reshape = read_reshape[::-1,::-1,[3,2,1,0,4]]
     return(read_reshape)
 
-def basecall_box(u1,u2,v1,v2):
+def basecall_box(id,u1,u2,v1,v2):
     '''
     Function to be run in parallel.
     '''
-    print('basecalling segment:',u1,u2,v1,v2,file=sys.stderr)
+    print('\tBasecalling bases {}-{}:{}-{}'.format(u1,u2,v1,v2),file=sys.stderr)
     if (u2-u1)+(v2-v1) < 1:
-        return(u1,'')
+        return(id,'')
     else:
-        return((u1, consensus.pair_prefix_search_vec(logits1[u1:u2],logits2[v1:v2])[0]))
+        return((id, consensus.pair_prefix_search_vec(logits1[u1:u2],logits2[v1:v2])[0]))
 
 def basecall_box_envelope(u1,u2,v1,v2):
     '''
@@ -98,13 +98,11 @@ if __name__ == '__main__':
     U = len(logits1)
     V = len(logits2)
 
-    s_tot = 0
-
     read1_prefix = ""
     read2_prefix = ""
 
-    signal_to_sequence1 = []
-    signal_to_sequence2 = []
+    sequence_to_signal1 = []
+    sequence_to_signal2 = []
 
     print('Performing 1D basecalling...',file=sys.stderr)
 
@@ -121,39 +119,43 @@ if __name__ == '__main__':
         basecalls1d_1 = pool.map(basecall1d, logits1_reshape)
         for i,out in enumerate(basecalls1d_1):
             read1_prefix += out[0]
-            signal_to_sequence1.append(out[1]+args.logits_size*i)
+            sequence_to_signal1.append(out[1]+args.logits_size*i)
 
         basecalls1d_2 = pool.map(basecall1d, logits2_reshape)
         for i,out in enumerate(basecalls1d_2):
             read2_prefix += out[0]
-            signal_to_sequence2.append(out[1]+args.logits_size*i)
+            sequence_to_signal2.append(out[1]+args.logits_size*i)
 
     with open(args.out+'.1d.fasta','w') as f:
         print(fasta_format(file1,read1_prefix),file=f)
         print(fasta_format(file2,read2_prefix),file=f)
 
-    signal_to_sequence1 = np.concatenate(np.array(signal_to_sequence1))
-    signal_to_sequence2 = np.concatenate(np.array(signal_to_sequence2))
+    sequence_to_signal1 = np.concatenate(np.array(sequence_to_signal1))
+    assert(len(sequence_to_signal1) == len(read1_prefix))
 
-    #print(U,len(signal_to_sequence1), len(read1_prefix))
-    #print(V,len(signal_to_sequence2), len(read2_prefix))
+    sequence_to_signal2 = np.concatenate(np.array(sequence_to_signal2))
+    assert(len(sequence_to_signal2) == len(read2_prefix))
 
     print('Aligning basecalled sequences...',file=sys.stderr)
-    # alignment should be replaced with a more efficient implementation
     alignment = align.global_align(read1_prefix, read2_prefix)
-
-    # get alignment-sequence mapping
-    # no boundary case for first element but it will wrap around to the last (which is zero)
     alignment = np.array(alignment[:2])
-    alignment_to_sequence = np.zeros(shape=alignment.shape,dtype=int)
-    for i,t in enumerate(alignment.T):
-        for j in range(2):
-            if t[j] == '-':
-                alignment_to_sequence[j,i] = alignment_to_sequence[j,i-1]
-            else:
-                alignment_to_sequence[j,i] = alignment_to_sequence[j,i-1] + 1
+    print('\tRead sequence identity: {}'.format(np.sum(alignment[0] == alignment[1]) / len(alignment[0])), file=sys.stderr)
 
-    # find alignment 'anchors' from contiguous stretches of matches
+    # get alignment_to_sequence mapping
+    alignment_to_sequence = np.zeros(shape=alignment.shape,dtype=int)
+    for i,col in enumerate(alignment.T):
+        # no boundary case for first element but it will wrap around to the last (which is zero)
+        for s in range(2):
+            if col[s] == '-':
+                alignment_to_sequence[s,i] = alignment_to_sequence[s,i-1]
+            else:
+                alignment_to_sequence[s,i] = alignment_to_sequence[s,i-1] + 1
+
+    #print('LOGITS 1 -- size:{} SEQ_LENGTH:{} sequence_to_signal:{} ALGN_TO_SEQUENCE:{}'.format(U,len(sequence_to_signal1), len(read1_prefix), len(alignment_to_sequence[0])))
+    #print('LOGITS 1 -- size:{} SEQ_LENGTH:{} sequence_to_signal:{} ALGN_TO_SEQUENCE:{}'.format(V,len(sequence_to_signal2), len(read2_prefix), len(alignment_to_sequence[0])))
+
+    '''
+    # find alignment 'anchors' from contiguous stretches of `matches`
     match_threshold = args.matches
     match = 0
     matches = []
@@ -172,10 +174,11 @@ if __name__ == '__main__':
                 match_end = i
                 matches.append((match_start,match_end))
             match = 0
+    '''
 
     # find alignment 'anchors' from contiguous stretches of matches (or indels)
     state_start = 0
-    state_counter = 0
+    state_counter = 1
     prev_state = 'START'
     anchor_ranges = []
     anchor_type = []
@@ -194,45 +197,64 @@ if __name__ == '__main__':
         if prev_state == state and state != 'mis':
             state_counter += 1
         else:
-            if prev_state == 'ins' and state_counter > args.indels:
+            if prev_state == 'ins' and state_counter >= args.indels:
                 anchor_ranges.append((state_start,i))
                 anchor_type.append(prev_state)
-            if prev_state == 'del' and state_counter > args.indels:
+            if prev_state == 'del' and state_counter >= args.indels:
                 anchor_ranges.append((state_start,i))
                 anchor_type.append(prev_state)
-            if prev_state == 'mat' and state_counter > args.matches:
+            if prev_state == 'mat' and state_counter >= args.matches:
                 anchor_ranges.append((state_start,i))
                 anchor_type.append(prev_state)
 
             prev_state = state
-            state_counter = 0
+            state_counter = 1
             state_start = i
-
-    #for i, r in enumerate(anchor_ranges):
-    #    print(anchor_type[i], alignment[0, r[0]:r[1]], alignment[1, r[0]:r[1]])
 
     basecall_boxes = []
     basecall_anchors = []
 
-    # double check boundary conditions, leaving any out at the beginning/end?
     for i,(curr_start, curr_end) in enumerate(anchor_ranges):
+
+        #print(i,curr_start,curr_end,anchor_type[i])
 
         # get anchor sequences
         if anchor_type[i] == 'mat':
-            basecall_anchors.append((signal_to_sequence1[alignment_to_sequence[0,curr_start]],''.join(alignment[0,curr_start:curr_end])))
+            basecall_anchors.append((curr_start, ''.join(alignment[0,curr_start:curr_end])))
         elif anchor_type[i] == 'ins':
-            basecall_anchors.append((signal_to_sequence1[alignment_to_sequence[1,curr_start]],''.join(alignment[1,curr_start:curr_end])))
+            basecall_anchors.append((curr_start, ''.join(alignment[1,curr_start:curr_end])))
         elif anchor_type[i] == 'del':
-            basecall_anchors.append((signal_to_sequence1[alignment_to_sequence[0,curr_start]],''.join(alignment[0,curr_start:curr_end])))
+            basecall_anchors.append((curr_start, ''.join(alignment[0,curr_start:curr_end])))
 
         if i > 0:
             basecall_boxes.append((
-            signal_to_sequence1[alignment_to_sequence[0,anchor_ranges[i-1][1]]],
-            signal_to_sequence1[alignment_to_sequence[0,anchor_ranges[i][0]]],
-            signal_to_sequence2[alignment_to_sequence[1,anchor_ranges[i-1][1]]],
-            signal_to_sequence2[alignment_to_sequence[1,anchor_ranges[i][0]]]
+            curr_end,
+            sequence_to_signal1[alignment_to_sequence[0,anchor_ranges[i-1][1]]],
+            sequence_to_signal1[alignment_to_sequence[0,anchor_ranges[i][0]]],
+            sequence_to_signal2[alignment_to_sequence[1,anchor_ranges[i-1][1]]],
+            sequence_to_signal2[alignment_to_sequence[1,anchor_ranges[i][0]]]
+            ))
+        else:
+            basecall_boxes.append((
+            curr_end,
+            0,
+            sequence_to_signal1[alignment_to_sequence[0,anchor_ranges[i][0]]],
+            0,
+            sequence_to_signal2[alignment_to_sequence[1,anchor_ranges[i][0]]]
             ))
 
+    #for i, r in enumerate(anchor_ranges):
+    #    print(anchor_type[i], r, alignment[0, r[0]:r[1]], alignment[1, r[0]:r[1]])
+
+    assert len(anchor_ranges) > 0, 'No matches/indels of sufficient length found in alignment. Try decreasing --matches or --indels'
+
+    # add last box on the end
+    basecall_boxes.append((
+    anchor_ranges[-1][1],
+    sequence_to_signal1[alignment_to_sequence[0,anchor_ranges[-1][1]]],
+    U,
+    sequence_to_signal2[alignment_to_sequence[1,anchor_ranges[-1][1]]],
+    V))
     assert(abs(len(basecall_boxes) - len(basecall_anchors))==1)
 
     print('Starting consensus basecalling...',file=sys.stderr)
@@ -240,8 +262,17 @@ if __name__ == '__main__':
     with Pool(processes=NUM_THREADS) as pool:
         basecalls = pool.starmap(basecall_box, basecall_boxes)
 
-    #print('ANCHORS', basecall_anchors, file=sys.stderr)
-    #print('BASECALLS', basecalls, file=sys.stderr)
+    # code for debuggging
+    '''
+    print('*'*80)
+    for i, r in enumerate(anchor_ranges):
+        print(anchor_type[i], r, alignment[0, r[0]:r[1]], alignment[1, r[0]:r[1]])
+    print('ANCHOR_RANGES',anchor_ranges)
+    print('BASECALL_BOXES',basecall_boxes)
+    print('ANCHORS', basecall_anchors, file=sys.stderr)
+    print('BASECALLS', basecalls, file=sys.stderr)
+    print('*'*80)
+    '''
 
     # sort each segment by its first signal index
     joined_basecalls = ''.join([i[1] for i in sorted(basecalls + basecall_anchors)])
