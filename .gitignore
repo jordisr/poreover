@@ -1,4 +1,6 @@
 __pycache__
+.pytest_cache
+.ipynb_checkpoints
 *~
 ./*.index
 ./*.meta
