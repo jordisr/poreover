@@ -3,7 +3,6 @@ import operator
 import numpy as np
 from collections import OrderedDict
 
-import consensus
 from ctc import remove_gaps
 
 class profile:
