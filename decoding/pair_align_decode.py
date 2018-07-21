@@ -46,15 +46,15 @@ def load_logits(file_path, reverse_complement=False, window=200):
         read_reshape = read_reshape[::-1,::-1,[3,2,1,0,4]]
     return(read_reshape)
 
-def basecall_box(id,u1,u2,v1,v2):
+def basecall_box(u1,u2,v1,v2):
     '''
     Function to be run in parallel.
     '''
     print('\tBasecalling bases {}-{}:{}-{}'.format(u1,u2,v1,v2),file=sys.stderr)
     if (u2-u1)+(v2-v1) < 1:
-        return(id,'')
+        return(u1,'')
     else:
-        return((id, consensus.pair_prefix_search_vec(logits1[u1:u2],logits2[v1:v2])[0]))
+        return((u1, consensus.pair_prefix_search_vec(logits1[u1:u2],logits2[v1:v2])[0]))
 
 def basecall_box_envelope(u1,u2,v1,v2):
     '''
@@ -73,8 +73,8 @@ if __name__ == '__main__':
     parser.add_argument('--logits', default='.', help='Paths to both logits', required=True, nargs='+')
     parser.add_argument('--logits_size', type=int, default=200, help='Window width used for basecalling')
     parser.add_argument('--threads', type=int, default=1, help='Processes to use')
-    parser.add_argument('--matches', type=int, default=4, help='Match size for building anchors')
-    parser.add_argument('--indels', type=int, default=4, help='Indel size for building anchors')
+    parser.add_argument('--matches', type=int, default=6, help='Match size for building anchors')
+    parser.add_argument('--indels', type=int, default=8, help='Indel size for building anchors')
     parser.add_argument('--out', default='out',help='Output file name')
     args = parser.parse_args()
 
@@ -220,15 +220,14 @@ if __name__ == '__main__':
 
         # get anchor sequences
         if anchor_type[i] == 'mat':
-            basecall_anchors.append((curr_start, ''.join(alignment[0,curr_start:curr_end])))
+            basecall_anchors.append((sequence_to_signal1[alignment_to_sequence[0,curr_start]], ''.join(alignment[0,curr_start:curr_end])))
         elif anchor_type[i] == 'ins':
-            basecall_anchors.append((curr_start, ''.join(alignment[1,curr_start:curr_end])))
+            basecall_anchors.append((sequence_to_signal1[alignment_to_sequence[0,curr_start]], ''.join(alignment[1,curr_start:curr_end])))
         elif anchor_type[i] == 'del':
-            basecall_anchors.append((curr_start, ''.join(alignment[0,curr_start:curr_end])))
+            basecall_anchors.append((sequence_to_signal1[alignment_to_sequence[0,curr_start]], ''.join(alignment[0,curr_start:curr_end])))
 
         if i > 0:
             basecall_boxes.append((
-            curr_end,
             sequence_to_signal1[alignment_to_sequence[0,anchor_ranges[i-1][1]]],
             sequence_to_signal1[alignment_to_sequence[0,anchor_ranges[i][0]]],
             sequence_to_signal2[alignment_to_sequence[1,anchor_ranges[i-1][1]]],
@@ -236,7 +235,6 @@ if __name__ == '__main__':
             ))
         else:
             basecall_boxes.append((
-            curr_end,
             0,
             sequence_to_signal1[alignment_to_sequence[0,anchor_ranges[i][0]]],
             0,
@@ -250,7 +248,6 @@ if __name__ == '__main__':
 
     # add last box on the end
     basecall_boxes.append((
-    anchor_ranges[-1][1],
     sequence_to_signal1[alignment_to_sequence[0,anchor_ranges[-1][1]]],
     U,
     sequence_to_signal2[alignment_to_sequence[1,anchor_ranges[-1][1]]],
