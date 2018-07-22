@@ -29,6 +29,11 @@ def fasta_format(name, seq, width=60):
     fasta += (seq[window:]+'\n')
     return(fasta)
 
+def softmax(logits):
+    dim = len(logits.shape)
+    axis_to_sum = dim-1
+    return( (np.exp(logits).T / np.sum(np.exp(logits),axis=axis_to_sum).T).T )
+
 def load_logits(file_path, reverse_complement=False, window=200):
     # this is assuming logits are in binary file which does not preserve shape
     # information... for portability will need to change this, but for now
@@ -37,10 +42,8 @@ def load_logits(file_path, reverse_complement=False, window=200):
     read_reshape = read_raw.reshape(-1,window,5) # assuming alphabet of 5 and window size of 200
     #print(read_reshape.shape)
     if np.abs(np.sum(read_reshape[0,0])) > 1:
-        import tensorflow as tf
         print('WARNING: Logits are not probabilities. Running softmax operation.',file=sys.stderr)
-        sess = tf.Session()
-        read_reshape = sess.run(tf.nn.softmax(read_reshape))
+        read_reshape = softmax(read_reshape)
     if reverse_complement:
         # logit reordering: (A,C,G,T,-)/(0,1,2,3,4) => (T,G,C,A,-)/(3,2,1,0,4)
         read_reshape = read_reshape[::-1,::-1,[3,2,1,0,4]]
