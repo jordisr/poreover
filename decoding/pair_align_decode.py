@@ -15,9 +15,9 @@ sequences.
 import numpy as np
 from multiprocessing import Pool
 import argparse, random, sys, glob, os, re
+from Bio import pairwise2
 
 import consensus
-import align
 import ctc
 
 def fasta_format(name, seq, width=60):
@@ -54,7 +54,11 @@ def basecall_box(u1,u2,v1,v2):
     if (u2-u1)+(v2-v1) < 1:
         return(u1,'')
     else:
-        return((u1, consensus.pair_prefix_search_vec(logits1[u1:u2],logits2[v1:v2])[0]))
+        try:
+            return((u1, consensus.pair_prefix_search_vec(logits1[u1:u2],logits2[v1:v2])[0]))
+        except:
+            print('WARNING: Error while basecalling box {}-{}:{}-{}'.format(u1,u2,v1,v2))
+            return(u1,'')
 
 def basecall_box_envelope(u1,u2,v1,v2):
     '''
@@ -137,8 +141,8 @@ if __name__ == '__main__':
     assert(len(sequence_to_signal2) == len(read2_prefix))
 
     print('Aligning basecalled sequences...',file=sys.stderr)
-    alignment = align.global_align(read1_prefix, read2_prefix)
-    alignment = np.array(alignment[:2])
+    alignment = pairwise2.align.globalms(read1_prefix, read2_prefix, 2, -1, -.5, -.1)
+    alignment = np.array([list(s) for s in alignment[0][:2]])
     print('\tRead sequence identity: {}'.format(np.sum(alignment[0] == alignment[1]) / len(alignment[0])), file=sys.stderr)
 
     # get alignment_to_sequence mapping
