@@ -125,6 +125,17 @@ def pair_forward_sparse(l, y1, y2, mask, previous=None):
 
     return(alpha, alpha_ast_ast, alpha_ast)
 
+def basecall_box_envelope(u1,u2,v1,v2):
+    '''
+    Function to be run in parallel.
+    '''
+    # set diagonal band of width 10% the mean length of both segments
+    width_fraction = 0.1
+    width = int(((u2-u1)+(v2-v1))/2*width_fraction)
+    #print(u1,u2,v1,v2,width)
+    envelope = consensus.diagonal_band_envelope(u2-u1,v2-v1,width)
+    return((u1, consensus.pair_prefix_search(logits1[u1:u2],logits2[v1:v2], envelope=envelope, forward_algorithm=consensus.pair_forward_sparse)[0]))
+
 if __name__ == '__main__':
 
     import testing

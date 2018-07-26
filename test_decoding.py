@@ -1,20 +1,5 @@
 '''
-Tests to write/modify:
-
-Original implementations:
-consensus.pair_gamma
-consensus.pair_forward
-consensus.pair_label_prob
-consensus.pair_prefix_prob
-consensus.pair_prefix_search
-
-Vectorized implementations:
-consensus.forward_vec
-consensus.alpha_ast_1d
-consensus.prefix_prob_vec
-consensus.prefix_prob_vec
-consensus.pair_prefix_search_vec
-consensus.prefix_search_vec
+Unit tests for decoding algorithms
 '''
 
 import unittest
@@ -22,7 +7,7 @@ import numpy as np
 from collections import OrderedDict
 
 from testing import profile, joint_profile
-from consensus import forward, pair_prefix_search, pair_gamma, prefix_search
+from decoding import forward, pair_prefix_search, pair_gamma, prefix_search
 
 '''
 class TestDecoding(unittest.TestCase):

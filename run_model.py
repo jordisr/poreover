@@ -6,9 +6,8 @@ import tensorflow as tf
 import h5py
 import os, sys, re, argparse
 import pickle
-import decoding.ctc
 
-# some custom helper functions
+import decoding
 import batch
 
 def label2base(l):
@@ -38,7 +37,7 @@ parser.add_argument('--model', help='Saved model to load (if directory, loads la
 parser.add_argument('--scaling', default='standard', choices=['standard', 'current', 'median', 'rescale'], help='Type of preprocessing (should be same as training)')
 parser.add_argument('--signal', help='File with space-delimited signal for testing')
 parser.add_argument('--fast5', default=False, help='FAST5 file to basecall (directories not currently supported)')
-parser.add_argument('--fasta', action='store_true', default=False, help='Write output sequence in FASTA')
+parser.add_argument('--fasta', action='store_true', default=True, help='Write output sequence in FASTA')
 parser.add_argument('--window', type=int, default=200, help='Call read using chunks of this size')
 parser.add_argument('--logits', default=False, help='Save output logits (and softmax probabilities) to file')
 parser.add_argument('--debug_ctc', default=False, action='store_true', help='Use own implementation of CTC decoding (WARNING: Does not collapse repeated characters)')
@@ -146,26 +145,13 @@ with tf.Session() as sess:
         assert(len(softmax)==len(sizes))
 
         def basecall_segment(i):
-            return(decoding.ctc.prefix_search(softmax[i][:sizes[i]])[0])
+            return(decoding.prefix_search(softmax[i][:sizes[i]])[0])
 
         NUM_THREADS = args.ctc_threads
         with Pool(processes=NUM_THREADS) as pool:
             basecalls = pool.map(basecall_segment, range(len(softmax)))
 
         sequence = ''.join(basecalls)
-
-        '''
-        # version without multiprocessing
-        for size_i,softmax_i in zip(sizes,softmax):
-            prediction_.append(ctc.prefix_search(softmax_i[:size_i])[0])
-            print('Prefix search done:',beam_search_counter,'of',beam_search_total, file=sys.stderr)
-            beam_search_counter += 1
-
-        # stitch decoded sequence together
-        sequence = ''
-        for s in prediction_:
-            sequence += s
-        '''
 
     else:
         # make prediction
