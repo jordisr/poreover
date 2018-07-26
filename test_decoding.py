@@ -7,7 +7,7 @@ import numpy as np
 from collections import OrderedDict
 
 from testing import profile, joint_profile
-from decoding import forward, pair_prefix_search, pair_gamma, prefix_search
+from decoding import forward, pair_prefix_search, pair_gamma, prefix_search, prefix_search_log
 
 '''
 class TestDecoding(unittest.TestCase):
@@ -112,6 +112,28 @@ class TestVectorized1D(unittest.TestCase):
             top_label = prof.top_label()
             search_top_label = prefix_search(y,alphabet=toy_alphabet)
             return((top_label[0] == search_top_label[0]) and np.isclose(top_label[1], search_top_label[1]))
+
+        y = np.array([[0.1,0.6,0.3],[0.4,0.2,0.4],[0.4,0.3,0.3],[0.2,0.8,0]])
+        self.assertTrue(helper(y))
+
+        y = np.array([[0.7,0.2,0.1],[0.2,0.3,0.5],[0.7,0.2,0.1],[0.05,0.05,0.9]])
+        self.assertTrue(helper(y))
+
+        y = np.array([[0.7,0.2,0.1],[0.2,0.3,0.5]])
+        self.assertTrue(helper(y))
+
+class TestDecodingLog(unittest.TestCase):
+
+    def test_prefix_search_log(self):
+
+        def helper(y):
+            alphabet = ('A','B','')
+            toy_alphabet = OrderedDict([('A',0),('B',1)])
+            prof = profile(y,alphabet)
+            top_label = prof.top_label()
+            search_top_label = prefix_search_log(y,alphabet=toy_alphabet)
+            print(top_label[0],np.log(top_label[1]), search_top_label[0],search_top_label[1])
+            return((top_label[0] == search_top_label[0]) and np.isclose(np.log(top_label[1]), search_top_label[1]))
 
         y = np.array([[0.1,0.6,0.3],[0.4,0.2,0.4],[0.4,0.3,0.3],[0.2,0.8,0]])
         self.assertTrue(helper(y))

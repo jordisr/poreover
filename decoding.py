@@ -1,6 +1,7 @@
 import numpy as np
 import operator, sys
 from collections import OrderedDict
+from functools import reduce
 
 # Default alphabet
 DNA_alphabet = OrderedDict([('A',0),('C',1),('G',2),('T',3)])
@@ -19,6 +20,13 @@ def greedy_search(logits, alphabet=['A','C','G','T','-']):
     argmax_ = np.argmax(logits, axis=1)
     chars_ = np.take(alphabet, argmax_)
     return(remove_gaps(chars_))
+
+# identities for log scale calculations
+LOG_0 = -float('Inf')
+LOG_1 = 0.
+
+def logsumexp(x):
+    return(reduce(np.logaddexp, x))
 
 def pair_gamma(y1,y2):
     '''
@@ -109,66 +117,6 @@ def forward_vec_no_gap(l,y,fw0):
         print('Ran into IndexError!', file=sys.stderr)
         return 1
 
-def prefix_search1(y, alphabet=DNA_alphabet, return_forward=False):
-    '''
-    1D prefix search
-    '''
-
-    # initialize prefix search variables
-    stop_search = False
-    search_level = 0
-    top_label = ''
-    curr_label = ''
-    curr_label_alphas = []
-    gap_prob = np.product(y[:,-1])
-    label_prob = {'':gap_prob}
-
-    # initalize variables for 1d forward probabilities
-    alpha_prev = forward_vec(-1,search_level,y)
-    top_forward = np.array([])
-
-    while not stop_search:
-        prefix_prob = {}
-        prefix_alphas = []
-        search_level += 1
-
-        for c,c_i in alphabet.items():
-            prefix = curr_label + c
-            prefix_int = [alphabet[i] for i in prefix]
-            if c_i == 0:
-                best_prefix = prefix
-
-            alpha_ast = forward_vec_no_gap(prefix_int,y,alpha_prev)
-            prefix_prob[prefix] = np.sum(alpha_ast)
-
-            # calculate label probability
-            alpha = forward_vec(c_i,search_level,y, previous=alpha_prev)
-            label_prob[prefix] = alpha[-1]
-            if label_prob[prefix] > label_prob[top_label]:
-                top_label = prefix
-            if prefix_prob[prefix] > prefix_prob[best_prefix]:
-                best_prefix = prefix
-            prefix_alphas.append(alpha)
-
-            #print(search_level, 'extending by prefix:',c, 'Prefix Probability:',prefix_prob[prefix], 'Label probability:',label_prob[prefix], file=sys.stderr)
-
-        #best_prefix = max(prefix_prob.items(), key=operator.itemgetter(1))[0]
-        #print('best prefix is:',best_prefix, file=sys.stderr)
-
-        if prefix_prob[best_prefix] < label_prob[top_label]:
-            stop_search = True
-        else:
-            # get highest probability label
-            #top_label = max(label_prob.items(), key=operator.itemgetter(1))[0]
-            # then move to prefix with highest prefix probability
-            curr_label = best_prefix
-            alpha_prev = prefix_alphas[alphabet[curr_label[-1]]]
-
-    if return_forward:
-        return(top_label, top_forward)
-    else:
-        return(top_label, label_prob[top_label])
-
 def prefix_search(y, alphabet=DNA_alphabet, return_forward=False):
     '''
     1D prefix search
@@ -204,6 +152,101 @@ def prefix_search(y, alphabet=DNA_alphabet, return_forward=False):
 
             # calculate label probability
             alpha = forward_vec(c_i,search_level,y, previous=alpha_prev)
+            prefix_forward[c_i, search_level-1] = alpha
+            label_prob[prefix] = alpha[-1]
+            if label_prob[prefix] > label_prob[top_label]:
+                top_label = prefix
+                top_forward = prefix_forward[c_i,:len(prefix)]
+                #print(len(top_label),len(top_forward))
+            if prefix_prob[prefix] > prefix_prob[best_prefix]:
+                best_prefix = prefix
+            prefix_alphas.append(alpha)
+
+            #print(search_level, 'extending by prefix:',c, 'Prefix Probability:',prefix_prob[prefix], 'Label probability:',label_prob[prefix], file=sys.stderr)
+
+        #best_prefix = max(prefix_prob.items(), key=operator.itemgetter(1))[0]
+        #print('best prefix is:',best_prefix, file=sys.stderr)
+
+        if prefix_prob[best_prefix] < label_prob[top_label]:
+            stop_search = True
+        else:
+            # get highest probability label
+            #top_label = max(label_prob.items(), key=operator.itemgetter(1))[0]
+            # then move to prefix with highest prefix probability
+            curr_label = best_prefix
+            alpha_prev = prefix_alphas[alphabet[curr_label[-1]]]
+
+    if return_forward:
+        return(top_label, top_forward.T)
+    else:
+        return(top_label, label_prob[top_label])
+
+def forward_vec_no_gap_log(l,y,fw0):
+    '''
+    Forward variable of paths that do not end on a gap
+    '''
+    try:
+        if (len(l) == 1):
+            return(np.insert(fw0[:-1],0,LOG_1) + y[:,l[-1]])
+        else:
+            #return(fw0[:-1]*y[1:,l[-1]])
+            return(np.insert(fw0[:-1],0,LOG_0) + y[:,l[-1]])
+    except IndexError:
+        print('Ran into IndexError!', file=sys.stderr)
+        return 1
+
+def forward_vec_log(s,i,y,previous=None):
+    t_max = len(y)
+    fw = np.zeros(t_max) + LOG_0
+    assert(i==0 or previous is not None)
+    for t in range(t_max):
+        if i==0:
+            if t==0:
+                fw[t] = y[t,s]
+            else:
+                fw[t] = y[t,-1] + fw[t-1]
+        elif t==0:
+            if i==1:
+                fw[t] = y[t,s]
+        else:
+            fw[t] = np.logaddexp(y[t,-1]+fw[t-1], y[t,s]+previous[t-1])
+    return(fw)
+
+def prefix_search_log(y_, alphabet=DNA_alphabet, return_forward=False):
+
+    # temp fix to get log probabilities
+    y = np.log(y_)
+
+    # initialize prefix search variables
+    stop_search = False
+    search_level = 0
+    top_label = ''
+    curr_label = ''
+    curr_label_alphas = []
+    gap_prob = np.sum(y[:,-1])
+    label_prob = {'':gap_prob}
+
+    # initalize variables for 1d forward probabilities
+    alpha_prev = forward_vec_log(-1,search_level,y)
+    top_forward = np.array([])
+    prefix_forward = np.zeros(shape=(len(alphabet),len(y),len(y))) + LOG_0
+
+    while not stop_search:
+        prefix_prob = {}
+        prefix_alphas = []
+        search_level += 1
+
+        for c,c_i in alphabet.items():
+            prefix = curr_label + c
+            prefix_int = [alphabet[i] for i in prefix]
+            if c_i == 0:
+                best_prefix = prefix
+
+            alpha_ast = forward_vec_no_gap_log(prefix_int,y,alpha_prev)
+            prefix_prob[prefix] = logsumexp(alpha_ast)
+
+            # calculate label probability
+            alpha = forward_vec_log(c_i,search_level,y, previous=alpha_prev)
             prefix_forward[c_i, search_level-1] = alpha
             label_prob[prefix] = alpha[-1]
             if label_prob[prefix] > label_prob[top_label]:
