@@ -3,7 +3,7 @@ import operator
 import numpy as np
 from collections import OrderedDict
 
-from ctc import remove_gaps
+from decoding import remove_gaps
 
 class profile:
     '''

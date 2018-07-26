@@ -17,8 +17,7 @@ from multiprocessing import Pool
 import argparse, random, sys, glob, os, re
 from Bio import pairwise2
 
-import consensus
-import ctc
+import decoding
 
 def fasta_format(name, seq, width=60):
     fasta = '>'+name+'\n'
@@ -58,21 +57,10 @@ def basecall_box(u1,u2,v1,v2):
         return(u1,'')
     else:
         try:
-            return((u1, consensus.pair_prefix_search_vec(logits1[u1:u2],logits2[v1:v2])[0]))
+            return((u1, decoding.pair_prefix_search(logits1[u1:u2],logits2[v1:v2])[0]))
         except:
             print('WARNING: Error while basecalling box {}-{}:{}-{}'.format(u1,u2,v1,v2))
             return(u1,'')
-
-def basecall_box_envelope(u1,u2,v1,v2):
-    '''
-    Function to be run in parallel.
-    '''
-    # set diagonal band of width 10% the mean length of both segments
-    width_fraction = 0.1
-    width = int(((u2-u1)+(v2-v1))/2*width_fraction)
-    #print(u1,u2,v1,v2,width)
-    envelope = consensus.diagonal_band_envelope(u2-u1,v2-v1,width)
-    return((u1, consensus.pair_prefix_search(logits1[u1:u2],logits2[v1:v2], envelope=envelope, forward_algorithm=consensus.pair_forward_sparse)[0]))
 
 if __name__ == '__main__':
 
@@ -80,8 +68,8 @@ if __name__ == '__main__':
     parser.add_argument('--logits', default='.', help='Paths to both logits', required=True, nargs='+')
     parser.add_argument('--logits_size', type=int, default=200, help='Window width used for basecalling')
     parser.add_argument('--threads', type=int, default=1, help='Processes to use')
-    parser.add_argument('--matches', type=int, default=6, help='Match size for building anchors')
-    parser.add_argument('--indels', type=int, default=8, help='Indel size for building anchors')
+    parser.add_argument('--matches', type=int, default=8, help='Match size for building anchors')
+    parser.add_argument('--indels', type=int, default=10, help='Indel size for building anchors')
     parser.add_argument('--out', default='out',help='Output file name')
     args = parser.parse_args()
 
@@ -116,9 +104,11 @@ if __name__ == '__main__':
     def basecall1d(y):
         # Perform 1d basecalling and get signal-sequence mapping by taking
         # argmax of final forward matrix.
-        (prefix, forward) = ctc.prefix_search(y, return_forward=True)
+        (prefix, forward) = decoding.prefix_search(y, return_forward=True)
         s_len = len(prefix)
+        print(s_len, forward.shape)
         forward_indices = np.argmax(forward,axis=0)
+
         assert(s_len == len(forward_indices))
         return((prefix,forward_indices))
 
