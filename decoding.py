@@ -318,7 +318,7 @@ def pair_prefix_search(y1, y2, alphabet=DNA_alphabet):
     alpha_ast2 = np.array([])
 
     while not stop_search:
-        prefix_prob = {}  # store in dict
+        prefix_prob = {}
         prefix_alphas = []
         search_level += 1
 
@@ -336,6 +336,84 @@ def pair_prefix_search(y1, y2, alphabet=DNA_alphabet):
             alpha1 = forward_vec(c_i,search_level,y1, previous=alpha1_prev)
             alpha2 = forward_vec(c_i,search_level,y2, previous=alpha2_prev)
             label_prob[prefix] = alpha1[-1]*alpha2[-1]/gamma[0,0]
+            prefix_alphas.append((alpha1,alpha2))
+
+            #print(search_level, 'extending by prefix:',c, 'Prefix Probability:',prefix_prob[prefix], 'Label probability:',label_prob[prefix], file=sys.stderr)
+
+        best_prefix = max(prefix_prob.items(), key=operator.itemgetter(1))[0]
+        #print('best prefix is:',best_prefix, file=sys.stderr)
+
+        if prefix_prob[best_prefix] < label_prob[top_label]:
+            stop_search = True
+        else:
+            # get highest probability label
+            top_label = max(label_prob.items(), key=operator.itemgetter(1))[0]
+            # then move to prefix with highest prefix probability
+            curr_label = best_prefix
+            (alpha1_prev, alpha2_prev) = prefix_alphas[alphabet[curr_label[-1]]]
+
+    return(top_label, label_prob[top_label])
+
+def pair_prefix_prob_log(alpha_ast_ast, gamma, envelope=None):
+    U,V = alpha_ast_ast.shape
+    prefix_prob = LOG_0
+    if envelope == None:
+        prefix_prob = logsumexp((alpha_ast_ast+gamma[1:,1:]).flatten())
+    return(prefix_prob - gamma[0,0])
+
+def pair_prefix_search_log(y1_, y2_, alphabet=DNA_alphabet):
+    '''
+    Do 2d prefix search. Arguments are softmax probabilities of each read,
+    an alignment_envelope object, and an OrderedDict with the alphabet.
+    Tries to be more clever about vectorization and not iterating over
+    full alpha 2d matrix.
+    '''
+
+    # temp fix for log probabilities
+    y1 = np.log(y1_)
+    y2 = np.log(y2_)
+
+    # calculate full gamma matrix
+    sys.stderr.write('Calculating gamma...')
+
+    # temp fix
+    gamma = np.log(pair_gamma(y1_,y2_))
+    sys.stderr.write('done!\n')
+
+    # initialize prefix search variables
+    stop_search = False
+    search_level = 0
+    top_label = ''
+    curr_label = ''
+    curr_label_alphas = []
+    gap_prob = np.sum(y1[:,-1]) + np.sum(y2[:,-1])
+    label_prob = {'':gap_prob}
+
+    # initalize variables for 1d forward probabilities
+    alpha1_prev = forward_vec_log(-1,search_level,y1)
+    alpha2_prev = forward_vec_log(-1,search_level,y2)
+    alpha_ast1 = np.array([])
+    alpha_ast2 = np.array([])
+
+    while not stop_search:
+        prefix_prob = {}
+        prefix_alphas = []
+        search_level += 1
+
+        for c,c_i in alphabet.items():
+            prefix = curr_label + c
+            prefix_int = [alphabet[i] for i in prefix]
+
+            # calculate prefix probability with outer product
+            alpha_ast1 = forward_vec_no_gap_log(prefix_int,y1,alpha1_prev)
+            alpha_ast2 = forward_vec_no_gap_log(prefix_int,y2,alpha2_prev)
+            alpha_ast_ast = np.add.outer(alpha_ast1,alpha_ast2)
+            prefix_prob[prefix] = pair_prefix_prob_log(alpha_ast_ast, gamma)
+
+            # calculate label probability
+            alpha1 = forward_vec_log(c_i,search_level,y1, previous=alpha1_prev)
+            alpha2 = forward_vec_log(c_i,search_level,y2, previous=alpha2_prev)
+            label_prob[prefix] = alpha1[-1] + alpha2[-1] - gamma[0,0]
             prefix_alphas.append((alpha1,alpha2))
 
             #print(search_level, 'extending by prefix:',c, 'Prefix Probability:',prefix_prob[prefix], 'Label probability:',label_prob[prefix], file=sys.stderr)
