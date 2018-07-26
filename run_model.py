@@ -31,16 +31,18 @@ def fasta_format(name, seq, width=60):
     fasta += (seq[window:]+'\n')
     return(fasta)
 
+script_dir = os.path.dirname(__file__)
+
 # parse command line arguments
 parser = argparse.ArgumentParser(description='Run the basecaller')
-parser.add_argument('--model', help='Saved model to load (if directory, loads latest from checkpoint file)', default='./models/r9')
+parser.add_argument('--model', default=os.path.join(script_dir,'models/r9.5'), help='Trained model to load (if directory, loads latest from checkpoint file)')
 parser.add_argument('--scaling', default='standard', choices=['standard', 'current', 'median', 'rescale'], help='Type of preprocessing (should be same as training)')
 parser.add_argument('--signal', help='File with space-delimited signal for testing')
 parser.add_argument('--fast5', default=False, help='FAST5 file to basecall (directories not currently supported)')
 parser.add_argument('--fasta', action='store_true', default=True, help='Write output sequence in FASTA')
-parser.add_argument('--window', type=int, default=200, help='Call read using chunks of this size')
+parser.add_argument('--window', type=int, default=400, help='Call read using chunks of this size')
 parser.add_argument('--logits', default=False, help='Save output logits (and softmax probabilities) to file')
-parser.add_argument('--debug_ctc', default=False, action='store_true', help='Use own implementation of CTC decoding (WARNING: Does not collapse repeated characters)')
+parser.add_argument('--ctc', default=False, action='store_true', help='Use own implementation of CTC prefix search decoding (WARNING: Does not collapse repeated characters)')
 parser.add_argument('--ctc_threads', type=int, default=1, help='Number of threads to use for decoding')
 parser.add_argument('--no_stack', default=False, action='store_true', help='Basecall [1xSIGNAL_LENGTH] tensor instead of splitting it into windows (slower)')
 args = parser.parse_args()
@@ -133,7 +135,7 @@ with tf.Session() as sess:
     sequence_length=graph.get_tensor_by_name('sequence_length:0')
     logits=graph.get_tensor_by_name('logits:0')
 
-    if args.debug_ctc:
+    if args.ctc:
         logits_ = sess.run(logits, feed_dict={X:stacked,sequence_length:sizes})
         softmax = sess.run(tf.nn.softmax(logits_))
         prediction_ = list()
