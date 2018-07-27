@@ -1,7 +1,7 @@
 import numpy as np
 import operator, sys
 from collections import OrderedDict
-from functools import reduce
+from scipy.misc import logsumexp
 
 # Default alphabet
 DNA_alphabet = OrderedDict([('A',0),('C',1),('G',2),('T',3)])
@@ -24,9 +24,6 @@ def greedy_search(logits, alphabet=['A','C','G','T','-']):
 # identities for log scale calculations
 LOG_0 = -float('Inf')
 LOG_1 = 0.
-
-def logsumexp(x):
-    return(reduce(np.logaddexp, x))
 
 def pair_gamma(y1,y2):
     '''
@@ -86,7 +83,7 @@ def forward_vec(s,i,y,previous=None):
             fw[t] = y[t,-1]*fw[t-1] + y[t,s]*previous[t-1]
     return(fw)
 
-def forward(l,y):
+def forward(l,y,fw_fn=forward_vec):
     '''
     Wrapper for forward_vec that returns full forward matrix.
 
@@ -95,11 +92,11 @@ def forward(l,y):
 
     Not used directly by prefix search.
     '''
-    prev = forward_vec(-1, 0, y)
+    prev = fw_fn(-1, 0, y)
     alpha = np.zeros((len(l)+1,len(y)))
     alpha[0] = prev
     for i,s in enumerate(l):
-        prev = forward_vec(s, i+1, y, prev)
+        prev = fw_fn(s, i+1, y, prev)
         alpha[i+1] = prev
     return(alpha)
 
@@ -135,10 +132,6 @@ def prefix_search(y, alphabet=DNA_alphabet, return_forward=False):
     alpha_prev = forward_vec(-1,search_level,y)
     top_forward = np.array([])
     prefix_forward = np.zeros(shape=(len(alphabet),len(y),len(y))) # TESTING
-
-    if search_level > len(y):
-        stop_search = True
-        print('WARNING! Search depth over limit.', file=sys.stderr)
 
     while not stop_search:
         prefix_prob = {}
