@@ -57,7 +57,7 @@ def basecall_box(u1,u2,v1,v2):
         return(u1,'')
     else:
         try:
-            return((u1, decoding.pair_prefix_search(logits1[u1:u2],logits2[v1:v2])[0]))
+            return((u1, decoding.pair_prefix_search_log(logits1[u1:u2],logits2[v1:v2])[0]))
         except:
             print('WARNING: Error while basecalling box {}-{}:{}-{}'.format(u1,u2,v1,v2))
             return(u1,'')
@@ -104,7 +104,7 @@ if __name__ == '__main__':
     def basecall1d(y):
         # Perform 1d basecalling and get signal-sequence mapping by taking
         # argmax of final forward matrix.
-        (prefix, forward) = decoding.prefix_search(y, return_forward=True)
+        (prefix, forward) = decoding.prefix_search_log(y, return_forward=True)
         s_len = len(prefix)
         print(s_len, forward.shape)
         forward_indices = np.argmax(forward,axis=0)
@@ -123,7 +123,7 @@ if __name__ == '__main__':
             read2_prefix += out[0]
             sequence_to_signal2.append(out[1]+args.logits_size*i)
 
-    with open(args.out+'.1d.fasta','w') as f:
+    with open(args.out+'.1d.fasta','a') as f:
         print(fasta_format(file1,read1_prefix),file=f)
         print(fasta_format(file2,read2_prefix),file=f)
 
@@ -271,5 +271,5 @@ if __name__ == '__main__':
     # sort each segment by its first signal index
     joined_basecalls = ''.join([i[1] for i in sorted(basecalls + basecall_anchors)])
 
-    with open(args.out+'.2d.fasta','w') as f:
+    with open(args.out+'.2d.fasta','a') as f:
         print(fasta_format('consensus_from_alignment;'+file1+';'+file2,joined_basecalls), file=f)
