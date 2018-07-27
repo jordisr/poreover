@@ -319,6 +319,10 @@ def pair_prefix_search(y1, y2, alphabet=DNA_alphabet):
         prefix_alphas = []
         search_level += 1
 
+        if len(curr_label) > max(len(y1),len(y2)):
+            stop_search = True
+            print('WARNING: Max search depth exceeded while basecalling box {}-{}:{}-{}'.format(u1,u2,v1,v2))
+
         for c,c_i in alphabet.items():
             prefix = curr_label + c
             prefix_int = [alphabet[i] for i in prefix]
@@ -396,6 +400,10 @@ def pair_prefix_search_log(y1_, y2_, alphabet=DNA_alphabet):
         prefix_prob = {}
         prefix_alphas = []
         search_level += 1
+
+        if len(curr_label) > max(len(y1),len(y2)):
+            stop_search = True
+            print('WARNING: Max search depth exceeded while basecalling box {}-{}:{}-{}'.format(u1,u2,v1,v2))
 
         for c,c_i in alphabet.items():
             prefix = curr_label + c
