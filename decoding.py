@@ -136,6 +136,10 @@ def prefix_search(y, alphabet=DNA_alphabet, return_forward=False):
     top_forward = np.array([])
     prefix_forward = np.zeros(shape=(len(alphabet),len(y),len(y))) # TESTING
 
+    if search_level > len(y):
+        stop_search = True
+        print('WARNING! Search depth over limit.', file=sys.stderr)
+
     while not stop_search:
         prefix_prob = {}
         prefix_alphas = []

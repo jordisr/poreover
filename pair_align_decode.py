@@ -106,7 +106,7 @@ if __name__ == '__main__':
         # argmax of final forward matrix.
         (prefix, forward) = decoding.prefix_search_log(y, return_forward=True)
         s_len = len(prefix)
-        print(s_len, forward.shape)
+        #print(s_len, forward.shape)
         forward_indices = np.argmax(forward,axis=0)
 
         assert(s_len == len(forward_indices))
