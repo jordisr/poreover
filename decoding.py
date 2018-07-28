@@ -57,6 +57,38 @@ def pair_gamma(y1,y2):
 
     return(gamma_)
 
+def pair_gamma_log(y1,y2):
+    '''
+    Finds gamma matrix, where gamma[0,0] is the probability that both RNNs
+    agree on the same sequence. Returns a dense matrix of shape UxV.
+    '''
+    U = len(y1)
+    V = len(y2)
+
+    # intialization
+    gamma_ = np.zeros(shape=(U+1,V+1)) + LOG_0
+    gamma_ast = np.zeros(shape=(U+1,V+1)) + LOG_0
+    gamma_[U,V] = LOG_1
+    gamma_ast[U,V] = LOG_1
+
+    for v in range(V):
+        gamma_[U,v] = np.sum(y2[v:,-1])
+    for u in range(U):
+        gamma_[u,V] = np.sum(y1[u:,-1])
+
+    for u in reversed(range(U)):
+        for v in reversed(range(V)):
+            # individual recursions
+            gamma_eps = gamma_[u+1,v] + y1[u,-1]
+            gamma_ast_eps = gamma_ast[u,v+1] + y2[v,-1]
+            gamma_ast_ast = gamma_[u+1,v+1] + logsumexp(y1[u,:-1]+y2[v,:-1])
+
+            # storing DP matrices
+            gamma_ast[u,v] = np.logaddexp(gamma_ast_eps, gamma_ast_ast)
+            gamma_[u,v] = np.logaddexp(gamma_eps, gamma_ast[u,v])
+
+    return(gamma_)
+
 def forward_vec(s,i,y,previous=None):
     '''
     Arguments:
@@ -378,7 +410,7 @@ def pair_prefix_search_log(y1_, y2_, alphabet=DNA_alphabet):
     sys.stderr.write('Calculating gamma...')
 
     # temp fix
-    gamma = np.log(pair_gamma(y1_,y2_))
+    gamma = pair_gamma_log(y1,y2)
     sys.stderr.write('done!\n')
 
     # initialize prefix search variables

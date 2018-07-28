@@ -221,6 +221,29 @@ class TestPairDecoding(unittest.TestCase):
         y1 = y2 = np.array([[0,0,1],[1,0,0],[0,1,0]])
         helper(y1,y2)
 
+    def test_prob_agree_log(self):
+        def helper(y1,y2):
+            alphabet = ('A','B','')
+            toy_alphabet = OrderedDict([('A',0),('B',1)])
+            profile1= profile(y1,alphabet)
+            profile2=profile(y2,alphabet)
+            joint_prof = joint_profile(profile1, profile2)
+
+            gamma = decoding.pair_gamma_log(np.log(y1),np.log(y2))
+            print('log(Z):',gamma[0,0],np.log(joint_prof.prob_agree))
+            self.assertTrue(np.isclose(gamma[0,0], np.log(joint_prof.prob_agree)))
+
+        y1 = np.array([[0.8,0.1,0.1],[0.1,0.3,0.6],[0.7,0.2,0.1],[0.1,0.1,0.8]])
+        y2 = np.array([[0.7,0.2,0.1],[0.2,0.3,0.5],[0.7,0.2,0.1],[0.05,0.05,0.9]])
+        helper(y1,y2)
+
+        y1 = np.array([[0.8,0.1,0.1],[0.1,0.3,0.6],[0.7,0.2,0.1],[0.1,0.1,0.8]])
+        y2 = np.array([[0.7,0.2,0.1],[0.2,0.3,0.5]])
+        helper(y1,y2)
+
+        y1 = y2 = np.array([[0,0,1],[1,0,0],[0,1,0]])
+        helper(y1,y2)
+
 class TestUtils(unittest.TestCase):
 
     def test_remove_gaps(self):
