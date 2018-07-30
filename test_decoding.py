@@ -109,7 +109,7 @@ class TestDecoding(unittest.TestCase):
             toy_alphabet = OrderedDict([('A',0),('B',1)])
             prof = profile(y,alphabet)
             top_label = prof.top_label()
-            search_top_label = decoding.prefix_search_log(y,alphabet=toy_alphabet)
+            search_top_label = decoding.prefix_search_log(np.log(y),alphabet=toy_alphabet)
             print(top_label[0],np.log(top_label[1]), search_top_label[0],search_top_label[1])
             return((top_label[0] == search_top_label[0]) and np.isclose(np.log(top_label[1]), search_top_label[1]))
 
@@ -180,7 +180,7 @@ class TestPairDecoding(unittest.TestCase):
             joint_prof = joint_profile(profile1, profile2)
 
             top_label = joint_prof.top_label()
-            search_top_label = decoding.pair_prefix_search_log(y1,y2,alphabet=toy_alphabet)
+            search_top_label = decoding.pair_prefix_search_log(np.log(y1),np.log(y2),alphabet=toy_alphabet)
 
             print(top_label[0],np.log(top_label[1] / joint_prof.prob_agree), search_top_label[0],search_top_label[1])
             return((top_label[0] == search_top_label[0]) and np.isclose(np.log(top_label[1] / joint_prof.prob_agree), search_top_label[1]))

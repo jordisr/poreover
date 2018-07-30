@@ -1,7 +1,7 @@
 import numpy as np
 import operator, sys
 from collections import OrderedDict
-from scipy.misc import logsumexp
+from scipy.special import logsumexp
 
 # Default alphabet
 DNA_alphabet = OrderedDict([('A',0),('C',1),('G',2),('T',3)])
@@ -241,10 +241,7 @@ def forward_vec_log(s,i,y,previous=None):
             fw[t] = np.logaddexp(y[t,-1]+fw[t-1], y[t,s]+previous[t-1])
     return(fw)
 
-def prefix_search_log(y_, alphabet=DNA_alphabet, return_forward=False):
-
-    # temp fix to get log probabilities
-    y = np.log(y_)
+def prefix_search_log(y, alphabet=DNA_alphabet, return_forward=False):
 
     # initialize prefix search variables
     stop_search = False
@@ -394,17 +391,13 @@ def pair_prefix_prob_log(alpha_ast_ast, gamma, envelope=None):
         prefix_prob = logsumexp((alpha_ast_ast+gamma[1:,1:]).flatten())
     return(prefix_prob - gamma[0,0])
 
-def pair_prefix_search_log(y1_, y2_, alphabet=DNA_alphabet):
+def pair_prefix_search_log(y1, y2, alphabet=DNA_alphabet):
     '''
     Do 2d prefix search. Arguments are softmax probabilities of each read,
     an alignment_envelope object, and an OrderedDict with the alphabet.
     Tries to be more clever about vectorization and not iterating over
     full alpha 2d matrix.
     '''
-
-    # temp fix for log probabilities
-    y1 = np.log(y1_)
-    y2 = np.log(y2_)
 
     # calculate full gamma matrix
     sys.stderr.write('Calculating gamma...')

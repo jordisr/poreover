@@ -15,6 +15,7 @@ sequences.
 import numpy as np
 from multiprocessing import Pool
 import argparse, random, sys, glob, os, re
+from scipy.special import logsumexp
 from Bio import pairwise2
 
 import decoding
@@ -33,13 +34,22 @@ def softmax(logits):
     axis_to_sum = dim-1
     return( (np.exp(logits).T / np.sum(np.exp(logits),axis=axis_to_sum).T).T )
 
+def logit_to_log_likelihood(logits):
+    # Normalizes logits so they are valid log-likelihoods
+    # takes the place of softmax operation in data preprocessing
+    dim = len(logits.shape)
+    axis_to_sum = dim-1
+    return( (logits.T - logsumexp(logits,axis=2).T).T )
+
 def load_logits(file_path, reverse_complement=False, window=200):
     #read_raw = np.fromfile(file_path,dtype=np.float32)
     #read_reshape = read_raw.reshape(-1,window,5) # assuming alphabet of 5 and window size of 200
     read_reshape = np.load(file_path)
-    if np.abs(np.sum(read_reshape[0,0])) > 1:
-        print('WARNING: Logits are not probabilities. Running softmax operation.',file=sys.stderr)
+    if np.isclose(np.sum(read_reshape[0,0]), 1):
+        print('WARNING: Logits appear to be probabilities. Taking log.',file=sys.stderr)
         read_reshape = softmax(read_reshape)
+    else:
+        read_reshape = logit_to_log_likelihood(read_reshape)
     if reverse_complement:
         # logit reordering: (A,C,G,T,-)/(0,1,2,3,4) => (T,G,C,A,-)/(3,2,1,0,4)
         read_reshape = read_reshape[::-1,::-1,[3,2,1,0,4]]
