@@ -39,11 +39,11 @@ parser.add_argument('--model', default=os.path.join(script_dir,'models/r9.5'), h
 parser.add_argument('--scaling', default='standard', choices=['standard', 'current', 'median', 'rescale'], help='Type of preprocessing (should be same as training)')
 parser.add_argument('--signal', help='File with space-delimited signal for testing')
 parser.add_argument('--fast5', default=False, help='FAST5 file to basecall (directories not currently supported)')
-parser.add_argument('--fasta', action='store_true', default=True, help='Write output sequence in FASTA')
+parser.add_argument('--out', default='out', help='Prefix for sequence output')
 parser.add_argument('--window', type=int, default=400, help='Call read using chunks of this size')
-parser.add_argument('--logits', default=False, help='Save output logits (and softmax probabilities) to file')
-parser.add_argument('--ctc', default=False, action='store_true', help='Use own implementation of CTC prefix search decoding (WARNING: Does not collapse repeated characters)')
-parser.add_argument('--ctc_threads', type=int, default=1, help='Number of threads to use for decoding')
+parser.add_argument('--logits', choices=['csv', 'npy'], default=False, help='Save output logits to file in CSV or binarized NumPy format')
+parser.add_argument('--decoding', default='beam', choices=['beam', 'prefix', 'none'], help='Choice of CTC decoding algorithm to use. Beam uses TensorFlow\'s built-in beam search. Prefix uses CTC prefix search decoding (but does not collapse repeated characters). None skips decoding and just runs neural network (output can be saved with --logits)')
+parser.add_argument('--ctc_threads', type=int, default=1, help='Number of threads to use for prefix decoding')
 parser.add_argument('--no_stack', default=False, action='store_true', help='Basecall [1xSIGNAL_LENGTH] tensor instead of splitting it into windows (slower)')
 args = parser.parse_args()
 
@@ -135,7 +135,14 @@ with tf.Session() as sess:
     sequence_length=graph.get_tensor_by_name('sequence_length:0')
     logits=graph.get_tensor_by_name('logits:0')
 
-    if args.ctc:
+    if args.logits:
+        logits_ = sess.run(logits, feed_dict={X:stacked,sequence_length:sizes}).astype('float32')
+        if args.logits == 'csv':
+            np.savetxt(args.out+'.csv', np.concatenate(logits_), delimiter=',')
+        else:
+            np.save(args.out, logits_)
+
+    if args.decoding is 'prefix':
         logits_ = sess.run(logits, feed_dict={X:stacked,sequence_length:sizes})
         softmax = sess.run(tf.nn.softmax(logits_))
         prediction_ = list()
@@ -155,7 +162,7 @@ with tf.Session() as sess:
 
         sequence = ''.join(basecalls)
 
-    else:
+    elif args.decoding is 'beam':
         # make prediction
         prediction_ = sess.run(prediction, feed_dict={X:stacked,sequence_length:sizes})
 
@@ -165,19 +172,11 @@ with tf.Session() as sess:
             sequence_segment = list(map(label2base, pred_iter[:length_iter]))
             sequence += ''.join(sequence_segment)
 
-    if args.logits:
-        logits_ = sess.run(logits, feed_dict={X:stacked,sequence_length:sizes})
-        #pickle.dump(logits_, open(args.logits,'wb'))
-        #print(sess.run(tf.nn.softmax(logits_)).shape)
-        np.array(sess.run(tf.nn.softmax(logits_))).astype('float32').tofile(args.logits+'.softmax')
-        np.array(logits_.astype('float32')).tofile(args.logits+'.logits')
-
     # output decoded sequence
-    if args.fasta:
-        if args.fast5:
-            fasta_header = os.path.basename(args.fast5)
-        elif args.signal:
-            fasta_header = os.path.basename(args.signal)
-        print(fasta_format(fasta_header,sequence))
-    else:
-        print(sequence)
+    if args.decoding != 'none':
+        with open(args.out+'.fasta','a') as fasta_file:
+            if args.fast5:
+                fasta_header = os.path.basename(args.fast5)
+            elif args.signal:
+                fasta_header = os.path.basename(args.signal)
+            print(fasta_format(fasta_header,sequence),file=fasta_file)

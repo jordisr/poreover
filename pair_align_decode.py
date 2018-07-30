@@ -15,6 +15,7 @@ sequences.
 import numpy as np
 from multiprocessing import Pool
 import argparse, random, sys, glob, os, re
+from scipy.special import logsumexp
 from Bio import pairwise2
 
 import decoding
@@ -33,16 +34,22 @@ def softmax(logits):
     axis_to_sum = dim-1
     return( (np.exp(logits).T / np.sum(np.exp(logits),axis=axis_to_sum).T).T )
 
+def logit_to_log_likelihood(logits):
+    # Normalizes logits so they are valid log-likelihoods
+    # takes the place of softmax operation in data preprocessing
+    dim = len(logits.shape)
+    axis_to_sum = dim-1
+    return( (logits.T - logsumexp(logits,axis=2).T).T )
+
 def load_logits(file_path, reverse_complement=False, window=200):
-    # this is assuming logits are in binary file which does not preserve shape
-    # information... for portability will need to change this, but for now
-    # assuming we know how it was generated.
-    read_raw = np.fromfile(file_path,dtype=np.float32)
-    read_reshape = read_raw.reshape(-1,window,5) # assuming alphabet of 5 and window size of 200
-    #print(read_reshape.shape)
-    if np.abs(np.sum(read_reshape[0,0])) > 1:
-        print('WARNING: Logits are not probabilities. Running softmax operation.',file=sys.stderr)
+    #read_raw = np.fromfile(file_path,dtype=np.float32)
+    #read_reshape = read_raw.reshape(-1,window,5) # assuming alphabet of 5 and window size of 200
+    read_reshape = np.load(file_path)
+    if np.isclose(np.sum(read_reshape[0,0]), 1):
+        print('WARNING: Logits appear to be probabilities. Taking log.',file=sys.stderr)
         read_reshape = softmax(read_reshape)
+    else:
+        read_reshape = logit_to_log_likelihood(read_reshape)
     if reverse_complement:
         # logit reordering: (A,C,G,T,-)/(0,1,2,3,4) => (T,G,C,A,-)/(3,2,1,0,4)
         read_reshape = read_reshape[::-1,::-1,[3,2,1,0,4]]
@@ -57,7 +64,7 @@ def basecall_box(u1,u2,v1,v2):
         return(u1,'')
     else:
         try:
-            return((u1, decoding.pair_prefix_search(logits1[u1:u2],logits2[v1:v2])[0]))
+            return((u1, decoding.pair_prefix_search_log(logits1[u1:u2],logits2[v1:v2])[0]))
         except:
             print('WARNING: Error while basecalling box {}-{}:{}-{}'.format(u1,u2,v1,v2))
             return(u1,'')
@@ -104,9 +111,9 @@ if __name__ == '__main__':
     def basecall1d(y):
         # Perform 1d basecalling and get signal-sequence mapping by taking
         # argmax of final forward matrix.
-        (prefix, forward) = decoding.prefix_search(y, return_forward=True)
+        (prefix, forward) = decoding.prefix_search_log(y, return_forward=True)
         s_len = len(prefix)
-        print(s_len, forward.shape)
+        #print(s_len, forward.shape)
         forward_indices = np.argmax(forward,axis=0)
 
         assert(s_len == len(forward_indices))
@@ -123,7 +130,7 @@ if __name__ == '__main__':
             read2_prefix += out[0]
             sequence_to_signal2.append(out[1]+args.logits_size*i)
 
-    with open(args.out+'.1d.fasta','w') as f:
+    with open(args.out+'.1d.fasta','a') as f:
         print(fasta_format(file1,read1_prefix),file=f)
         print(fasta_format(file2,read2_prefix),file=f)
 
@@ -271,5 +278,5 @@ if __name__ == '__main__':
     # sort each segment by its first signal index
     joined_basecalls = ''.join([i[1] for i in sorted(basecalls + basecall_anchors)])
 
-    with open(args.out+'.2d.fasta','w') as f:
+    with open(args.out+'.2d.fasta','a') as f:
         print(fasta_format('consensus_from_alignment;'+file1+';'+file2,joined_basecalls), file=f)
