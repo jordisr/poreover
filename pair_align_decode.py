@@ -74,7 +74,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Consensus decoding')
     parser.add_argument('--logits', default='.', help='Paths to both logits', required=True, nargs='+')
     parser.add_argument('--threads', type=int, default=1, help='Processes to use')
-    parser.add_argument('--debug', default=False, action=store_true, help='Pickle objects to file for debugging')
+    parser.add_argument('--debug', default=False, action='store_true', help='Pickle objects to file for debugging')
     parser.add_argument('--matches', type=int, default=8, help='Match size for building anchors')
     parser.add_argument('--indels', type=int, default=10, help='Indel size for building anchors')
     parser.add_argument('--out', default='out',help='Output file name')
@@ -89,10 +89,6 @@ if __name__ == '__main__':
     # reverse complement logist of one read, doesn't matter which one
     logits1_reshape = load_logits(file1)
     logits2_reshape = load_logits(file2, reverse_complement=True)
-
-    # smaller test data for your poor laptop
-    #logits1_reshape = logits1_reshape[:10]
-    #logits2_reshape = logits2_reshape[:10]
 
     logits1 = np.concatenate(logits1_reshape)
     logits2 = np.concatenate(logits2_reshape)
@@ -113,7 +109,6 @@ if __name__ == '__main__':
         # argmax of final forward matrix.
         (prefix, forward) = decoding.prefix_search_log(y, return_forward=True)
         s_len = len(prefix)
-        #print(s_len, forward.shape)
         forward_indices = np.argmax(forward,axis=0)
 
         assert(s_len == len(forward_indices))
@@ -154,9 +149,6 @@ if __name__ == '__main__':
                 alignment_to_sequence[s,i] = alignment_to_sequence[s,i-1]
             else:
                 alignment_to_sequence[s,i] = alignment_to_sequence[s,i-1] + 1
-
-    #print('LOGITS 1 -- size:{} SEQ_LENGTH:{} sequence_to_signal:{} ALGN_TO_SEQUENCE:{}'.format(U,len(sequence_to_signal1), len(read1_prefix), len(alignment_to_sequence[0])))
-    #print('LOGITS 1 -- size:{} SEQ_LENGTH:{} sequence_to_signal:{} ALGN_TO_SEQUENCE:{}'.format(V,len(sequence_to_signal2), len(read2_prefix), len(alignment_to_sequence[0])))
 
     '''
     # find alignment 'anchors' from contiguous stretches of `matches`
@@ -219,7 +211,6 @@ if __name__ == '__main__':
     basecall_anchors = []
 
     for i,(curr_start, curr_end) in enumerate(anchor_ranges):
-
         #print(i,curr_start,curr_end,anchor_type[i])
 
         # get anchor sequences
