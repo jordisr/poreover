@@ -118,12 +118,12 @@ if __name__ == '__main__':
         basecalls1d_1 = pool.map(basecall1d, logits1_reshape)
         for i,out in enumerate(basecalls1d_1):
             read1_prefix += out[0]
-            sequence_to_signal1.append(out[1]+logits1.shape[1]*i)
+            sequence_to_signal1.append(out[1]+logits1_reshape.shape[1]*i)
 
         basecalls1d_2 = pool.map(basecall1d, logits2_reshape)
         for i,out in enumerate(basecalls1d_2):
             read2_prefix += out[0]
-            sequence_to_signal2.append(out[1]+logits2.shape[1]*i)
+            sequence_to_signal2.append(out[1]+logits2_reshape.shape[1]*i)
 
     with open(args.out+'.1d.fasta','a') as f:
         print(fasta_format(file1,read1_prefix),file=f)
