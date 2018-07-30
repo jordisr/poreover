@@ -41,7 +41,7 @@ def logit_to_log_likelihood(logits):
     axis_to_sum = dim-1
     return( (logits.T - logsumexp(logits,axis=2).T).T )
 
-def load_logits(file_path, reverse_complement=False, window=200):
+def load_logits(file_path, reverse_complement=False):
     #read_raw = np.fromfile(file_path,dtype=np.float32)
     #read_reshape = read_raw.reshape(-1,window,5) # assuming alphabet of 5 and window size of 200
     read_reshape = np.load(file_path)
@@ -73,8 +73,8 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Consensus decoding')
     parser.add_argument('--logits', default='.', help='Paths to both logits', required=True, nargs='+')
-    parser.add_argument('--logits_size', type=int, default=200, help='Window width used for basecalling')
     parser.add_argument('--threads', type=int, default=1, help='Processes to use')
+    parser.add_argument('--debug', default=False, action=store_true, help='Pickle objects to file for debugging')
     parser.add_argument('--matches', type=int, default=8, help='Match size for building anchors')
     parser.add_argument('--indels', type=int, default=10, help='Indel size for building anchors')
     parser.add_argument('--out', default='out',help='Output file name')
@@ -87,8 +87,8 @@ if __name__ == '__main__':
     file2 = args.logits[1]
 
     # reverse complement logist of one read, doesn't matter which one
-    logits1_reshape = load_logits(file1, window=args.logits_size)
-    logits2_reshape = load_logits(file2, reverse_complement=True,window=args.logits_size)
+    logits1_reshape = load_logits(file1)
+    logits2_reshape = load_logits(file2, reverse_complement=True)
 
     # smaller test data for your poor laptop
     #logits1_reshape = logits1_reshape[:10]
@@ -123,12 +123,12 @@ if __name__ == '__main__':
         basecalls1d_1 = pool.map(basecall1d, logits1_reshape)
         for i,out in enumerate(basecalls1d_1):
             read1_prefix += out[0]
-            sequence_to_signal1.append(out[1]+args.logits_size*i)
+            sequence_to_signal1.append(out[1]+logits1.shape[1]*i)
 
         basecalls1d_2 = pool.map(basecall1d, logits2_reshape)
         for i,out in enumerate(basecalls1d_2):
             read2_prefix += out[0]
-            sequence_to_signal2.append(out[1]+args.logits_size*i)
+            sequence_to_signal2.append(out[1]+logits2.shape[1]*i)
 
     with open(args.out+'.1d.fasta','a') as f:
         print(fasta_format(file1,read1_prefix),file=f)
@@ -258,22 +258,23 @@ if __name__ == '__main__':
     V))
     assert(abs(len(basecall_boxes) - len(basecall_anchors))==1)
 
+    if args.debug:
+        with open( "debug.p", "wb" ) as pfile:
+            import pickle
+            pickle.dump({
+            'alignment_to_sequence':alignment_to_sequence,
+            'sequence_to_signal1':sequence_to_signal1,
+            'sequence_to_signal2':sequence_to_signal2,
+            'alignment':alignment,
+            'basecall_boxes':basecall_boxes,
+            'basecall_anchors':basecall_anchors,
+            'anchor_ranges':anchor_ranges
+            },pfile)
+
     print('Starting consensus basecalling...',file=sys.stderr)
     NUM_THREADS = args.threads
     with Pool(processes=NUM_THREADS) as pool:
         basecalls = pool.starmap(basecall_box, basecall_boxes)
-
-    # code for debuggging
-    '''
-    print('*'*80)
-    for i, r in enumerate(anchor_ranges):
-        print(anchor_type[i], r, alignment[0, r[0]:r[1]], alignment[1, r[0]:r[1]])
-    print('ANCHOR_RANGES',anchor_ranges)
-    print('BASECALL_BOXES',basecall_boxes)
-    print('ANCHORS', basecall_anchors, file=sys.stderr)
-    print('BASECALLS', basecalls, file=sys.stderr)
-    print('*'*80)
-    '''
 
     # sort each segment by its first signal index
     joined_basecalls = ''.join([i[1] for i in sorted(basecalls + basecall_anchors)])
