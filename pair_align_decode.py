@@ -34,12 +34,9 @@ def softmax(logits):
     return( (np.exp(logits).T / np.sum(np.exp(logits),axis=axis_to_sum).T).T )
 
 def load_logits(file_path, reverse_complement=False, window=200):
-    # this is assuming logits are in binary file which does not preserve shape
-    # information... for portability will need to change this, but for now
-    # assuming we know how it was generated.
-    read_raw = np.fromfile(file_path,dtype=np.float32)
-    read_reshape = read_raw.reshape(-1,window,5) # assuming alphabet of 5 and window size of 200
-    #print(read_reshape.shape)
+    #read_raw = np.fromfile(file_path,dtype=np.float32)
+    #read_reshape = read_raw.reshape(-1,window,5) # assuming alphabet of 5 and window size of 200
+    read_reshape = np.load(file_path)
     if np.abs(np.sum(read_reshape[0,0])) > 1:
         print('WARNING: Logits are not probabilities. Running softmax operation.',file=sys.stderr)
         read_reshape = softmax(read_reshape)
