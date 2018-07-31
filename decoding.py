@@ -323,10 +323,7 @@ def pair_prefix_search(y1, y2, alphabet=DNA_alphabet):
     '''
 
     # calculate full gamma matrix
-    sys.stderr.write('Calculating gamma...')
     gamma = pair_gamma(y1,y2)
-    #gamma, envelope = sample_gamma(y1,y2,50)
-    sys.stderr.write('done!\n')
 
     # initialize prefix search variables
     stop_search = False
@@ -398,13 +395,7 @@ def pair_prefix_search_log(y1, y2, alphabet=DNA_alphabet):
     Tries to be more clever about vectorization and not iterating over
     full alpha 2d matrix.
     '''
-
-    # calculate full gamma matrix
-    sys.stderr.write('Calculating gamma...')
-
-    # temp fix
     gamma = pair_gamma_log(y1,y2)
-    sys.stderr.write('done!\n')
 
     # initialize prefix search variables
     stop_search = False

@@ -41,7 +41,7 @@ parser.add_argument('--signal', help='File with space-delimited signal for testi
 parser.add_argument('--fast5', default=False, help='FAST5 file to basecall (directories not currently supported)')
 parser.add_argument('--out', default='out', help='Prefix for sequence output')
 parser.add_argument('--window', type=int, default=400, help='Call read using chunks of this size')
-parser.add_argument('--logits', choices=['csv', 'npy'], default=False, help='Save output logits to file in CSV or binarized NumPy format')
+parser.add_argument('--logits', choices=['csv', 'npy'], default=False, help='Save softmax probabilities to CSV file or logits to binarized NumPy format')
 parser.add_argument('--decoding', default='beam', choices=['beam', 'prefix', 'none'], help='Choice of CTC decoding algorithm to use. Beam uses TensorFlow\'s built-in beam search. Prefix uses CTC prefix search decoding (but does not collapse repeated characters). None skips decoding and just runs neural network (output can be saved with --logits)')
 parser.add_argument('--ctc_threads', type=int, default=1, help='Number of threads to use for prefix decoding')
 parser.add_argument('--no_stack', default=False, action='store_true', help='Basecall [1xSIGNAL_LENGTH] tensor instead of splitting it into windows (slower)')
@@ -138,7 +138,7 @@ with tf.Session() as sess:
     if args.logits:
         logits_ = sess.run(logits, feed_dict={X:stacked,sequence_length:sizes}).astype('float32')
         if args.logits == 'csv':
-            np.savetxt(args.out+'.csv', np.concatenate(logits_), delimiter=',')
+            np.savetxt(args.out+'.csv', np.concatenate(sess.run(tf.nn.softmax(logits_))), delimiter=',', header=','.join(['A','C','G','T','-']))
         else:
             np.save(args.out, logits_)
 
