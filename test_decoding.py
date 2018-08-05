@@ -9,6 +9,9 @@ from collections import OrderedDict
 from testing import profile, joint_profile
 import decoding
 
+import pyximport; pyximport.install()
+import cy
+
 class TestForwardAlgorithm(unittest.TestCase):
 
     def test_label_prob(self):
@@ -38,6 +41,20 @@ class TestForwardAlgorithm(unittest.TestCase):
         for label in examples:
             label_int = [alphabet_dict[i] for i in label]
             alpha  = decoding.forward(label_int, np.log(y), decoding.forward_vec_log)
+            self.assertTrue(np.isclose(alpha[-1,-1], np.log(prof.label_prob(label))))
+
+    def test_label_prob_log_cy(self):
+        alphabet = ('A','B','')
+        alphabet_dict = {'A':0,'B':1,'':2}
+
+        y = np.array([[0.8,0.1,0.1],[0.1,0.3,0.6],[0.7,0.2,0.1],[0.1,0.1,0.8]], dtype=np.float32)
+        examples = ['AAAA','ABBA','ABA','AA','BB','A','B']
+        prof=profile(y,alphabet)
+
+        for label in examples:
+            label_int = [alphabet_dict[i] for i in label]
+            alpha  = decoding.forward(label_int, np.log(y).astype(np.float64), cy.decoding_cy.forward_vec_log)
+            print('CYTHON', alpha[-1,-1],  np.log(prof.label_prob(label)))
             self.assertTrue(np.isclose(alpha[-1,-1], np.log(prof.label_prob(label))))
 
     def test_prefix_prob(self):

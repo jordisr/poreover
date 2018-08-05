@@ -8,6 +8,7 @@ import os, sys, re, argparse
 import pickle
 
 import decoding
+import cy
 import batch
 
 def label2base(l):
@@ -142,7 +143,7 @@ with tf.Session() as sess:
         else:
             np.save(args.out, logits_)
 
-    if args.decoding is 'prefix':
+    if args.decoding == 'prefix':
         logits_ = sess.run(logits, feed_dict={X:stacked,sequence_length:sizes})
         softmax = sess.run(tf.nn.softmax(logits_))
         prediction_ = list()
@@ -154,7 +155,7 @@ with tf.Session() as sess:
         assert(len(softmax)==len(sizes))
 
         def basecall_segment(i):
-            return(decoding.prefix_search(softmax[i][:sizes[i]])[0])
+            return(cy.decoding.prefix_search_log(softmax[i][:sizes[i]])[0])
 
         NUM_THREADS = args.ctc_threads
         with Pool(processes=NUM_THREADS) as pool:
@@ -162,7 +163,7 @@ with tf.Session() as sess:
 
         sequence = ''.join(basecalls)
 
-    elif args.decoding is 'beam':
+    elif args.decoding == 'beam':
         # make prediction
         prediction_ = sess.run(prediction, feed_dict={X:stacked,sequence_length:sizes})
 

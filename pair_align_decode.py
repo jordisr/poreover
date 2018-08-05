@@ -19,6 +19,7 @@ from scipy.special import logsumexp
 from Bio import pairwise2
 
 import decoding
+import cy
 
 def fasta_format(name, seq, width=60):
     fasta = '>'+name+'\n'
@@ -96,7 +97,7 @@ def get_anchors(alignment, matches, indels):
 def basecall1d(y):
     # Perform 1d basecalling and get signal-sequence mapping by taking
     # argmax of final forward matrix.
-    (prefix, forward) = decoding.prefix_search_log(y, return_forward=True)
+    (prefix, forward) = cy.decoding.prefix_search_log(y, return_forward=True)
     s_len = len(prefix)
     forward_indices = np.argmax(forward,axis=0)
 
@@ -113,7 +114,7 @@ def basecall_box(b,b_tot,u1,u2,v1,v2):
     else:
         try:
             #return((u1, decoding.pair_prefix_search(np.exp(logits1[u1:u2]),np.exp(logits2[v1:v2]))[0]))
-            return((u1, decoding.pair_prefix_search_log(logits1[u1:u2],logits2[v1:v2])[0]))
+            return((u1, cy.decoding.pair_prefix_search_log(logits1[u1:u2],logits2[v1:v2])[0]))
         except:
             print('WARNING: Error while basecalling box {}-{}:{}-{}'.format(u1,u2,v1,v2))
             return(u1,'')
