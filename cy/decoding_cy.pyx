@@ -8,10 +8,11 @@ cdef extern from "math.h":
     double exp(double m)
 
 DTYPE = np.float64
-LOG_0 = -np.inf
+cdef double LOG_0 = -9999
 cdef double LOG_1 = 0
 
 cimport cython
+cimport numpy as np
 
 @cython.boundscheck(False)  # Deactivate bounds checking
 @cython.wraparound(True)   # Deactivate negative indexing.
@@ -46,6 +47,7 @@ def forward_vec_log(int s, int i, double [:,:] y, double [:] previous=None):
             fw[t] = log(exp(y[t,-1]+fw[t-1]) + exp(y[t,s]+previous[t-1]))
     return(fw_np)
 
+# define optmized math functions using exp and log from math.h
 cdef double sum(double [:] x):
     cdef Py_ssize_t x_max = x.shape[0]
     cdef double total = 0
