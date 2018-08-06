@@ -56,7 +56,7 @@ cdef double sum(double [:] x):
         total += x[i]
     return(total)
 
-cdef double logsumexp(double [:] x):
+cpdef double logsumexp(double [:] x):
     cdef Py_ssize_t x_max = x.shape[0]
     cdef double total = 0
     cdef Py_ssize_t i
@@ -110,3 +110,16 @@ def pair_gamma_log(double [:,:] y1, double [:,:] y2):
             gamma_[u,v] = log(exp(gamma_eps) + exp(gamma_ast[u,v]))
 
     return(gamma_np)
+
+# doesn't seem to be faster than vectorized numpy
+@cython.boundscheck(False)  # Deactivate bounds checking
+@cython.wraparound(False)   # Deactivate negative indexing.
+def pair_prefix_prob_log(double [:,:] alpha_ast_ast, double [:,:] gamma):
+    cdef Py_ssize_t U = alpha_ast_ast.shape[0]
+    cdef Py_ssize_t V = alpha_ast_ast.shape[1]
+    cdef Py_ssize_t u, v
+    cdef double prefix_prob = 0
+    for v in range(V):
+        for u in range(U):
+            prefix_prob += exp(alpha_ast_ast[u,v] + gamma[u+1,v+1])
+    return(log(prefix_prob) - gamma[0,0])
