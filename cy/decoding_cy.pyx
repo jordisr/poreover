@@ -71,7 +71,7 @@ def pair_gamma_log(double [:,:] y1, double [:,:] y2):
     cdef Py_ssize_t U = y1.shape[0]
     cdef Py_ssize_t V = y2.shape[0]
     cdef Py_ssize_t alphabet_size = y1.shape[1]
-    cdef Py_ssize_t u, v
+    cdef Py_ssize_t u, v, t
 
     # intialization
     cdef np.ndarray[DTYPE_t, ndim=2] gamma_np = np.zeros(shape=(U+1,V+1), dtype=DTYPE) + LOG_0
@@ -94,7 +94,16 @@ def pair_gamma_log(double [:,:] y1, double [:,:] y2):
             # individual recursions
             gamma_eps = gamma_[u+1,v] + y1[u,alphabet_size-1]
             gamma_ast_eps = gamma_ast[u,v+1] + y2[v,alphabet_size-1]
-            gamma_ast_ast = gamma_[u+1,v+1] + logsumexp(np.add(y1[u,:alphabet_size-1], y2[v,:alphabet_size-1]))
+
+            # method 1
+            #total1 = logsumexp(np.add(y1[u,:alphabet_size-1], y2[v,:alphabet_size-1]))
+
+            # method 2
+            total2 = 0
+            for t in range(0,alphabet_size-1):
+                total2 += exp(y1[u,t]+y2[v,t])
+
+            gamma_ast_ast = gamma_[u+1,v+1] + log(total2)
 
             # storing DP matrices
             gamma_ast[u,v] = log(exp(gamma_ast_eps) + exp(gamma_ast_ast))
