@@ -1,18 +1,18 @@
 # cython: infer_types=True
+cimport cython
+cimport numpy as np
 import numpy as np
 #from scipy.special import logsumexp
-#from libc.math cimport log, exp
 
 cdef extern from "math.h":
     double log(double m)
     double exp(double m)
 
 DTYPE = np.float64
+ctypedef np.float64_t DTYPE_t
+
 cdef double LOG_0 = -9999
 cdef double LOG_1 = 0
-
-cimport cython
-cimport numpy as np
 
 @cython.boundscheck(False)  # Deactivate bounds checking
 @cython.wraparound(True)   # Deactivate negative indexing.
@@ -74,10 +74,10 @@ def pair_gamma_log(double [:,:] y1, double [:,:] y2):
     cdef Py_ssize_t u, v
 
     # intialization
-    gamma_np = np.zeros(shape=(U+1,V+1), dtype=DTYPE) + LOG_0
+    cdef np.ndarray[DTYPE_t, ndim=2] gamma_np = np.zeros(shape=(U+1,V+1), dtype=DTYPE) + LOG_0
     cdef double [:,:] gamma_ = gamma_np
 
-    gamma_ast_np = np.zeros(shape=(U+1,V+1), dtype=DTYPE) + LOG_0
+    cdef np.ndarray[DTYPE_t, ndim=2] gamma_ast_np = np.zeros(shape=(U+1,V+1), dtype=DTYPE) + LOG_0
     cdef double [:,:] gamma_ast = gamma_ast_np
     cdef double gamma_eps, gamma_ast_eps, gamma_ast_ast
 
