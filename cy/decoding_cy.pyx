@@ -111,6 +111,18 @@ def pair_gamma_log(double [:,:] y1, double [:,:] y2):
 
     return(gamma_np)
 
+@cython.boundscheck(False)  # Deactivate bounds checking
+@cython.wraparound(False)   # Deactivate negative indexing.
+def pair_prefix_prob_log_from_vec(double [:] alpha_ast1, double [:] alpha_ast2, double [:,:] gamma):
+    cdef Py_ssize_t U = alpha_ast1.shape[0]
+    cdef Py_ssize_t V = alpha_ast2.shape[0]
+    cdef Py_ssize_t u, v
+    cdef double prefix_prob = 0
+    for u in range(U):
+        for v in range(V):
+            prefix_prob += exp(alpha_ast1[u] + alpha_ast2[v] + gamma[u+1,v+1])
+    return(log(prefix_prob) - gamma[0,0])
+
 # doesn't seem to be faster than vectorized numpy
 @cython.boundscheck(False)  # Deactivate bounds checking
 @cython.wraparound(False)   # Deactivate negative indexing.
