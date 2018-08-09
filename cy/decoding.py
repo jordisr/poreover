@@ -2,7 +2,6 @@ import numpy as np
 import operator, sys
 from collections import OrderedDict
 
-#import pyximport; pyximport.install()
 from . import decoding_cy
 
 # Default alphabet
@@ -145,10 +144,10 @@ def pair_prefix_search_log(y1_, y2_, alphabet=DNA_alphabet):
             alpha_ast1 = forward_vec_no_gap_log(prefix_int,y1,alpha1_prev)
             alpha_ast2 = forward_vec_no_gap_log(prefix_int,y2,alpha2_prev)
 
-            prefix_prob[prefix] = decoding_cy.pair_prefix_prob_log_from_vec(alpha_ast1,alpha_ast2,gamma)
+            #prefix_prob[prefix] = decoding_cy.pair_prefix_prob_log_from_vec(alpha_ast1,alpha_ast2,gamma)
 
-            #alpha_ast_ast = np.add.outer(alpha_ast1,alpha_ast2)
-            #prefix_prob[prefix] = pair_prefix_prob_log(alpha_ast_ast, gamma)
+            alpha_ast_ast = np.add.outer(alpha_ast1,alpha_ast2)
+            prefix_prob[prefix] = pair_prefix_prob_log(alpha_ast_ast, gamma)
 
             #unrolled = (np.add.outer(alpha_ast1,alpha_ast2)+gamma[1:,1:]).flatten()
             #prefix_prob[prefix] = np.max(unrolled) + np.log(len(unrolled)) - gamma[0,0]
