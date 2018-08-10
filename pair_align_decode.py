@@ -128,6 +128,8 @@ if __name__ == '__main__':
     parser.add_argument('--matches', type=int, default=8, help='Match size for building anchors')
     parser.add_argument('--indels', type=int, default=10, help='Indel size for building anchors')
     parser.add_argument('--out', default='out',help='Output file name')
+    parser.add_argument('--debug_box', default=False, help='(DEBUGGING) Only bascecall segment in the format u_start-u_end:v_start-v_end. Overrides other options!')
+
     args = parser.parse_args()
 
     if len(args.logits) != 2:
@@ -151,6 +153,17 @@ if __name__ == '__main__':
 
     sequence_to_signal1 = []
     sequence_to_signal2 = []
+
+    if args.debug_box:
+        import re
+        re_match = re.match('(\d+)-(\d+):(\d+)-(\d+)',args.debug_box)
+        if re_match:
+            u1,u2,v1,v2 = int(re_match.group(1)), int(re_match.group(2)), int(re_match.group(3)), int(re_match.group(4))
+        else:
+            raise "Incorrectly formated box string"
+
+        print(basecall_box(1,1,u1,u2,v1,v2))
+        sys.exit()
 
     print('Read1:{} Read2:{}'.format(file1,file2),file=sys.stderr)
     print('\t Performing 1D basecalling...',file=sys.stderr)
