@@ -127,7 +127,7 @@ def basecall1d(y):
     return((prefix,forward_indices))
 
 def basecall_box(b,b_tot,u1,u2,v1,v2):
-    MEM_LIMIT = 1000000 # 1 GB
+    MEM_LIMIT = 1000000000 # 1 GB
     size = (u2-u1+1)*(v2-v1+1)
     '''
     Function to be run in parallel.
