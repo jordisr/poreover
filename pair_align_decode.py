@@ -98,18 +98,45 @@ def basecall1d(y):
     # Perform 1d basecalling and get signal-sequence mapping by taking
     # argmax of final forward matrix.
     (prefix, forward) = cy.decoding.prefix_search_log(y, return_forward=True)
-    s_len = len(prefix)
-    forward_indices = np.argmax(forward,axis=0)
+    sig_max = forward.shape[0]
+    seq_max = forward.shape[1]
 
-    assert(s_len == len(forward_indices))
+    forward_indices = np.zeros(seq_max, dtype=int)
+    cumul = 1
+    for i in range(1,seq_max):
+        forward_indices[i] = np.argmax(forward[cumul:,i])+cumul
+        cumul = forward_indices[i]
+
+    '''
+    # traceback instead of argmax approach
+    forward_indices = np.zeros(seq_max)
+    seq_i, sig_i = 1, 0
+    while (0 <= seq_i < seq_max-1) and (0 <= sig_i < sig_max-1):
+        #print(seq_i, sig_i)
+        next_pos = np.argmax([forward[sig_i+1,seq_i], forward[sig_i,seq_i+1], forward[sig_i+1,seq_i+1]])
+        if next_pos > 0:
+            forward_indices[seq_i] = sig_i
+            seq_i += 1
+        if (next_pos == 0) or (next_pos == 1):
+            sig_i += 1
+    forward_indices[-1] = sig_i
+    '''
+
+    assert(len(prefix) == len(forward_indices))
+    assert(np.all(np.diff(forward_indices) >= 0))
     return((prefix,forward_indices))
 
 def basecall_box(b,b_tot,u1,u2,v1,v2):
+    MEM_LIMIT = 1000000000 # 1 GB
+    size = (u2-u1+1)*(v2-v1+1)
     '''
     Function to be run in parallel.
     '''
-    print('\t {}/{} Basecalling box {}-{}x{}-{}'.format(b,b_tot,u1,u2,v1,v2),file=sys.stderr)
+    print('\t {}/{} Basecalling box {}-{}x{}-{} (size: {} elements)...'.format(b,b_tot,u1,u2,v1,v2,size),file=sys.stderr)
     if (u2-u1)+(v2-v1) < 1:
+        return(u1,'')
+    elif size*8 > MEM_LIMIT:
+        print('ERROR: Box too large to basecall {}-{}:{}-{} (size: {} elements)'.format(u1,u2,v1,v2,size))
         return(u1,'')
     else:
         try:
@@ -128,6 +155,8 @@ if __name__ == '__main__':
     parser.add_argument('--matches', type=int, default=8, help='Match size for building anchors')
     parser.add_argument('--indels', type=int, default=10, help='Indel size for building anchors')
     parser.add_argument('--out', default='out',help='Output file name')
+    parser.add_argument('--debug_box', default=False, help='(DEBUGGING) Only bascecall segment in the format u_start-u_end:v_start-v_end. Overrides other options!')
+
     args = parser.parse_args()
 
     if len(args.logits) != 2:
@@ -151,6 +180,17 @@ if __name__ == '__main__':
 
     sequence_to_signal1 = []
     sequence_to_signal2 = []
+
+    if args.debug_box:
+        import re
+        re_match = re.match('(\d+)-(\d+):(\d+)-(\d+)',args.debug_box)
+        if re_match:
+            u1,u2,v1,v2 = int(re_match.group(1)), int(re_match.group(2)), int(re_match.group(3)), int(re_match.group(4))
+        else:
+            raise "Incorrectly formated box string"
+
+        print(basecall_box(1,1,u1,u2,v1,v2))
+        sys.exit()
 
     print('Read1:{} Read2:{}'.format(file1,file2),file=sys.stderr)
     print('\t Performing 1D basecalling...',file=sys.stderr)
@@ -247,7 +287,7 @@ if __name__ == '__main__':
     print('\t Starting consensus basecalling...',file=sys.stderr)
     starmap_input = []
     for i, b in enumerate(basecall_boxes):
-        starmap_input.append((i,len(basecall_boxes),b[0],b[1],b[2],b[3]))
+        starmap_input.append((i,len(basecall_boxes)-1,b[0],b[1],b[2],b[3]))
 
     NUM_THREADS = args.threads
     with Pool(processes=NUM_THREADS) as pool:
