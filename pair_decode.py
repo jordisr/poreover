@@ -110,8 +110,14 @@ def basecall1d(y):
     # Perform 1d basecalling and get signal-sequence mapping by taking
     # argmax of final forward matrix.
     (prefix, forward) = cy.decoding.prefix_search_log(y, return_forward=True)
-    sig_max = forward.shape[0]
-    seq_max = forward.shape[1]
+    print(y.shape, forward.shape)
+    try:
+        sig_max = forward.shape[0]
+        seq_max = forward.shape[1]
+    except:
+        print('WARNING! Best label is blank! y.shape:{} forward.shape:{} prefix:{}'.format(y.shape, forward.shape, prefix))
+        #np.savetxt('debug.csv',y,delimiter=',')
+        return('',[]) # in case of gap being most probable
 
     forward_indices = np.zeros(seq_max, dtype=int)
     cumul = 1
@@ -251,13 +257,15 @@ if __name__ == '__main__':
         with Pool(processes=args.threads) as pool:
             basecalls1d_1 = pool.map(basecall1d, logits1_reshape)
             for i,out in enumerate(basecalls1d_1):
-                read1_prefix += out[0]
-                sequence_to_signal1.append(out[1]+logits1_reshape.shape[1]*i)
+                if out[0] != '':
+                    read1_prefix += out[0]
+                    sequence_to_signal1.append(out[1]+logits1_reshape.shape[1]*i)
 
             basecalls1d_2 = pool.map(basecall1d, logits2_reshape)
             for i,out in enumerate(basecalls1d_2):
-                read2_prefix += out[0]
-                sequence_to_signal2.append(out[1]+logits2_reshape.shape[1]*i)
+                if out[0] != '':
+                    read2_prefix += out[0]
+                    sequence_to_signal2.append(out[1]+logits2_reshape.shape[1]*i)
 
         with open(args.out+'.1d.fasta','a') as f:
             print(fasta_format(file1,read1_prefix),file=f)
