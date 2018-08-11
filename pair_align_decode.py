@@ -16,7 +16,7 @@ import numpy as np
 from multiprocessing import Pool
 import argparse, random, sys, glob, os, re
 from scipy.special import logsumexp
-from Bio import pairwise2
+#from Bio import pairwise2
 
 import decoding
 import cy
@@ -216,9 +216,11 @@ if __name__ == '__main__':
     sequence_to_signal2 = np.concatenate(np.array(sequence_to_signal2))
     assert(len(sequence_to_signal2) == len(read2_prefix))
 
-    print('\t Aligning basecalled sequences...',file=sys.stderr)
-    alignment = pairwise2.align.globalms(read1_prefix, read2_prefix, 2, -1, -.5, -.1)
-    alignment = np.array([list(s) for s in alignment[0][:2]])
+    print('\t Aligning basecalled sequences (Read1 is {} bp and Read2 is {} bp)...'.format(len(read1_prefix),len(read2_prefix)),file=sys.stderr)
+    #alignment = pairwise2.align.globalms(read1_prefix, read2_prefix, 2, -1, -.5, -.1)
+    alignment = cy.align.global_pair(read1_prefix, read2_prefix)
+    alignment = np.array([list(s) for s in alignment[:2]])
+
     print('\t Read sequence identity: {}'.format(np.sum(alignment[0] == alignment[1]) / len(alignment[0])), file=sys.stderr)
 
     # get alignment_to_sequence mapping
