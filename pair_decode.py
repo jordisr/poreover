@@ -110,7 +110,6 @@ def basecall1d(y):
     # Perform 1d basecalling and get signal-sequence mapping by taking
     # argmax of final forward matrix.
     (prefix, forward) = cy.decoding.prefix_search_log(y, return_forward=True)
-    print(y.shape, forward.shape)
     try:
         sig_max = forward.shape[0]
         seq_max = forward.shape[1]
