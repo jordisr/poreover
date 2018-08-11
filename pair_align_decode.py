@@ -127,14 +127,27 @@ def basecall1d(y):
     return((prefix,forward_indices))
 
 def basecall_box(b,b_tot,u1,u2,v1,v2):
+    '''
+    Helper function for multiprocessing.
+    Consensus basecall 2D region defined by u1/u2/v1/v2:
+
+    (u1,v1) -------- (u1,v2)
+       |                |
+       |                |
+    (u2,v1) -------- (u2,v2)
+    '''
+
     MEM_LIMIT = 1000000000 # 1 GB
     size = (u2-u1+1)*(v2-v1+1)
-    '''
-    Function to be run in parallel.
-    '''
+    assert(size > 0)
     print('\t {}/{} Basecalling box {}-{}x{}-{} (size: {} elements)...'.format(b,b_tot,u1,u2,v1,v2,size),file=sys.stderr)
-    if (u2-u1)+(v2-v1) < 1:
+
+    if size <= 1:
         return(u1,'')
+    elif (u2-u1) < 1:
+        return((u1, cy.decoding.prefix_search_log(logits2[v1:v2])[0]))
+    elif (v2-v1) < 1:
+        return((u1, cy.decoding.prefix_search_log(logits1[u1:u2])[0]))
     elif size*8 > MEM_LIMIT:
         print('ERROR: Box too large to basecall {}-{}:{}-{} (size: {} elements)'.format(u1,u2,v1,v2,size))
         return(u1,'')
