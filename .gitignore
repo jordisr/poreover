@@ -7,4 +7,7 @@ __pycache__
 ./*.data-*
 ./checkpoint
 ./*.out
-local
+./*/*.c
+./*/*.so
+./*/*.html
+./build
