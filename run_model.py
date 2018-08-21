@@ -1,5 +1,5 @@
 '''
-TODO: support for directory of FAST5 files
+Load saved model and basecall single read
 '''
 import numpy as np
 import tensorflow as tf
@@ -8,7 +8,6 @@ import os, sys, re, argparse
 import pickle
 
 import decoding
-import cy
 import batch
 
 def label2base(l):
@@ -155,7 +154,7 @@ with tf.Session() as sess:
         assert(len(softmax)==len(sizes))
 
         def basecall_segment(i):
-            return(cy.decoding.prefix_search_log(softmax[i][:sizes[i]])[0])
+            return(decoding.prefix_search(softmax[i][:sizes[i]])[0])
 
         NUM_THREADS = args.ctc_threads
         with Pool(processes=NUM_THREADS) as pool:
