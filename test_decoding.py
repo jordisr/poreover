@@ -10,7 +10,6 @@ from testing import profile, joint_profile
 import decoding
 
 import pyximport; pyximport.install()
-import cy
 
 class TestForwardAlgorithm(unittest.TestCase):
 
@@ -53,7 +52,7 @@ class TestForwardAlgorithm(unittest.TestCase):
 
         for label in examples:
             label_int = [alphabet_dict[i] for i in label]
-            alpha  = decoding.forward(label_int, np.log(y).astype(np.float64), cy.decoding_cy.forward_vec_log)
+            alpha  = decoding.forward(label_int, np.log(y).astype(np.float64), decoding.decoding_cy.forward_vec_log)
             print('CYTHON', alpha[-1,-1],  np.log(prof.label_prob(label)))
             self.assertTrue(np.isclose(alpha[-1,-1], np.log(prof.label_prob(label))))
 
@@ -226,7 +225,7 @@ class TestPairDecoding(unittest.TestCase):
             joint_prof = joint_profile(profile1, profile2)
 
             top_label = joint_prof.top_label()
-            search_top_label = cy.decoding.pair_prefix_search_log(np.log(y1),np.log(y2),alphabet=toy_alphabet)
+            search_top_label = decoding.pair_prefix_search_log_cy(np.log(y1),np.log(y2),alphabet=toy_alphabet)
 
             print(top_label[0],np.log(top_label[1] / joint_prof.prob_agree), search_top_label[0],search_top_label[1])
             return((top_label[0] == search_top_label[0]) and np.isclose(np.log(top_label[1] / joint_prof.prob_agree), search_top_label[1]))
@@ -298,7 +297,7 @@ class TestPairDecoding(unittest.TestCase):
             profile2=profile(y2,alphabet)
             joint_prof = joint_profile(profile1, profile2)
 
-            gamma = cy.decoding_cy.pair_gamma_log(np.log(y1).astype(np.float64),np.log(y2).astype(np.float64))
+            gamma = decoding.decoding_cy.pair_gamma_log(np.log(y1).astype(np.float64),np.log(y2).astype(np.float64))
             print('log(Z):',gamma[0,0],np.log(joint_prof.prob_agree))
             self.assertTrue(np.isclose(gamma[0,0], np.log(joint_prof.prob_agree)))
 

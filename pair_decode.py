@@ -31,7 +31,7 @@ from scipy.special import logsumexp
 #from Bio import pairwise2
 
 import decoding
-import cy
+import align
 
 def fasta_format(name, seq, width=60):
     fasta = '>'+name+'\n'
@@ -109,7 +109,7 @@ def get_anchors(alignment, matches, indels):
 def basecall1d(y):
     # Perform 1d basecalling and get signal-sequence mapping by taking
     # argmax of final forward matrix.
-    (prefix, forward) = cy.decoding.prefix_search_log(y, return_forward=True)
+    (prefix, forward) = decoding.prefix_search_log_cy(y, return_forward=True)
     try:
         sig_max = forward.shape[0]
         seq_max = forward.shape[1]
@@ -162,16 +162,16 @@ def basecall_box(b,b_tot,u1,u2,v1,v2):
     if size <= 1:
         return(u1,'')
     elif (u2-u1) < 1:
-        return((u1, cy.decoding.prefix_search_log(logits2[v1:v2])[0]))
+        return((u1, decoding.prefix_search_log_cy(logits2[v1:v2])[0]))
     elif (v2-v1) < 1:
-        return((u1, cy.decoding.prefix_search_log(logits1[u1:u2])[0]))
+        return((u1, decoding.prefix_search_log_cy(logits1[u1:u2])[0]))
     elif size*8 > MEM_LIMIT:
         print('ERROR: Box too large to basecall {}-{}:{}-{} (size: {} elements)'.format(u1,u2,v1,v2,size))
         return(u1,'')
     else:
         try:
             #return((u1, decoding.pair_prefix_search(np.exp(logits1[u1:u2]),np.exp(logits2[v1:v2]))[0]))
-            return((u1, cy.decoding.pair_prefix_search_log(logits1[u1:u2],logits2[v1:v2])[0]))
+            return((u1, decoding.pair_prefix_search_log_cy(logits1[u1:u2],logits2[v1:v2])[0]))
         except:
             print('WARNING: Error while basecalling box {}-{}:{}-{}'.format(u1,u2,v1,v2))
             return(u1,'')
@@ -278,7 +278,7 @@ if __name__ == '__main__':
 
         print('\t Aligning basecalled sequences (Read1 is {} bp and Read2 is {} bp)...'.format(len(read1_prefix),len(read2_prefix)),file=sys.stderr)
         #alignment = pairwise2.align.globalms(read1_prefix, read2_prefix, 2, -1, -.5, -.1)
-        alignment = cy.align.global_pair(read1_prefix, read2_prefix)
+        alignment = align.global_pair(read1_prefix, read2_prefix)
         alignment = np.array([list(s) for s in alignment[:2]])
 
         print('\t Read sequence identity: {}'.format(np.sum(alignment[0] == alignment[1]) / len(alignment[0])), file=sys.stderr)
