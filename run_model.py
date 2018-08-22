@@ -1,5 +1,5 @@
 '''
-TODO: support for directory of FAST5 files
+Load saved model and basecall single read
 '''
 import numpy as np
 import tensorflow as tf
@@ -142,7 +142,7 @@ with tf.Session() as sess:
         else:
             np.save(args.out, logits_)
 
-    if args.decoding is 'prefix':
+    if args.decoding == 'prefix':
         logits_ = sess.run(logits, feed_dict={X:stacked,sequence_length:sizes})
         softmax = sess.run(tf.nn.softmax(logits_))
         prediction_ = list()
@@ -162,7 +162,7 @@ with tf.Session() as sess:
 
         sequence = ''.join(basecalls)
 
-    elif args.decoding is 'beam':
+    elif args.decoding == 'beam':
         # make prediction
         prediction_ = sess.run(prediction, feed_dict={X:stacked,sequence_length:sizes})
 
