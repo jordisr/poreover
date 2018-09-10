@@ -3,10 +3,10 @@
 
 #include "SparseMatrix.h"
 
-//double pair_gamma_log_envelope(double[][3], double[][3], int[][2], int, int);
-//double pair_gamma_log_envelope(double (*)[3], double (*)[3], int (*)[2], int, int);
+double logaddexp(double, double);
 
 double pair_gamma_log_envelope(double**, double**, int**, int, int, int);
-//double pair_gamma_log_envelope(double*, double*, int*, int, int);
+
+void pair_gamma_log_envelope_inplace(SparseMatrix, SparseMatrix, double**, double**, int**, int, int, int);
 
 #endif
