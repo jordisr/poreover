@@ -32,7 +32,7 @@ class SparseRow {
       if ((i >= start) && (i <= end)) {
         values[i-start] = x;
       } else {
-        std::cout << "Not setting. Out of bounds" << std::endl;
+        //std::cout << "Not setting. Out of bounds" << std::endl;
       }
     }
 

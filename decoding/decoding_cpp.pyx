@@ -53,9 +53,8 @@ def cpp_pair_prefix_search_log(y1_, y2_, envelope_ranges_, alphabet_=b'ACGT'):
             point_to_y2[v] = &y2[v, 0]
         for u in range(U+1):
             point_to_envelope_ranges[u] = &envelope_ranges[u,0]
-        # Call the C function that expects a double**
-        testy_mctest = pair_prefix_search_log(&point_to_y1[0], &point_to_y2[0], &point_to_envelope_ranges[0], U, V, alphabet)
-        print(testy_mctest)
+        decoded_sequence = pair_prefix_search_log(&point_to_y1[0], &point_to_y2[0], &point_to_envelope_ranges[0], U, V, alphabet)
+        return(decoded_sequence)
     finally:
         free(point_to_y1)
         free(point_to_y2)
@@ -103,7 +102,7 @@ def cpp_pair_gamma_log_envelope(y1_, y2_, envelope_ranges_):
 
     #print(testy_mctest)
 
-y1 = np.array([[-0.223144, -2.30259, -2.30259],[-2.30259, -1.20397, -0.510826],[-0.356675, -1.60944, -2.30259],[-2.30259, -2.30259, -0.223144]]).astype(DTYPE)
-y2 = np.array([[-0.356675,-1.60944,-2.30259],[-1.60944,-1.20397,-0.693147],[-0.356675,-1.60944,-2.30259],[-2.99573,-2.99573,-0.105361]]).astype(DTYPE)
-envelope_ranges = np.array([[0,4],[0,4],[0,4],[0,4],[0,4]]).astype(np.intc)
-cpp_pair_gamma_log_envelope(y1, y2, envelope_ranges)
+#y1 = np.array([[-0.223144, -2.30259, -2.30259],[-2.30259, -1.20397, -0.510826],[-0.356675, -1.60944, -2.30259],[-2.30259, -2.30259, -0.223144]]).astype(DTYPE)
+#y2 = np.array([[-0.356675,-1.60944,-2.30259],[-1.60944,-1.20397,-0.693147],[-0.356675,-1.60944,-2.30259],[-2.99573,-2.99573,-0.105361]]).astype(DTYPE)
+#envelope_ranges = np.array([[0,4],[0,4],[0,4],[0,4],[0,4]]).astype(np.intc)
+#cpp_pair_gamma_log_envelope(y1, y2, envelope_ranges)
