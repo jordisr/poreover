@@ -184,7 +184,7 @@ if __name__ == '__main__':
     parser.add_argument('--logits', default='.', help='Paths to both logits', required=True, nargs='+')
     parser.add_argument('--threads', type=int, default=1, help='Processes to use')
     parser.add_argument('--out', default='out',help='Output file name')
-    parser.add_argument('--method', choices=['align', 'split'],default='align',help='Method for dividing up search space (see code)')
+    parser.add_argument('--method', choices=['align', 'split', 'envelope'],default='align',help='Method for dividing up search space (see code)')
     parser.add_argument('--debug', default=False, action='store_true', help='Pickle objects to file for debugging')
 
     # --method split
@@ -357,5 +357,78 @@ if __name__ == '__main__':
         # sort each segment by its first signal index
         joined_basecalls = ''.join([i[1] for i in sorted(basecalls + basecall_anchors)])
 
+    elif args.method == 'envelope':
+        print('\t Performing 1D basecalling...',file=sys.stderr)
+
+        with Pool(processes=args.threads) as pool:
+            basecalls1d_1 = pool.map(basecall1d, logits1_reshape)
+            for i,out in enumerate(basecalls1d_1):
+                if out[0] != '':
+                    read1_prefix += out[0]
+                    sequence_to_signal1.append(out[1]+logits1_reshape.shape[1]*i)
+
+            basecalls1d_2 = pool.map(basecall1d, logits2_reshape)
+            for i,out in enumerate(basecalls1d_2):
+                if out[0] != '':
+                    read2_prefix += out[0]
+                    sequence_to_signal2.append(out[1]+logits2_reshape.shape[1]*i)
+
+        with open(args.out+'.1d.fasta','a') as f:
+            print(fasta_format(file1,read1_prefix),file=f)
+            print(fasta_format(file2,read2_prefix),file=f)
+
+        sequence_to_signal1 = np.concatenate(np.array(sequence_to_signal1))
+        assert(len(sequence_to_signal1) == len(read1_prefix))
+
+        sequence_to_signal2 = np.concatenate(np.array(sequence_to_signal2))
+        assert(len(sequence_to_signal2) == len(read2_prefix))
+
+        print('\t Aligning basecalled sequences (Read1 is {} bp and Read2 is {} bp)...'.format(len(read1_prefix),len(read2_prefix)),file=sys.stderr)
+        #alignment = pairwise2.align.globalms(read1_prefix, read2_prefix, 2, -1, -.5, -.1)
+        alignment = align.global_pair(read1_prefix, read2_prefix)
+        alignment = np.array([list(s) for s in alignment[:2]])
+
+        print('\t Read sequence identity: {}'.format(np.sum(alignment[0] == alignment[1]) / len(alignment[0])), file=sys.stderr)
+
+        # get alignment_to_sequence mapping
+        alignment_to_sequence = np.zeros(shape=alignment.shape,dtype=int)
+        for i,col in enumerate(alignment.T):
+            # no boundary case for first element but it will wrap around to the last (which is zero)
+            for s in range(2):
+                if col[s] == '-':
+                    alignment_to_sequence[s,i] = alignment_to_sequence[s,i-1]
+                else:
+                    alignment_to_sequence[s,i] = alignment_to_sequence[s,i-1] + 1
+
+        if args.debug:
+            with open( "debug.p", "wb" ) as pfile:
+                import pickle
+                pickle.dump({
+                'alignment_to_sequence':alignment_to_sequence,
+                'sequence_to_signal1':sequence_to_signal1,
+                'sequence_to_signal2':sequence_to_signal2,
+                'alignment':alignment
+                },pfile)
+
+        # Build envelope
+        # ...
+
+        # Basecall
+        # decoding.decoding_cpp.cpp_pair_prefix_search_log(y1,y2,envelope,"ACGT")
+
+        sys.exit()
+
+        print('\t Starting consensus basecalling...',file=sys.stderr)
+        starmap_input = []
+        for i, b in enumerate(basecall_boxes):
+            starmap_input.append((i,len(basecall_boxes)-1,b[0],b[1],b[2],b[3]))
+
+        with Pool(processes=args.threads) as pool:
+            basecalls = pool.starmap(basecall_box, starmap_input)
+
+        # sort each segment by its first signal index
+        joined_basecalls = ''.join([i[1] for i in sorted(basecalls + basecall_anchors)])
+
+    # output final basecalled sequence
     with open(args.out+'.2d.fasta','a') as f:
         print(fasta_format('consensus_{};{};{}'.format(args.method,file1,file2),joined_basecalls), file=f)
