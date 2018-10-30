@@ -80,6 +80,8 @@ void forward(string alphabet, string label, double** y, int U) {
 
 string pair_prefix_search_log(double **y1, double **y2, int **envelope_ranges, int U, int V, string alphabet) {
 
+  //cout << "STARTING PREFIX SEARCH" << endl;
+
   // initialize prefix search variables
   int alphabet_size = alphabet.length();
   bool continue_search = true;
@@ -92,6 +94,7 @@ string pair_prefix_search_log(double **y1, double **y2, int **envelope_ranges, i
     gamma_.push_row(envelope_ranges[u][0],envelope_ranges[u][1]);
     gamma_ast.push_row(envelope_ranges[u][0],envelope_ranges[u][1]);
   }
+  //cout << "STARTING GAMMA DP" << endl;
   pair_gamma_log_envelope_inplace(gamma_, gamma_ast, y1, y2, envelope_ranges, U, V, alphabet_size+1);
   //cout << "Gamma(0,0): " << gamma_.get(0,0) << endl;
 
@@ -184,6 +187,12 @@ string pair_prefix_search_log(double **y1, double **y2, int **envelope_ranges, i
       if (label_prob > best_label_prob_prev) {
         best_label_prob_prev = label_prob;
         best_label_prev = prefix;
+      }
+
+      // catch errors with probabilities and terminate search
+      if (label_prob > 0) {
+        continue_search = false;
+        cerr << "Error! Log prefix probability greater than 0" << endl;
       }
 
       //cout << "search_level:" << search_level << " extending by " << alphabet[i] << " best_label:" << best_label << " label:" << prefix << " label_prob:" << label_prob << " prefix_prob:" << prefix_prob << endl;

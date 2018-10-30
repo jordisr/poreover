@@ -123,7 +123,9 @@ void pair_gamma_log_envelope_inplace(SparseMatrix gamma_, SparseMatrix gamma_ast
         log_sum += y2[v_e][alphabet_size-1];
       }
       gamma_.set(U,v,log_sum);
+      //cout << "(" << U << "," << v << "):" << gamma_.get(U,v) << endl;
     }
+    //cout << "Initialized v=0 to v=" << V << endl;
 
     for (int u=0; u<U; u++) {
       double log_sum = 0.;
@@ -131,7 +133,13 @@ void pair_gamma_log_envelope_inplace(SparseMatrix gamma_, SparseMatrix gamma_ast
         log_sum += y1[u_e][alphabet_size-1];
       }
       gamma_.set(u,V,log_sum);
+      //cout << "(" << u << "," << V << "):" << gamma_.get(u,V) << endl;
     }
+
+    //cout << "gamma(U,V)=" << gamma_.get(U,V) << endl;
+    //cout << "gamma(U+1,V+1)=" << gamma_.get(U+1,V+1) << endl;
+    //cout << "gamma(U-1,V)=" << gamma_.get(U-1,V) << endl;
+    //cout << "gamma(U,V-1)=" << gamma_.get(U,V-1) << endl;
 
     double gamma_eps, gamma_ast_eps, gamma_ast_ast;
 
@@ -139,9 +147,12 @@ void pair_gamma_log_envelope_inplace(SparseMatrix gamma_, SparseMatrix gamma_ast
       int row_start = envelope_ranges[u][0];
       int row_end = envelope_ranges[u][1]-1;
       for (int v=row_end; v>=row_start; v--) {
-
+        //cout << "\t\t... v=" << v << endl;
+        //cout << "\t\t... gamma(u+1,v)=" << gamma_.get(u+1,v) << endl;
+        //cout << "\t\t... gamma(u,v+1)=" << gamma_.get(u,v+1) << endl;
         gamma_eps = gamma_.get(u+1,v) + y1[u][alphabet_size-1];
         gamma_ast_eps = gamma_ast.get(u,v+1) + y2[v][alphabet_size-1];
+        //cout << "\t\t\t gamma_eps=" << gamma_eps << " gamma_ast_eps=" << gamma_ast_eps << endl;
 
         // logsumexp
         double total2 = 0.;
@@ -149,6 +160,7 @@ void pair_gamma_log_envelope_inplace(SparseMatrix gamma_, SparseMatrix gamma_ast
           total2 += exp(y1[u][t]+y2[v][t]);
         }
         gamma_ast_ast = gamma_.get(u+1,v+1) + log(total2);
+        //cout << "\t\t\t gamma_ast_ast=" << gamma_ast_ast << endl;
 
         // storing DP matrices
         double logaddexp_;
