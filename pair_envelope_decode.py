@@ -2,7 +2,6 @@ import pickle, sys, time
 import numpy as np
 from scipy.special import logsumexp
 
-from pair_decode import load_logits
 import decoding
 
 def add_block(b,envelope):
@@ -46,7 +45,7 @@ def get_alignment_columns(alignment):
         alignment_col.append((label, x_index, y_index))
     return(alignment_col)
 
-def build_envelope(y1,y2,alignment_col,padding=50):
+def build_envelope(y1, y2, alignment_col, sequence_to_signal1, sequence_to_signal2, padding=50):
     U = len(y1)
     V = len(y2)
 
@@ -102,8 +101,7 @@ def pad_envelope(envelope, U, V):
 if __name__ == '__main__':
 
     from multiprocessing import Pool
-
-
+    from pair_decode import load_logits
 
     LOG_0 = -float('Inf')
     LOG_1 = 0
@@ -125,7 +123,7 @@ if __name__ == '__main__':
 
     alignment_col = get_alignment_columns(alignment)
 
-    full_envelope = build_envelope(y1,y2,alignment_col)
+    full_envelope = build_envelope(y1,y2,alignment_col,sequence_to_signal1,sequence_to_signal2)
 
     # split into subsets
     number_subsets = 20

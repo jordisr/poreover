@@ -32,6 +32,7 @@ from scipy.special import logsumexp
 
 import decoding
 import align
+import pair_envelope_decode
 
 def fasta_format(name, seq, width=60):
     fasta = '>'+name+'\n'
@@ -410,24 +411,45 @@ if __name__ == '__main__':
                 'alignment':alignment
                 },pfile)
 
+        # prepare data for passing to C++
+        y1 = logits1.astype(np.float64)
+        y2 = logits2.astype(np.float64)
+
         # Build envelope
-        # ...
+        alignment_col = pair_envelope_decode.get_alignment_columns(alignment)
+        full_envelope = pair_envelope_decode.build_envelope(y1,y2,alignment_col, sequence_to_signal1, sequence_to_signal2)
 
-        # Basecall
-        # decoding.decoding_cpp.cpp_pair_prefix_search_log(y1,y2,envelope,"ACGT")
+        # split envelope into subsets
+        number_subsets = 20
+        window = int(len(y1)/number_subsets)
+        subsets = np.zeros(shape=(number_subsets, 4)).astype(int)
+        s = 0
+        u = 0
+        while s < number_subsets:
+            start = u
+            end = u+window
+            subsets[s,0] = start
+            subsets[s,1] = end
+            subsets[s,2] = np.min(full_envelope[start:end,0])
+            subsets[s,3] = np.max(full_envelope[start:end,1])
+            s += 1
+            u = end
 
-        sys.exit()
+        def basecall_subset(subset):
+            y1_subset = y1[subset[0]:subset[1]]
+            y2_subset = y2[subset[2]:subset[3]]
+            subset_envelope = pair_envelope_decode.offset_envelope(full_envelope, subset)
+            subset_envelope = pair_envelope_decode.pad_envelope(subset_envelope,len(y1_subset), len(y2_subset))
+            return(decoding.decoding_cpp.cpp_pair_prefix_search_log(
+            y1_subset,
+            y2_subset,
+            subset_envelope.tolist(),
+            "ACGT"))
 
         print('\t Starting consensus basecalling...',file=sys.stderr)
-        starmap_input = []
-        for i, b in enumerate(basecall_boxes):
-            starmap_input.append((i,len(basecall_boxes)-1,b[0],b[1],b[2],b[3]))
-
         with Pool(processes=args.threads) as pool:
-            basecalls = pool.starmap(basecall_box, starmap_input)
-
-        # sort each segment by its first signal index
-        joined_basecalls = ''.join([i[1] for i in sorted(basecalls + basecall_anchors)])
+            basecalls = pool.map(basecall_subset, subsets)
+        joined_basecalls = ''.join([i.decode() for i in basecalls])
 
     # output final basecalled sequence
     with open(args.out+'.2d.fasta','a') as f:
