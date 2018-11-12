@@ -45,7 +45,7 @@ def get_alignment_columns(alignment):
         alignment_col.append((label, x_index, y_index))
     return(alignment_col)
 
-def build_envelope(y1, y2, alignment_col, sequence_to_signal1, sequence_to_signal2, padding=50):
+def build_envelope(y1, y2, alignment_col, sequence_to_signal1, sequence_to_signal2, padding=150):
     U = len(y1)
     V = len(y2)
 

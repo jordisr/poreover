@@ -107,38 +107,37 @@ def get_anchors(alignment, matches, indels):
 
     return(anchor_ranges, anchor_type)
 
-def basecall1d(y):
-    # Perform 1d basecalling and get signal-sequence mapping by taking
-    # argmax of final forward matrix.
-    (prefix, forward) = decoding.prefix_search_log_cy(y, return_forward=True)
-    try:
-        sig_max = forward.shape[0]
-        seq_max = forward.shape[1]
-    except:
-        print('WARNING! Best label is blank! y.shape:{} forward.shape:{} prefix:{}'.format(y.shape, forward.shape, prefix))
-        #np.savetxt('debug.csv',y,delimiter=',')
-        return('',[]) # in case of gap being most probable
-
+def argmax_path(forward):
+    seq_max = forward.shape[1]
     forward_indices = np.zeros(seq_max, dtype=int)
     cumul = 1
     for i in range(1,seq_max):
         forward_indices[i] = np.argmax(forward[cumul:,i])+cumul
         cumul = forward_indices[i]
+    return(forward_indices)
 
-    '''
-    # traceback instead of argmax approach
-    forward_indices = np.zeros(seq_max)
+def viterbi_path(forward):
+    (sig_max, seq_max) = forward.shape
+    forward_indices = np.zeros(seq_max, dtype=int)
     seq_i, sig_i = 1, 0
     while (0 <= seq_i < seq_max-1) and (0 <= sig_i < sig_max-1):
-        #print(seq_i, sig_i)
         next_pos = np.argmax([forward[sig_i+1,seq_i], forward[sig_i,seq_i+1], forward[sig_i+1,seq_i+1]])
         if next_pos > 0:
             forward_indices[seq_i] = sig_i
             seq_i += 1
         if (next_pos == 0) or (next_pos == 1):
             sig_i += 1
-    forward_indices[-1] = sig_i
-    '''
+    forward_indices[seq_i:] = sig_max
+    return(forward_indices)
+
+def basecall1d(y):
+    # Perform 1d basecalling and get signal-sequence mapping
+    (prefix, forward) = decoding.prefix_search_log_cy(y, return_forward=True)
+    try:
+        forward_indices = viterbi_path(forward)
+    except:
+        print('WARNING! Best label is blank! y.shape:{} forward.shape:{} prefix:{}'.format(y.shape, forward.shape, prefix))
+        return('',[]) # in case of gap being most probable
 
     assert(len(prefix) == len(forward_indices))
     assert(np.all(np.diff(forward_indices) >= 0))
@@ -187,6 +186,9 @@ if __name__ == '__main__':
     parser.add_argument('--out', default='out',help='Output file name')
     parser.add_argument('--method', choices=['align', 'split', 'envelope'],default='align',help='Method for dividing up search space (see code)')
     parser.add_argument('--debug', default=False, action='store_true', help='Pickle objects to file for debugging')
+
+    # method envelope
+    parser.add_argument('--padding', type=int, default=150, help='Padding for building alignment envelope')
 
     # --method split
     parser.add_argument('--window', type=int, default=200, help='Segment size used for splitting reads')
@@ -417,7 +419,7 @@ if __name__ == '__main__':
 
         # Build envelope
         alignment_col = pair_envelope_decode.get_alignment_columns(alignment)
-        full_envelope = pair_envelope_decode.build_envelope(y1,y2,alignment_col, sequence_to_signal1, sequence_to_signal2)
+        full_envelope = pair_envelope_decode.build_envelope(y1,y2,alignment_col, sequence_to_signal1, sequence_to_signal2, padding=args.padding)
 
         # split envelope into subsets
         number_subsets = 20
