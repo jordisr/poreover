@@ -189,6 +189,7 @@ if __name__ == '__main__':
 
     # method envelope
     parser.add_argument('--padding', type=int, default=150, help='Padding for building alignment envelope')
+    parser.add_argument('--segments', type=int, default=8, help='Split full alignment envelope into N segments')
 
     # --method split
     parser.add_argument('--window', type=int, default=200, help='Segment size used for splitting reads')
@@ -422,7 +423,7 @@ if __name__ == '__main__':
         full_envelope = pair_envelope_decode.build_envelope(y1,y2,alignment_col, sequence_to_signal1, sequence_to_signal2, padding=args.padding)
 
         # split envelope into subsets
-        number_subsets = 20
+        number_subsets = args.segments
         window = int(len(y1)/number_subsets)
         subsets = np.zeros(shape=(number_subsets, 4)).astype(int)
         s = 0
