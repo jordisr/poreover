@@ -4,7 +4,7 @@
 PoreOver is a neural network basecaller for the Oxford Nanopore sequencing platform and is under active development. It is intended as a platform on which to explore new algorithms and architectures for basecalling. The current version uses a bidirectional RNN with LSTM cells and CTC loss to call bases from raw signal, and has been inspired by other community basecallers such as DeepNano (Boža et al. 2017) and Chiron (Teng et al. 2018).
 
 #### Consensus basecalling
-Consensus basecalling, intended for higher accuracy 1D^2 sequencing, is currently being added to PoreOver, though these algorithms are still being tested and not yet ready for production use.
+Consensus basecalling from raw signal, intended for higher accuracy 1D^2 sequencing, is currently being added to PoreOver.
 
 ### Requirements
 * TensorFlow (GPU installation recommended)
