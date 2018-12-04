@@ -32,6 +32,7 @@ from scipy.special import logsumexp
 
 import decoding
 import align
+import pair_envelope_decode
 
 def fasta_format(name, seq, width=60):
     fasta = '>'+name+'\n'
@@ -106,38 +107,37 @@ def get_anchors(alignment, matches, indels):
 
     return(anchor_ranges, anchor_type)
 
-def basecall1d(y):
-    # Perform 1d basecalling and get signal-sequence mapping by taking
-    # argmax of final forward matrix.
-    (prefix, forward) = decoding.prefix_search_log_cy(y, return_forward=True)
-    try:
-        sig_max = forward.shape[0]
-        seq_max = forward.shape[1]
-    except:
-        print('WARNING! Best label is blank! y.shape:{} forward.shape:{} prefix:{}'.format(y.shape, forward.shape, prefix))
-        #np.savetxt('debug.csv',y,delimiter=',')
-        return('',[]) # in case of gap being most probable
-
+def argmax_path(forward):
+    seq_max = forward.shape[1]
     forward_indices = np.zeros(seq_max, dtype=int)
     cumul = 1
     for i in range(1,seq_max):
         forward_indices[i] = np.argmax(forward[cumul:,i])+cumul
         cumul = forward_indices[i]
+    return(forward_indices)
 
-    '''
-    # traceback instead of argmax approach
-    forward_indices = np.zeros(seq_max)
+def viterbi_path(forward):
+    (sig_max, seq_max) = forward.shape
+    forward_indices = np.zeros(seq_max, dtype=int)
     seq_i, sig_i = 1, 0
     while (0 <= seq_i < seq_max-1) and (0 <= sig_i < sig_max-1):
-        #print(seq_i, sig_i)
         next_pos = np.argmax([forward[sig_i+1,seq_i], forward[sig_i,seq_i+1], forward[sig_i+1,seq_i+1]])
         if next_pos > 0:
             forward_indices[seq_i] = sig_i
             seq_i += 1
         if (next_pos == 0) or (next_pos == 1):
             sig_i += 1
-    forward_indices[-1] = sig_i
-    '''
+    forward_indices[seq_i:] = sig_max
+    return(forward_indices)
+
+def basecall1d(y):
+    # Perform 1d basecalling and get signal-sequence mapping
+    (prefix, forward) = decoding.prefix_search_log_cy(y, return_forward=True)
+    try:
+        forward_indices = viterbi_path(forward)
+    except:
+        print('WARNING! Best label is blank! y.shape:{} forward.shape:{} prefix:{}'.format(y.shape, forward.shape, prefix))
+        return('',[]) # in case of gap being most probable
 
     assert(len(prefix) == len(forward_indices))
     assert(np.all(np.diff(forward_indices) >= 0))
@@ -184,8 +184,12 @@ if __name__ == '__main__':
     parser.add_argument('--logits', default='.', help='Paths to both logits', required=True, nargs='+')
     parser.add_argument('--threads', type=int, default=1, help='Processes to use')
     parser.add_argument('--out', default='out',help='Output file name')
-    parser.add_argument('--method', choices=['align', 'split'],default='align',help='Method for dividing up search space (see code)')
+    parser.add_argument('--method', choices=['align', 'split', 'envelope'],default='align',help='Method for dividing up search space (see code)')
     parser.add_argument('--debug', default=False, action='store_true', help='Pickle objects to file for debugging')
+
+    # method envelope
+    parser.add_argument('--padding', type=int, default=150, help='Padding for building alignment envelope')
+    parser.add_argument('--segments', type=int, default=8, help='Split full alignment envelope into N segments')
 
     # --method split
     parser.add_argument('--window', type=int, default=200, help='Segment size used for splitting reads')
@@ -357,5 +361,99 @@ if __name__ == '__main__':
         # sort each segment by its first signal index
         joined_basecalls = ''.join([i[1] for i in sorted(basecalls + basecall_anchors)])
 
+    elif args.method == 'envelope':
+        print('\t Performing 1D basecalling...',file=sys.stderr)
+
+        with Pool(processes=args.threads) as pool:
+            basecalls1d_1 = pool.map(basecall1d, logits1_reshape)
+            for i,out in enumerate(basecalls1d_1):
+                if out[0] != '':
+                    read1_prefix += out[0]
+                    sequence_to_signal1.append(out[1]+logits1_reshape.shape[1]*i)
+
+            basecalls1d_2 = pool.map(basecall1d, logits2_reshape)
+            for i,out in enumerate(basecalls1d_2):
+                if out[0] != '':
+                    read2_prefix += out[0]
+                    sequence_to_signal2.append(out[1]+logits2_reshape.shape[1]*i)
+
+        with open(args.out+'.1d.fasta','a') as f:
+            print(fasta_format(file1,read1_prefix),file=f)
+            print(fasta_format(file2,read2_prefix),file=f)
+
+        sequence_to_signal1 = np.concatenate(np.array(sequence_to_signal1))
+        assert(len(sequence_to_signal1) == len(read1_prefix))
+
+        sequence_to_signal2 = np.concatenate(np.array(sequence_to_signal2))
+        assert(len(sequence_to_signal2) == len(read2_prefix))
+
+        print('\t Aligning basecalled sequences (Read1 is {} bp and Read2 is {} bp)...'.format(len(read1_prefix),len(read2_prefix)),file=sys.stderr)
+        #alignment = pairwise2.align.globalms(read1_prefix, read2_prefix, 2, -1, -.5, -.1)
+        alignment = align.global_pair(read1_prefix, read2_prefix)
+        alignment = np.array([list(s) for s in alignment[:2]])
+
+        print('\t Read sequence identity: {}'.format(np.sum(alignment[0] == alignment[1]) / len(alignment[0])), file=sys.stderr)
+
+        # get alignment_to_sequence mapping
+        alignment_to_sequence = np.zeros(shape=alignment.shape,dtype=int)
+        for i,col in enumerate(alignment.T):
+            # no boundary case for first element but it will wrap around to the last (which is zero)
+            for s in range(2):
+                if col[s] == '-':
+                    alignment_to_sequence[s,i] = alignment_to_sequence[s,i-1]
+                else:
+                    alignment_to_sequence[s,i] = alignment_to_sequence[s,i-1] + 1
+
+        if args.debug:
+            with open( "debug.p", "wb" ) as pfile:
+                import pickle
+                pickle.dump({
+                'alignment_to_sequence':alignment_to_sequence,
+                'sequence_to_signal1':sequence_to_signal1,
+                'sequence_to_signal2':sequence_to_signal2,
+                'alignment':alignment
+                },pfile)
+
+        # prepare data for passing to C++
+        y1 = logits1.astype(np.float64)
+        y2 = logits2.astype(np.float64)
+
+        # Build envelope
+        alignment_col = pair_envelope_decode.get_alignment_columns(alignment)
+        full_envelope = pair_envelope_decode.build_envelope(y1,y2,alignment_col, sequence_to_signal1, sequence_to_signal2, padding=args.padding)
+
+        # split envelope into subsets
+        number_subsets = args.segments
+        window = int(len(y1)/number_subsets)
+        subsets = np.zeros(shape=(number_subsets, 4)).astype(int)
+        s = 0
+        u = 0
+        while s < number_subsets:
+            start = u
+            end = u+window
+            subsets[s,0] = start
+            subsets[s,1] = end
+            subsets[s,2] = np.min(full_envelope[start:end,0])
+            subsets[s,3] = np.max(full_envelope[start:end,1])
+            s += 1
+            u = end
+
+        def basecall_subset(subset):
+            y1_subset = y1[subset[0]:subset[1]]
+            y2_subset = y2[subset[2]:subset[3]]
+            subset_envelope = pair_envelope_decode.offset_envelope(full_envelope, subset)
+            subset_envelope = pair_envelope_decode.pad_envelope(subset_envelope,len(y1_subset), len(y2_subset))
+            return(decoding.decoding_cpp.cpp_pair_prefix_search_log(
+            y1_subset,
+            y2_subset,
+            subset_envelope.tolist(),
+            "ACGT"))
+
+        print('\t Starting consensus basecalling...',file=sys.stderr)
+        with Pool(processes=args.threads) as pool:
+            basecalls = pool.map(basecall_subset, subsets)
+        joined_basecalls = ''.join([i.decode() for i in basecalls])
+
+    # output final basecalled sequence
     with open(args.out+'.2d.fasta','a') as f:
         print(fasta_format('consensus_{};{};{}'.format(args.method,file1,file2),joined_basecalls), file=f)
