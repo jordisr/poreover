@@ -147,6 +147,18 @@ def call(args):
 
             sequence = ''.join(basecalls)
 
+        elif args.decoding == 'greedy':
+            logits_ = sess.run(logits, feed_dict={X:stacked,sequence_length:sizes})
+            softmax = sess.run(tf.nn.softmax(logits_))
+
+            assert(len(softmax)==len(sizes))
+
+            def basecall_segment(i):
+                return(decoding.greedy_search(softmax[i][:sizes[i]])[0])
+
+            basecalls = [basecall_segment(i) for i in range(len(softmax))]
+            sequence = ''.join(basecalls)
+
         elif args.decoding == 'beam':
             # make prediction
             prediction_ = sess.run(prediction, feed_dict={X:stacked,sequence_length:sizes})
