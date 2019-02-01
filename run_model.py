@@ -4,7 +4,7 @@ Load saved model and basecall single read
 import numpy as np
 import tensorflow as tf
 import h5py
-import os, sys, re, argparse
+import os, sys, re, argparse, glob
 import pickle
 
 import decoding
@@ -37,7 +37,12 @@ def call(args):
 
     if args.fast5:
         if os.path.isdir(args.fast5):
-            sys.exit("FAST5 directories are not supported yet!")
+            fast5_files =  glob.glob(args.fast5+'/*.fast5')
+            print("Found",len(fast5_files),"files to basecall")
+            for fast5 in fast5_files:
+                args.fast5 = fast5
+                call(args)
+            sys.exit()
         else:
             hdf = h5py.File(args.fast5,'r')
 
