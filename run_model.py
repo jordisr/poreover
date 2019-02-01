@@ -154,7 +154,7 @@ def call(args):
             assert(len(softmax)==len(sizes))
 
             def basecall_segment(i):
-                return(decoding.greedy_search(softmax[i][:sizes[i]])[0])
+                return(decoding.greedy_search(softmax[i][:sizes[i]]))
 
             basecalls = [basecall_segment(i) for i in range(len(softmax))]
             sequence = ''.join(basecalls)
