@@ -2,11 +2,12 @@
 PoreOver
 '''
 import argparse, sys, glob, os
-from run_model import call
-from train_model import train
-#from pair_decode import pair
 
 script_dir = os.path.dirname(__file__)
+sys.path.insert(1, script_dir+'/network')
+
+from network.run_model import call
+from network.train_model import train
 
 # Set up argument parser
 parser = argparse.ArgumentParser(description='PoreOver: Consensus Basecalling for Nanopore Sequencing')
