@@ -19,15 +19,15 @@ cd data
 tar -xzf train.tar.gz
 ```
 
-We can now train the model for a few iterations.
+From the main `poreover` directory we can now train the model for a few iterations.
 
-`python train_model.py --data data/train --training_steps 100`
+`python . train --data data/train --training_steps 100`
 
 Once there is a model to load, we can make a basecall on a sample read (of course,
     after only a little training on a toy dataset we would not expect it to be very accurate). 
 
-`python run_model.py --fast5 data/read.fast5 --model run-0 --fasta`
+`python . call --fast5 data/read.fast5 --model run-0 --out test1.fasta`
  
 We can compare this to the output of a model that has seen more training on a larger dataset. In the `models/` directory there are models for pore versions R9 (trained on E.coli) and R9.5 (trained on human).
 
-`python run_model.py --fast5 data/read.fast5 --model models/r9 --fasta`
+`python . call --fast5 data/read.fast5 --model models/r9 --out test2.fasta`
