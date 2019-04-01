@@ -101,13 +101,12 @@ def pad_envelope(envelope, U, V):
 if __name__ == '__main__':
 
     from multiprocessing import Pool
-    from pair_decode import load_logits
 
     LOG_0 = -float('Inf')
     LOG_1 = 0
 
-    logits1 = load_logits(sys.argv[2])
-    logits2 = load_logits(sys.argv[3], reverse_complement=True)
+    logits1 = decoding.decode.load_logits(sys.argv[2])
+    logits2 = decoding.decode.load_logits(sys.argv[3], reverse_complement=True)
 
     # load pickled environment
     saved = open(sys.argv[1],'rb')

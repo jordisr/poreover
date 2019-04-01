@@ -8,6 +8,7 @@ sys.path.insert(1, script_dir+'/network')
 
 from network.run_model import call
 from network.train_model import train
+from decoding.decode import decode
 
 # Set up argument parser
 parser = argparse.ArgumentParser(description='PoreOver: Consensus Basecalling for Nanopore Sequencing')
@@ -39,9 +40,13 @@ parser_call.add_argument('--decoding', default='greedy', choices=['greedy','beam
 parser_call.add_argument('--ctc_threads', type=int, default=1, help='Number of threads to use for prefix decoding')
 parser_call.add_argument('--no_stack', default=False, action='store_true', help='Basecall [1xSIGNAL_LENGTH] tensor instead of splitting it into windows (slower)')
 
-# Pair
-#parser_pair = subparsers.add_parser('pair', help='Pair decoding of probabilities from neural network')
-#parser_pair.set_defaults(func=pair)
+# Decode
+parser_decode = subparsers.add_parser('decode', help='Decode probabilities from another basecaller')
+parser_decode.set_defaults(func=decode)
+parser_decode.add_argument('--in', required=True, help='Probabilities to decode (either .npy from PoreOver of HDF5/FAST5 from Flappie or Guppy)')
+parser_decode.add_argument('--out', help='Save FASTA sequence to file (default: stdout)')
+parser_decode.add_argument('--basecaller', choices=['poreover', 'flappie', 'guppy'], default='poreover', help='Basecaller used to generate probabilitiess')
+parser_decode.add_argument('--algorithm', default='viterbi', choices=['viterbi'], help='')
 
 # Parse arguments and call corresponding command
 args = parser.parse_args()
