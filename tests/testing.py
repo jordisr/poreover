@@ -1,9 +1,12 @@
 import itertools
 import operator
+import os
+import sys
 import numpy as np
 from collections import OrderedDict
 
-from decoding import remove_gaps
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+import decoding
 
 class profile:
     '''
@@ -17,7 +20,7 @@ class profile:
     merge_function: function used to map paths to label sequences, this could
         involve collapsing repeated labels or just removing gaps.
     '''
-    def __init__(self, softmax, alphabet, merge_function=remove_gaps):
+    def __init__(self, softmax, alphabet, merge_function=decoding.remove_gaps):
         self.softmax = softmax
         self.alphabet = alphabet
         self.merge_function = merge_function
