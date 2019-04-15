@@ -32,7 +32,6 @@ from scipy.special import logsumexp
 
 import decoding
 import align
-import pair_envelope_decode
 
 def fasta_format(name, seq, width=60):
     fasta = '>'+name+'\n'
@@ -117,7 +116,7 @@ def basecall1d(y):
     assert(np.all(np.diff(forward_indices) >= 0))
     return((prefix,forward_indices))
 
-def basecall_box(b,b_tot,u1,u2,v1,v2):
+def basecall_box(logits1, logits2, b,b_tot,u1,u2,v1,v2):
     '''
     Helper function for multiprocessing.
     Consensus basecall 2D region defined by u1/u2/v1/v2:
@@ -150,31 +149,7 @@ def basecall_box(b,b_tot,u1,u2,v1,v2):
             print('WARNING: Error while basecalling box {}-{}:{}-{}'.format(u1,u2,v1,v2))
             return(u1,'')
 
-if __name__ == '__main__':
-
-    parser = argparse.ArgumentParser(description='Consensus decoding')
-
-    # general options
-    parser.add_argument('--logits', default='.', help='Paths to both logits', required=True, nargs='+')
-    parser.add_argument('--threads', type=int, default=1, help='Processes to use')
-    parser.add_argument('--out', default='out',help='Output file name')
-    parser.add_argument('--method', choices=['align', 'split', 'envelope'],default='align',help='Method for dividing up search space (see code)')
-    parser.add_argument('--debug', default=False, action='store_true', help='Pickle objects to file for debugging')
-
-    # method envelope
-    parser.add_argument('--padding', type=int, default=150, help='Padding for building alignment envelope')
-    parser.add_argument('--segments', type=int, default=8, help='Split full alignment envelope into N segments')
-
-    # --method split
-    parser.add_argument('--window', type=int, default=200, help='Segment size used for splitting reads')
-
-    # --method align
-    parser.add_argument('--matches', type=int, default=8, help='Match size for building anchors')
-    parser.add_argument('--indels', type=int, default=10, help='Indel size for building anchors')
-    parser.add_argument('--debug_box', default=False, help='(DEBUGGING) Only bascecall segment in the format u_start-u_end:v_start-v_end. Overrides other options!')
-
-    args = parser.parse_args()
-
+def pair_decode(args):
     if len(args.logits) != 2:
         raise "Exactly two reads are required"
 
@@ -327,7 +302,7 @@ if __name__ == '__main__':
         print('\t Starting consensus basecalling...',file=sys.stderr)
         starmap_input = []
         for i, b in enumerate(basecall_boxes):
-            starmap_input.append((i,len(basecall_boxes)-1,b[0],b[1],b[2],b[3]))
+            starmap_input.append((logits1, logits2, i,len(basecall_boxes)-1,b[0],b[1],b[2],b[3]))
 
         with Pool(processes=args.threads) as pool:
             basecalls = pool.starmap(basecall_box, starmap_input)
@@ -393,8 +368,8 @@ if __name__ == '__main__':
         y2 = logits2.astype(np.float64)
 
         # Build envelope
-        alignment_col = pair_envelope_decode.get_alignment_columns(alignment)
-        full_envelope = pair_envelope_decode.build_envelope(y1,y2,alignment_col, sequence_to_signal1, sequence_to_signal2, padding=args.padding)
+        alignment_col = decoding.pair_envelope_decode.get_alignment_columns(alignment)
+        full_envelope = decoding.pair_envelope_decode.build_envelope(y1,y2,alignment_col, sequence_to_signal1, sequence_to_signal2, padding=args.padding)
 
         # split envelope into subsets
         number_subsets = args.segments
@@ -415,8 +390,8 @@ if __name__ == '__main__':
         def basecall_subset(subset):
             y1_subset = y1[subset[0]:subset[1]]
             y2_subset = y2[subset[2]:subset[3]]
-            subset_envelope = pair_envelope_decode.offset_envelope(full_envelope, subset)
-            subset_envelope = pair_envelope_decode.pad_envelope(subset_envelope,len(y1_subset), len(y2_subset))
+            subset_envelope = decoding.pair_envelope_decode.offset_envelope(full_envelope, subset)
+            subset_envelope = decoding.pair_envelope_decode.pad_envelope(subset_envelope,len(y1_subset), len(y2_subset))
             return(decoding.decoding_cpp.cpp_pair_prefix_search_log(
             y1_subset,
             y2_subset,

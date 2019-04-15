@@ -65,7 +65,7 @@ def argmax_decode(trace, alphabet=POREOVER_ALPHABET, return_path=False):
 
 def trace_from_flappie(p):
     hdf = h5py.File(p, 'r')
-    read_id = list(f)[0]
+    read_id = list(hdf)[0]
     trace = np.array(hdf[read_id]['trace'])
     # signal = np.array(hdf[read_id]['signal'])
     hdf.close()
