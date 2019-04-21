@@ -159,9 +159,9 @@ def call(args):
             assert(len(softmax)==len(sizes))
 
             def basecall_segment_greedy(i):
-                return(decoding.basecall_segment_greedy(softmax[i][:sizes[i]]))
+                return(decoding.greedy_search(softmax[i][:sizes[i]]))
 
-            basecalls = [basecall_segment(i) for i in range(len(softmax))]
+            basecalls = [basecall_segment_greedy(i) for i in range(len(softmax))]
             sequence = ''.join(basecalls)
 
         elif args.decoding == 'beam':
