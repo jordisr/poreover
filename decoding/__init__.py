@@ -4,4 +4,4 @@ from . import decoding_cy
 from . import search_backtrack
 from . import decode
 from . import pair_decode
-from . import pair_envelope_decode
+from . import envelope

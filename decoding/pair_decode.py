@@ -149,6 +149,13 @@ def basecall_box(logits1, logits2, b,b_tot,u1,u2,v1,v2):
             print('WARNING: Error while basecalling box {}-{}:{}-{}'.format(u1,u2,v1,v2))
             return(u1,'')
 
+def basecall_envelope_subset(y1_subset, y2_subset, subset_envelope):
+    return(decoding.decoding_cpp.cpp_pair_prefix_search_log(
+    y1_subset,
+    y2_subset,
+    subset_envelope.tolist(),
+    "ACGT"))
+
 def pair_decode(args):
     if len(args.logits) != 2:
         raise "Exactly two reads are required"
@@ -368,8 +375,8 @@ def pair_decode(args):
         y2 = logits2.astype(np.float64)
 
         # Build envelope
-        alignment_col = decoding.pair_envelope_decode.get_alignment_columns(alignment)
-        full_envelope = decoding.pair_envelope_decode.build_envelope(y1,y2,alignment_col, sequence_to_signal1, sequence_to_signal2, padding=args.padding)
+        alignment_col = decoding.envelope.get_alignment_columns(alignment)
+        full_envelope = decoding.envelope.build_envelope(y1,y2,alignment_col, sequence_to_signal1, sequence_to_signal2, padding=args.padding)
 
         # split envelope into subsets
         number_subsets = args.segments
@@ -387,20 +394,17 @@ def pair_decode(args):
             s += 1
             u = end
 
-        def basecall_subset(subset):
+        starmap_input = []
+        for subset in subsets:
             y1_subset = y1[subset[0]:subset[1]]
             y2_subset = y2[subset[2]:subset[3]]
-            subset_envelope = decoding.pair_envelope_decode.offset_envelope(full_envelope, subset)
-            subset_envelope = decoding.pair_envelope_decode.pad_envelope(subset_envelope,len(y1_subset), len(y2_subset))
-            return(decoding.decoding_cpp.cpp_pair_prefix_search_log(
-            y1_subset,
-            y2_subset,
-            subset_envelope.tolist(),
-            "ACGT"))
+            subset_envelope = decoding.envelope.offset_envelope(full_envelope, subset)
+            subset_envelope = decoding.envelope.pad_envelope(subset_envelope, len(y1_subset), len(y2_subset))
+            starmap_input.append( (y1_subset, y2_subset, subset_envelope) )
 
         print('\t Starting consensus basecalling...',file=sys.stderr)
         with Pool(processes=args.threads) as pool:
-            basecalls = pool.map(basecall_subset, subsets)
+            basecalls = pool.starmap(basecall_envelope_subset, starmap_input)
         joined_basecalls = ''.join([i.decode() for i in basecalls])
 
     # output final basecalled sequence

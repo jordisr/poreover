@@ -53,9 +53,10 @@ parser_decode.add_argument('--algorithm', default='viterbi', choices=['viterbi']
 parser_pair= subparsers.add_parser('pair-decode', help='1d2 decoding of two output probabilities')
 parser_pair.set_defaults(func=pair_decode)
 # general options
-parser_pair.add_argument('--logits', default='.', help='Paths to both logits', required=True, nargs='+')
+parser_pair.add_argument('logits', nargs='+', help='Probabilities to decode (either .npy from PoreOver of HDF5/FAST5 from Flappie or Guppy)')
+parser_pair.add_argument('--basecaller', choices=['poreover', 'flappie', 'guppy'], default='poreover', help='Basecaller used to generate probabilitiess')
+parser_pair.add_argument('--out', default='out',help='Save FASTA sequence to file (default: stdout)')
 parser_pair.add_argument('--threads', type=int, default=1, help='Processes to use')
-parser_pair.add_argument('--out', default='out',help='Output file name')
 parser_pair.add_argument('--method', choices=['align', 'split', 'envelope'],default='align',help='Method for dividing up search space (see code)')
 parser_pair.add_argument('--debug', default=False, action='store_true', help='Pickle objects to file for debugging')
 # method envelope
