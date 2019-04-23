@@ -33,6 +33,8 @@ from scipy.special import logsumexp
 import decoding
 import align
 
+from decoding.decode import trace_from_guppy, trace_from_flappie, trace_reverse_complement
+
 def fasta_format(name, seq, width=60):
     fasta = '>'+name+'\n'
     window = 0
@@ -164,15 +166,49 @@ def pair_decode(args):
     file2 = args.logits[1]
     print('Read1:{} Read2:{}'.format(file1,file2),file=sys.stderr)
 
-    # reverse complement logits of one read, doesn't matter which one
-    logits1_reshape = decoding.decode.load_logits(file1)
-    logits2_reshape = decoding.decode.load_logits(file2, reverse_complement=True)
+    if args.basecaller in ['guppy', 'flappie']:
+        # just testing for now, will want to write more generic code that can
+        # handle flipflop or poreover CTC models
+        if args.basecaller == 'flappie':
+            trace1 = trace_from_flappie(file1)
+            trace2 = trace_from_flappie(file2)
+        elif args.basecaller == 'guppy':
+            trace1 = trace_from_guppy(file1)
+            trace2 = trace_from_guppy(file2)
 
-    logits1 = np.concatenate(logits1_reshape)
-    logits2 = np.concatenate(logits2_reshape)
+        U = len(trace1)
+        V = len(trace2)
 
-    U = len(logits1)
-    V = len(logits2)
+        # reverse complement in probability space convert to log probabilities
+        eps = 0.0000001
+        log_prob1 = np.log((trace1 + eps)/(255 + eps))
+        log_prob2 = np.log((trace_reverse_complement(trace2) + eps)/(255 + eps))
+
+        basecalls = []
+        for p in [log_prob1, log_prob2]:
+            viterbi_path, _ = decoding.decode.trace_viterbi(p)
+            sequence = decoding.decode.remove_repeated(''.join(np.take(decoding.decode.FLIPFLOP_ALPHABET, viterbi_path))).upper()
+            basecalls.append(sequence)
+
+        alignment = align.global_pair(basecalls[0], basecalls[1])
+        alignment = np.array([list(s) for s in alignment[:2]])
+        print('\t Read sequence identity: {}'.format(np.sum(alignment[0] == alignment[1]) / len(alignment[0])), file=sys.stderr)
+
+        anchor_ranges, anchor_type = get_anchors(alignment, matches=args.matches, indels=args.indels)
+        #print(anchor_ranges)
+        #print(anchor_type)
+        sys.exit()
+
+    else:
+        # reverse complement logits of one read, doesn't matter which one
+        logits1_reshape = decoding.decode.load_logits(file1)
+        logits2_reshape = decoding.decode.load_logits(file2, reverse_complement=True)
+
+        logits1 = np.concatenate(logits1_reshape)
+        logits2 = np.concatenate(logits2_reshape)
+
+        U = len(logits1)
+        V = len(logits2)
 
     read1_prefix = ""
     read2_prefix = ""
