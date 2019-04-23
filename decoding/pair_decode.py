@@ -33,8 +33,6 @@ from scipy.special import logsumexp
 import decoding
 import align
 
-from decoding.decode import trace_from_guppy, trace_from_flappie, trace_reverse_complement
-
 def fasta_format(name, seq, width=60):
     fasta = '>'+name+'\n'
     window = 0
@@ -105,7 +103,29 @@ def viterbi_path(forward):
     forward_indices[seq_i:] = sig_max
     return(forward_indices)
 
-def basecall1d(y):
+def get_sequence_mapping(path, kind):
+    signal_to_sequence = []
+    sequence_to_signal = []
+    label_len = 0
+    if kind is 'poreover':
+        for i, p in enumerate(path):
+            if p < 4:
+                sequence_to_signal.append(i)
+                signal_to_sequence.append(label_len)
+                label_len += 1
+    elif kind is 'flipflop':
+        for i, p in enumerate(path):
+            if i == 0:
+                sequence_to_signal.append(i)
+                signal_to_sequence.append(label_len)
+            else:
+                if path[i] != path[i-1]:
+                    label_len += 1
+                    sequence_to_signal.append(i)
+                signal_to_sequence.append(label_len)
+    return(sequence_to_signal, signal_to_sequence)
+
+def _prefix_search_1d(y):
     # Perform 1d basecalling and get signal-sequence mapping
     (prefix, forward) = decoding.prefix_search_log_cy(y, return_forward=True)
     try:
@@ -118,17 +138,7 @@ def basecall1d(y):
     assert(np.all(np.diff(forward_indices) >= 0))
     return((prefix,forward_indices))
 
-def basecall_box(logits1, logits2, b,b_tot,u1,u2,v1,v2):
-    '''
-    Helper function for multiprocessing.
-    Consensus basecall 2D region defined by u1/u2/v1/v2:
-
-    (u1,v1) -------- (u1,v2)
-       |                |
-       |                |
-    (u2,v1) -------- (u2,v2)
-    '''
-
+def _prefix_search_2d(logits1, logits2, b, b_tot, u1, u2, v1, v2):
     MEM_LIMIT = 1000000000 # 1 GB
     size = (u2-u1+1)*(v2-v1+1)
     assert(size > 0)
@@ -145,13 +155,12 @@ def basecall_box(logits1, logits2, b,b_tot,u1,u2,v1,v2):
         return(u1,'')
     else:
         try:
-            #return((u1, decoding.pair_prefix_search(np.exp(logits1[u1:u2]),np.exp(logits2[v1:v2]))[0]))
             return((u1, decoding.pair_prefix_search_log_cy(logits1[u1:u2],logits2[v1:v2])[0]))
         except:
             print('WARNING: Error while basecalling box {}-{}:{}-{}'.format(u1,u2,v1,v2))
             return(u1,'')
 
-def basecall_envelope_subset(y1_subset, y2_subset, subset_envelope):
+def _prefix_search_2d_envelope(y1_subset, y2_subset, subset_envelope):
     return(decoding.decoding_cpp.cpp_pair_prefix_search_log(
     y1_subset,
     y2_subset,
@@ -159,77 +168,23 @@ def basecall_envelope_subset(y1_subset, y2_subset, subset_envelope):
     "ACGT"))
 
 def pair_decode(args):
-    if len(args.logits) != 2:
+    in_path = getattr(args, 'in')
+    if len(in_path) != 2:
         raise "Exactly two reads are required"
 
-    file1 = args.logits[0]
-    file2 = args.logits[1]
-    print('Read1:{} Read2:{}'.format(file1,file2),file=sys.stderr)
+    print('Read1:{} Read2:{}'.format(in_path[0], in_path[1]),file=sys.stderr)
 
-    if args.basecaller in ['guppy', 'flappie']:
-        # just testing for now, will want to write more generic code that can
-        # handle flipflop or poreover CTC models
-        if args.basecaller == 'flappie':
-            trace1 = trace_from_flappie(file1)
-            trace2 = trace_from_flappie(file2)
-        elif args.basecaller == 'guppy':
-            trace1 = trace_from_guppy(file1)
-            trace2 = trace_from_guppy(file2)
+    model1 = decoding.decode.model_from_trace(in_path[0])
+    model2 = decoding.decode.model_from_trace(in_path[1])
+    model2.reverse_complement()
 
-        U = len(trace1)
-        V = len(trace2)
+    assert(model1.kind == model2.kind)
 
-        # reverse complement in probability space convert to log probabilities
-        eps = 0.0000001
-        log_prob1 = np.log((trace1 + eps)/(255 + eps))
-        log_prob2 = np.log((trace_reverse_complement(trace2) + eps)/(255 + eps))
-
-        basecalls = []
-        for p in [log_prob1, log_prob2]:
-            viterbi_path, _ = decoding.decode.trace_viterbi(p)
-            sequence = decoding.decode.remove_repeated(''.join(np.take(decoding.decode.FLIPFLOP_ALPHABET, viterbi_path))).upper()
-            basecalls.append(sequence)
-
-        alignment = align.global_pair(basecalls[0], basecalls[1])
-        alignment = np.array([list(s) for s in alignment[:2]])
-        print('\t Read sequence identity: {}'.format(np.sum(alignment[0] == alignment[1]) / len(alignment[0])), file=sys.stderr)
-
-        anchor_ranges, anchor_type = get_anchors(alignment, matches=args.matches, indels=args.indels)
-        #print(anchor_ranges)
-        #print(anchor_type)
-        sys.exit()
-
-    else:
-        # reverse complement logits of one read, doesn't matter which one
-        logits1_reshape = decoding.decode.load_logits(file1)
-        logits2_reshape = decoding.decode.load_logits(file2, reverse_complement=True)
-
-        logits1 = np.concatenate(logits1_reshape)
-        logits2 = np.concatenate(logits2_reshape)
-
-        U = len(logits1)
-        V = len(logits2)
-
-    read1_prefix = ""
-    read2_prefix = ""
-
-    sequence_to_signal1 = []
-    sequence_to_signal2 = []
-
-    if args.debug_box:
-        import re
-        re_match = re.match('(\d+)-(\d+):(\d+)-(\d+)',args.debug_box)
-        if re_match:
-            u1,u2,v1,v2 = int(re_match.group(1)), int(re_match.group(2)), int(re_match.group(3)), int(re_match.group(4))
-        else:
-            raise "Incorrectly formated box string"
-
-        print(basecall_box(1,1,u1,u2,v1,v2))
-        sys.exit()
-
-    elif args.method == 'split':
+    if args.method == 'split':
         # calculate ranges on which to split read
         # currently just splitting in boxes that follow the main diagonal
+        U = model1.t_max
+        V = model2.t_max
         box_ranges = []
         u_step = args.window
         for u in range(u_step,U,u_step):
@@ -239,44 +194,33 @@ def pair_decode(args):
         print('\t Starting consensus basecalling...',file=sys.stderr)
         starmap_input = []
         for i, b in enumerate(box_ranges):
-            starmap_input.append((i,len(box_ranges)-1,b[0],b[1],b[2],b[3]))
+            starmap_input.append((model1, model2, i,len(box_ranges)-1,b[0],b[1],b[2],b[3]))
 
+        assert(model1.kind == 'poreover')
         with Pool(processes=args.threads) as pool:
-            basecalls = pool.starmap(basecall_box, starmap_input)
+            basecalls = pool.starmap(_prefix_search_2d, starmap_input)
 
         joined_basecalls = ''.join([b[1] for b in basecalls])
 
-    elif args.method == 'align':
+    else:
         print('\t Performing 1D basecalling...',file=sys.stderr)
 
-        with Pool(processes=args.threads) as pool:
-            basecalls1d_1 = pool.map(basecall1d, logits1_reshape)
-            for i,out in enumerate(basecalls1d_1):
-                if out[0] != '':
-                    read1_prefix += out[0]
-                    sequence_to_signal1.append(out[1]+logits1_reshape.shape[1]*i)
+        basecall1, _viterbi_path = model1.viterbi_decode(return_path=True)
+        sequence_to_signal1, _ = get_sequence_mapping(_viterbi_path, model1.kind)
+        assert(len(sequence_to_signal1) == len(basecall1))
 
-            basecalls1d_2 = pool.map(basecall1d, logits2_reshape)
-            for i,out in enumerate(basecalls1d_2):
-                if out[0] != '':
-                    read2_prefix += out[0]
-                    sequence_to_signal2.append(out[1]+logits2_reshape.shape[1]*i)
+        basecall2, _viterbi_path = model2.viterbi_decode(return_path=True)
+        sequence_to_signal2, _ = get_sequence_mapping(_viterbi_path, model2.kind)
+        assert(len(sequence_to_signal2) == len(basecall2))
 
         with open(args.out+'.1d.fasta','a') as f:
-            print(fasta_format(file1,read1_prefix),file=f)
-            print(fasta_format(file2,read2_prefix),file=f)
+            print(fasta_format(in_path[0], basecall1),file=f)
+            print(fasta_format(in_path[1], basecall2),file=f)
 
-        sequence_to_signal1 = np.concatenate(np.array(sequence_to_signal1))
-        assert(len(sequence_to_signal1) == len(read1_prefix))
-
-        sequence_to_signal2 = np.concatenate(np.array(sequence_to_signal2))
-        assert(len(sequence_to_signal2) == len(read2_prefix))
-
-        print('\t Aligning basecalled sequences (Read1 is {} bp and Read2 is {} bp)...'.format(len(read1_prefix),len(read2_prefix)),file=sys.stderr)
-        #alignment = pairwise2.align.globalms(read1_prefix, read2_prefix, 2, -1, -.5, -.1)
-        alignment = align.global_pair(read1_prefix, read2_prefix)
+        print('\t Aligning basecalled sequences (Read1 is {} bp and Read2 is {} bp)...'.format(len(basecall1),len(basecall2)),file=sys.stderr)
+        #alignment = pairwise2.align.globalms(, , 2, -1, -.5, -.1)
+        alignment = align.global_pair(basecall1, basecall2)
         alignment = np.array([list(s) for s in alignment[:2]])
-
         print('\t Read sequence identity: {}'.format(np.sum(alignment[0] == alignment[1]) / len(alignment[0])), file=sys.stderr)
 
         # get alignment_to_sequence mapping
@@ -288,6 +232,8 @@ def pair_decode(args):
                     alignment_to_sequence[s,i] = alignment_to_sequence[s,i-1]
                 else:
                     alignment_to_sequence[s,i] = alignment_to_sequence[s,i-1] + 1
+
+    if args.method == 'align':
 
         anchor_ranges, anchor_type = get_anchors(alignment, matches=args.matches, indels=args.indels)
 
@@ -324,9 +270,9 @@ def pair_decode(args):
         # add last box on the end
         basecall_boxes.append((
         sequence_to_signal1[alignment_to_sequence[0,anchor_ranges[-1][1]]],
-        U,
+        model1.t_max,
         sequence_to_signal2[alignment_to_sequence[1,anchor_ranges[-1][1]]],
-        V))
+        model2.t_max))
         assert(abs(len(basecall_boxes) - len(basecall_anchors))==1)
 
         if args.debug:
@@ -345,56 +291,16 @@ def pair_decode(args):
         print('\t Starting consensus basecalling...',file=sys.stderr)
         starmap_input = []
         for i, b in enumerate(basecall_boxes):
-            starmap_input.append((logits1, logits2, i,len(basecall_boxes)-1,b[0],b[1],b[2],b[3]))
+            starmap_input.append((model1, model2, i,len(basecall_boxes)-1,b[0],b[1],b[2],b[3]))
 
+        assert(model1.kind == 'poreover')
         with Pool(processes=args.threads) as pool:
-            basecalls = pool.starmap(basecall_box, starmap_input)
+            basecalls = pool.starmap(_prefix_search_2d, starmap_input)
 
         # sort each segment by its first signal index
         joined_basecalls = ''.join([i[1] for i in sorted(basecalls + basecall_anchors)])
 
     elif args.method == 'envelope':
-        print('\t Performing 1D basecalling...',file=sys.stderr)
-
-        with Pool(processes=args.threads) as pool:
-            basecalls1d_1 = pool.map(basecall1d, logits1_reshape)
-            for i,out in enumerate(basecalls1d_1):
-                if out[0] != '':
-                    read1_prefix += out[0]
-                    sequence_to_signal1.append(out[1]+logits1_reshape.shape[1]*i)
-
-            basecalls1d_2 = pool.map(basecall1d, logits2_reshape)
-            for i,out in enumerate(basecalls1d_2):
-                if out[0] != '':
-                    read2_prefix += out[0]
-                    sequence_to_signal2.append(out[1]+logits2_reshape.shape[1]*i)
-
-        with open(args.out+'.1d.fasta','a') as f:
-            print(fasta_format(file1,read1_prefix),file=f)
-            print(fasta_format(file2,read2_prefix),file=f)
-
-        sequence_to_signal1 = np.concatenate(np.array(sequence_to_signal1))
-        assert(len(sequence_to_signal1) == len(read1_prefix))
-
-        sequence_to_signal2 = np.concatenate(np.array(sequence_to_signal2))
-        assert(len(sequence_to_signal2) == len(read2_prefix))
-
-        print('\t Aligning basecalled sequences (Read1 is {} bp and Read2 is {} bp)...'.format(len(read1_prefix),len(read2_prefix)),file=sys.stderr)
-        #alignment = pairwise2.align.globalms(read1_prefix, read2_prefix, 2, -1, -.5, -.1)
-        alignment = align.global_pair(read1_prefix, read2_prefix)
-        alignment = np.array([list(s) for s in alignment[:2]])
-
-        print('\t Read sequence identity: {}'.format(np.sum(alignment[0] == alignment[1]) / len(alignment[0])), file=sys.stderr)
-
-        # get alignment_to_sequence mapping
-        alignment_to_sequence = np.zeros(shape=alignment.shape,dtype=int)
-        for i,col in enumerate(alignment.T):
-            # no boundary case for first element but it will wrap around to the last (which is zero)
-            for s in range(2):
-                if col[s] == '-':
-                    alignment_to_sequence[s,i] = alignment_to_sequence[s,i-1]
-                else:
-                    alignment_to_sequence[s,i] = alignment_to_sequence[s,i-1] + 1
 
         if args.debug:
             with open( "debug.p", "wb" ) as pfile:
@@ -407,8 +313,8 @@ def pair_decode(args):
                 },pfile)
 
         # prepare data for passing to C++
-        y1 = logits1.astype(np.float64)
-        y2 = logits2.astype(np.float64)
+        y1 = model1.log_prob
+        y2 = model2.log_prob
 
         # Build envelope
         alignment_col = decoding.envelope.get_alignment_columns(alignment)
@@ -438,11 +344,12 @@ def pair_decode(args):
             subset_envelope = decoding.envelope.pad_envelope(subset_envelope, len(y1_subset), len(y2_subset))
             starmap_input.append( (y1_subset, y2_subset, subset_envelope) )
 
+        assert(model1.kind == 'poreover')
         print('\t Starting consensus basecalling...',file=sys.stderr)
         with Pool(processes=args.threads) as pool:
-            basecalls = pool.starmap(basecall_envelope_subset, starmap_input)
+            basecalls = pool.starmap(_prefix_search_2d_envelope, starmap_input)
         joined_basecalls = ''.join([i.decode() for i in basecalls])
 
     # output final basecalled sequence
     with open(args.out+'.2d.fasta','a') as f:
-        print(fasta_format('consensus_{};{};{}'.format(args.method,file1,file2),joined_basecalls), file=f)
+        print(fasta_format('consensus_{};{};{}'.format(args.method,in_path[0],in_path[1]), joined_basecalls), file=f)

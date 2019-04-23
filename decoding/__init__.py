@@ -5,3 +5,4 @@ from . import search_backtrack
 from . import decode
 from . import pair_decode
 from . import envelope
+from . import transducer

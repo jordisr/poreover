@@ -46,20 +46,20 @@ parser_decode = subparsers.add_parser('decode', help='Decode probabilities from 
 parser_decode.set_defaults(func=decode)
 parser_decode.add_argument('in', help='Probabilities to decode (either .npy from PoreOver of HDF5/FAST5 from Flappie or Guppy)')
 parser_decode.add_argument('--out', help='Save FASTA sequence to file (default: stdout)')
-parser_decode.add_argument('--basecaller', choices=['poreover', 'flappie', 'guppy'], default='poreover', help='Basecaller used to generate probabilitiess')
+parser_decode.add_argument('--basecaller', choices=['poreover', 'flappie', 'guppy'], help='Basecaller used to generate probabilitiess')
 parser_decode.add_argument('--algorithm', default='viterbi', choices=['viterbi'], help='')
 
 # Pair decode
-parser_pair= subparsers.add_parser('pair-decode', help='1d2 decoding of two output probabilities')
+parser_pair= subparsers.add_parser('pair-decode', help='1d2 consensus decoding of two output probabilities')
 parser_pair.set_defaults(func=pair_decode)
 # general options
-parser_pair.add_argument('logits', nargs='+', help='Probabilities to decode (either .npy from PoreOver of HDF5/FAST5 from Flappie or Guppy)')
-parser_pair.add_argument('--basecaller', choices=['poreover', 'flappie', 'guppy'], default='poreover', help='Basecaller used to generate probabilitiess')
+parser_pair.add_argument('in', nargs='+', help='Probabilities to decode (either .npy from PoreOver of HDF5/FAST5 from Flappie or Guppy)')
+parser_pair.add_argument('--basecaller', choices=['poreover', 'flappie', 'guppy'], help='Basecaller used to generate probabilitiess')
 parser_pair.add_argument('--out', default='out',help='Save FASTA sequence to file (default: stdout)')
 parser_pair.add_argument('--threads', type=int, default=1, help='Processes to use')
 parser_pair.add_argument('--method', choices=['align', 'split', 'envelope'],default='align',help='Method for dividing up search space (see code)')
 parser_pair.add_argument('--debug', default=False, action='store_true', help='Pickle objects to file for debugging')
-# method envelope
+# --method envelope
 parser_pair.add_argument('--padding', type=int, default=150, help='Padding for building alignment envelope')
 parser_pair.add_argument('--segments', type=int, default=8, help='Split full alignment envelope into N segments')
 # --method split
@@ -67,7 +67,6 @@ parser_pair.add_argument('--window', type=int, default=200, help='Segment size u
 # --method align
 parser_pair.add_argument('--matches', type=int, default=8, help='Match size for building anchors')
 parser_pair.add_argument('--indels', type=int, default=10, help='Indel size for building anchors')
-parser_pair.add_argument('--debug_box', default=False, help='(DEBUGGING) Only bascecall segment in the format u_start-u_end:v_start-v_end. Overrides other options!')
 
 # Parse arguments and call corresponding command
 args = parser.parse_args()
