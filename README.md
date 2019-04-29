@@ -10,11 +10,22 @@ The current version implements a bidirectional RNN with LSTM cells and CTC loss 
 * Python 3
 * TensorFlow (GPU installation recommended)
 
-## Usage examples
+### Installation
 
-`git clone https://github.com/jordisr/poreover`
+To install, clone the repository and compile the Cython/C++ extensions:
+
+~~~
+git clone https://github.com/jordisr/poreover
+cd poreover
+make
+cd ..
+~~~
+
+Now the software can be run with:
 
 `python poreover --help`
+
+## Usage examples
 
 ### Training a basecalling model
 
@@ -42,6 +53,6 @@ PoreOver can read and decode these probabilities, yielding a basecalled sequence
 
 `python poreover decode poreover/examples/guppy_flipflop.fast5`
 
-### Pair decoding of 1D^2 reads
+### Pair decoding of 1D<sup>2</sup> reads
 
-Pair decoding of probability profiles (as described [here](https://link.springer.com/chapter/10.1007/978-3-319-91938-6_11)) is under development with the goal of higher accuracy 1D^2 sequencing.
+Pair decoding of probability profiles (as described [here](https://link.springer.com/chapter/10.1007/978-3-319-91938-6_11)) is under development with the goal of higher accuracy 1D<sup>2</sup> sequencing.
