@@ -5,11 +5,7 @@ Unit tests for decoding algorithms
 import unittest
 import numpy as np
 from collections import OrderedDict
-
-from testing import profile, joint_profile
-import decoding
-
-import pyximport; pyximport.install()
+from testing import decoding, profile, joint_profile
 
 class TestForwardAlgorithm(unittest.TestCase):
 

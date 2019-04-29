@@ -8,6 +8,8 @@ sys.path.insert(1, script_dir+'/network')
 
 from network.run_model import call
 from network.train_model import train
+from decoding.decode import decode
+from decoding.pair_decode import pair_decode
 
 # Set up argument parser
 parser = argparse.ArgumentParser(description='PoreOver: Consensus Basecalling for Nanopore Sequencing')
@@ -39,12 +41,35 @@ parser_call.add_argument('--decoding', default='greedy', choices=['greedy','beam
 parser_call.add_argument('--ctc_threads', type=int, default=1, help='Number of threads to use for prefix decoding')
 parser_call.add_argument('--no_stack', default=False, action='store_true', help='Basecall [1xSIGNAL_LENGTH] tensor instead of splitting it into windows (slower)')
 
-# Pair
-#parser_pair = subparsers.add_parser('pair', help='Pair decoding of probabilities from neural network')
-#parser_pair.set_defaults(func=pair)
+# Decode
+parser_decode = subparsers.add_parser('decode', help='Decode probabilities from another basecaller')
+parser_decode.set_defaults(func=decode)
+parser_decode.add_argument('in', help='Probabilities to decode (either .npy from PoreOver of HDF5/FAST5 from Flappie or Guppy)')
+parser_decode.add_argument('--out', help='Save FASTA sequence to file (default: stdout)')
+parser_decode.add_argument('--basecaller', choices=['poreover', 'flappie', 'guppy'], help='Basecaller used to generate probabilitiess')
+parser_decode.add_argument('--algorithm', default='viterbi', choices=['viterbi'], help='')
+
+# Pair decode
+parser_pair= subparsers.add_parser('pair-decode', help='1d2 consensus decoding of two output probabilities')
+parser_pair.set_defaults(func=pair_decode)
+# general options
+parser_pair.add_argument('in', nargs='+', help='Probabilities to decode (either .npy from PoreOver of HDF5/FAST5 from Flappie or Guppy)')
+parser_pair.add_argument('--basecaller', choices=['poreover', 'flappie', 'guppy'], help='Basecaller used to generate probabilitiess')
+parser_pair.add_argument('--out', default='out',help='Save FASTA sequence to file (default: stdout)')
+parser_pair.add_argument('--threads', type=int, default=1, help='Processes to use')
+parser_pair.add_argument('--method', choices=['align', 'split', 'envelope'],default='align',help='Method for dividing up search space (see code)')
+parser_pair.add_argument('--debug', default=False, action='store_true', help='Pickle objects to file for debugging')
+# --method envelope
+parser_pair.add_argument('--padding', type=int, default=150, help='Padding for building alignment envelope')
+parser_pair.add_argument('--segments', type=int, default=8, help='Split full alignment envelope into N segments')
+# --method split
+parser_pair.add_argument('--window', type=int, default=200, help='Segment size used for splitting reads')
+# --method align
+parser_pair.add_argument('--matches', type=int, default=8, help='Match size for building anchors')
+parser_pair.add_argument('--indels', type=int, default=10, help='Indel size for building anchors')
 
 # Parse arguments and call corresponding command
 args = parser.parse_args()
 args.func(args)
 
-print(args)
+print(args, file=sys.stderr)

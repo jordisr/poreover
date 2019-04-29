@@ -2,6 +2,7 @@ __pycache__
 .pytest_cache
 .ipynb_checkpoints
 *~
+*.DS_Store
 ./*.index
 ./*.meta
 ./*.data-*
@@ -10,4 +11,8 @@ __pycache__
 ./*/*.c
 ./*/*.so
 ./*/*.html
-./build
+build
+align/align.c*
+decoding/decoding_cpp.c*
+decoding/decoding_cy.c*
+*/*.html

@@ -31,6 +31,9 @@ def fasta_format(name, seq, width=60):
     fasta += (seq[window:]+'\n')
     return(fasta)
 
+def basecall_segment_prefix(data):
+    return(decoding.prefix_search(data)[0])
+
 def call(args):
     INPUT_DIM = 1 # raw signal
     WINDOW_SIZE = args.window
@@ -143,12 +146,9 @@ def call(args):
 
             assert(len(softmax)==len(sizes))
 
-            def basecall_segment(i):
-                return(decoding.prefix_search(softmax[i][:sizes[i]])[0])
-
             NUM_THREADS = args.ctc_threads
             with Pool(processes=NUM_THREADS) as pool:
-                basecalls = pool.map(basecall_segment, range(len(softmax)))
+                basecalls = pool.map(basecall_segment_prefix, [softmax[i][:sizes[i]] for i in range(len(softmax))])
 
             sequence = ''.join(basecalls)
 
@@ -158,10 +158,10 @@ def call(args):
 
             assert(len(softmax)==len(sizes))
 
-            def basecall_segment(i):
+            def basecall_segment_greedy(i):
                 return(decoding.greedy_search(softmax[i][:sizes[i]]))
 
-            basecalls = [basecall_segment(i) for i in range(len(softmax))]
+            basecalls = [basecall_segment_greedy(i) for i in range(len(softmax))]
             sequence = ''.join(basecalls)
 
         elif args.decoding == 'beam':
