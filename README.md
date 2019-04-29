@@ -30,7 +30,7 @@ Once there is a model to load, we can make a basecall on a sample read (of cours
 
 We can compare this to the output of a model that has seen more training on a larger dataset. In the `models/` directory there are models for pore versions R9 (trained on E.coli) and R9.5 (trained on human).
 
-`python poreover call --fast5 poreover/examples/read.fast5 --model models/r9.5 --out read.fasta`
+`python poreover call --fast5 poreover/examples/read.fast5 --model poreover/models/r9.5 --out read.fasta`
 
 ### Decoding a flip-flop trace
 
