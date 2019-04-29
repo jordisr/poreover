@@ -72,4 +72,4 @@ parser_pair.add_argument('--indels', type=int, default=10, help='Indel size for 
 args = parser.parse_args()
 args.func(args)
 
-print(args)
+print(args, file=sys.stderr)

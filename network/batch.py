@@ -1,4 +1,5 @@
 import numpy as np
+import gzip
 
 BLANK_INDEX = 4
 BLANK_VALUE = ''
@@ -44,7 +45,8 @@ def pad(data):
 def load_data(path, dim=1):
     raw_events = []
     raw_bases = []
-    with open(path+'.signal','r') as ef, open(path+'.bases','r') as bf:
+    with gzip.open(path+'.signal.gz','rt') as ef, gzip.open(path+'.bases.gz','rt') as bf:
+    #with gzip.open(path+'.signal','r') as ef, gzip.open(path+'.bases','r') as bf:
         for eline, bline in zip(ef,bf):
             events = eline.split()
             bases = bline.split()
