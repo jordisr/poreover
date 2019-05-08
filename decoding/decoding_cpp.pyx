@@ -11,14 +11,7 @@ from libcpp.string cimport string
 DTYPE = np.float64
 ctypedef np.float64_t DTYPE_t
 
-cdef extern from "Gamma.cpp":
-    pass
-
 cdef extern from "Gamma.h":
-    #double pair_gamma_log_envelope(double[][3], double[][3], int[][2], int, int)
-    #double pair_gamma_log_envelope(double y1[][3], double y2[][3], int envelope_ranges[][2], int U, int V)
-    #double pair_gamma_log_envelope(double[:,:], double[:,:], int[:,:], int, int)
-    #double pair_gamma_log_envelope(double*, double*, int*, int, int)
     double pair_gamma_log_envelope(double**, double**, int**, int, int, int)
 
 cdef extern from "PairPrefixSearch.cpp":
@@ -91,18 +84,3 @@ def cpp_pair_gamma_log_envelope(y1_, y2_, envelope_ranges_):
         free(point_to_y1)
         free(point_to_y2)
         free(point_to_envelope_ranges)
-
-    #y1 = np.ascontiguousarray(y1)
-    #y2 = np.ascontiguousarray(y2)
-    #cdef double[:,:,::1] y1_view = y1
-    #cdef double[:,:,::1] y2_view = y2
-
-    #testy_mctest = pair_gamma_log_envelope(y1_view, y2_view, envelope_ranges, u, v)
-    #testy_mctest = pair_gamma_log_envelope(&y1[0,0], &y2[0,0], &envelope_ranges[0,0], u, v)
-
-    #print(testy_mctest)
-
-#y1 = np.array([[-0.223144, -2.30259, -2.30259],[-2.30259, -1.20397, -0.510826],[-0.356675, -1.60944, -2.30259],[-2.30259, -2.30259, -0.223144]]).astype(DTYPE)
-#y2 = np.array([[-0.356675,-1.60944,-2.30259],[-1.60944,-1.20397,-0.693147],[-0.356675,-1.60944,-2.30259],[-2.99573,-2.99573,-0.105361]]).astype(DTYPE)
-#envelope_ranges = np.array([[0,4],[0,4],[0,4],[0,4],[0,4]]).astype(np.intc)
-#cpp_pair_gamma_log_envelope(y1, y2, envelope_ranges)

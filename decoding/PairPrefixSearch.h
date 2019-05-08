@@ -11,6 +11,6 @@
 #include "SparseMatrix.h"
 #include "Gamma.h"
 
-string pair_prefix_search_log(double**, double**, int**, int, int, string);
+std::string pair_prefix_search_log(double**, double**, int**, int, int, std::string);
 
 #endif

@@ -1,4 +1,4 @@
-cdef extern from "SparseMatrix.cpp":
+cdef extern from "SparseMatrix.h":
     pass
 
 # Declare the class with cdef
