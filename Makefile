@@ -8,3 +8,4 @@ clean:
 	rm -rf ./build/
 	rm -rf __pycache__/
 	rm -rf ./*/__pycache__/
+	rm -rf ./decoding/decoding_*.cpp
