@@ -88,10 +88,8 @@ def decode(args):
     # call appropriate decoding function
     if args.algorithm == 'viterbi':
         sequence = model.viterbi_decode()
-    elif args.algorithm == 'beam' and model.kind == 'poreover':
-        sequence = decoding.decoding_cpp.cpp_beam_search(model.log_prob, args.beam_width, "ACGT", flipflop=False)
-    else:
-        sys.exit("Beam search not supported with flipflop yet")
+    elif args.algorithm == 'beam':
+        sequence = decoding.decoding_cpp.cpp_beam_search(model.log_prob, args.beam_width, "ACGT", flipflop=(model.kind == "flipflop"))
 
     # output decoded sequence
     fasta_header = os.path.basename(in_path)

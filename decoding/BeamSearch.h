@@ -11,7 +11,9 @@
 #include <cmath>
 
 class Node;
+class FlipFlopNode;
 class PoreOverPrefixTree;
+class FlipFlopPrefixTree;
 
 #include "Log.h"
 #include "PrefixTree.h"
@@ -103,7 +105,7 @@ std::string beam_search_(double **y, int t_max, std::string alphabet, int beam_w
 
 std::string beam_search(double **y, int t_max, std::string alphabet, int beam_width, bool flipflop=false) {
   if (flipflop) {
-    return "Not ready yet";
+    return beam_search_<FlipFlopPrefixTree, Beam<FlipFlopNode*>, FlipFlopNode*>(y, t_max, alphabet, beam_width);
   } else {
     return beam_search_<PoreOverPrefixTree, Beam<Node*>, Node*>(y, t_max, alphabet, beam_width);
   }
