@@ -38,7 +38,7 @@ parser_call.add_argument('--out', default='out', help='Prefix for sequence outpu
 parser_call.add_argument('--window', type=int, default=400, help='Call read using chunks of this size')
 parser_call.add_argument('--logits', choices=['csv', 'npy'], default=False, help='Save softmax probabilities to CSV file or logits to binarized NumPy format')
 parser_call.add_argument('--decoding', default='greedy', choices=['greedy','beam', 'prefix', 'none'], help='Choice of CTC decoding algorithm to use. Greedy takes best path. Beam uses TensorFlow\'s built-in beam search. Prefix uses CTC prefix search decoding (but does not collapse repeated characters). None skips decoding and just runs neural network (output can be saved with --logits)')
-parser_call.add_argument('--ctc_threads', type=int, default=1, help='Number of threads to use for prefix decoding')
+parser_call.add_argument('--threads', type=int, default=1, help='Number of threads to use for prefix decoding')
 parser_call.add_argument('--no_stack', default=False, action='store_true', help='Basecall [1xSIGNAL_LENGTH] tensor instead of splitting it into windows (slower)')
 
 # Decode

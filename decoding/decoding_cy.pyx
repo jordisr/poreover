@@ -1,4 +1,4 @@
-# cython: infer_types=True
+# cython: infer_types=True, language_level=2
 cimport cython
 cimport numpy as np
 import numpy as np

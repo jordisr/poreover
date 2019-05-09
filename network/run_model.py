@@ -146,7 +146,7 @@ def call(args):
 
             assert(len(softmax)==len(sizes))
 
-            NUM_THREADS = args.ctc_threads
+            NUM_THREADS = args.threads
             with Pool(processes=NUM_THREADS) as pool:
                 basecalls = pool.map(basecall_segment_prefix, [softmax[i][:sizes[i]] for i in range(len(softmax))])
 
