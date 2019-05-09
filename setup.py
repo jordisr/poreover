@@ -8,9 +8,9 @@ if sys.platform == 'darwin':
     extra_link_args = ['-std=c++11','-stdlib=libc++']
     extra_compile_args = ['-std=c++11','-stdlib=libc++']
 else:
-    extra_link_args = []
-    extra_compile_args = []
-    
+    extra_link_args = ['-std=c++11']
+    extra_compile_args = ['-std=c++11']
+
 ext_modules = [
 Extension("decoding.decoding_cpp", sources=["decoding/decoding_cpp.pyx"], include_dirs=[np.get_include()], language='c++',extra_link_args=extra_link_args, extra_compile_args=extra_compile_args),
 Extension("decoding.decoding_cy", sources=["decoding/decoding_cy.pyx"], include_dirs=[np.get_include()], language='c++',extra_link_args=extra_link_args, extra_compile_args=extra_compile_args),

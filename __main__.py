@@ -47,7 +47,9 @@ parser_decode.set_defaults(func=decode)
 parser_decode.add_argument('in', help='Probabilities to decode (either .npy from PoreOver of HDF5/FAST5 from Flappie or Guppy)')
 parser_decode.add_argument('--out', help='Save FASTA sequence to file (default: stdout)')
 parser_decode.add_argument('--basecaller', choices=['poreover', 'flappie', 'guppy'], help='Basecaller used to generate probabilitiess')
-parser_decode.add_argument('--algorithm', default='viterbi', choices=['viterbi'], help='')
+parser_decode.add_argument('--algorithm', default='viterbi', choices=['viterbi' ,'beam'], help='')
+parser_decode.add_argument('--beam_width', type=int, default=25, help='Width for beam search')
+
 
 # Pair decode
 parser_pair= subparsers.add_parser('pair-decode', help='1d2 consensus decoding of two output probabilities')

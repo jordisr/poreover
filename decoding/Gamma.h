@@ -2,28 +2,13 @@
 #define GAMMA_H
 
 #include "SparseMatrix.h"
+#include "Log.h"
 #include <vector>
 #include <cmath>
 
 #define DEFAULT_VALUE -std::numeric_limits<double>::infinity()
 
 const double LOG_1 = 0.0;
-
-double log_(double x) {
-  if (x > 0) {
-    return (log(x));
-  } else {
-    return (DEFAULT_VALUE);
-  }
-}
-
-double logaddexp(double x1, double x2) {
-  if (x1 >= x2) {
-    return(x1 + log_(1 + exp(x2-x1)));
-  } else {
-    return(x2 + log_(1 + exp(x1-x2)));
-  }
-}
 
 //double pair_gamma_log_envelope(double y1[][3], double y2[][3], int envelope_ranges[][2], int U, int V) {
 //double pair_gamma_log_envelope(double (*y1)[3], double (*y2)[3], int (*envelope_ranges)[2], int U, int V) {
