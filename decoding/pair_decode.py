@@ -125,6 +125,22 @@ def get_sequence_mapping(path, kind):
                 signal_to_sequence.append(label_len)
     return(sequence_to_signal, signal_to_sequence)
 
+def _beam_search_2d(logits1, logits2, b, b_tot, u1, u2, v1, v2):
+    size = (u2-u1+1)*(v2-v1+1)
+    print('\t {}/{} Basecalling box {}-{}x{}-{} (size: {} elements)...'.format(b,b_tot,u1,u2,v1,v2,size),file=sys.stderr)
+    seq = decoding.decoding_cpp.cpp_beam_search_2d_by_row(
+    logits1[u1:u2],
+    logits2[v1:v2],
+    "ACGT")
+    return((u1, seq))
+
+def _beam_search_2d_envelope(y1_subset, y2_subset, subset_envelope):
+    return(decoding.decoding_cpp.cpp_beam_search_2d_by_row(
+    y1_subset,
+    y2_subset,
+    subset_envelope.tolist(),
+    "ACGT"))
+
 def _prefix_search_1d(y):
     # Perform 1d basecalling and get signal-sequence mapping
     (prefix, forward) = decoding.prefix_search_log_cy(y, return_forward=True)
@@ -295,7 +311,7 @@ def pair_decode(args):
 
         assert(model1.kind == 'poreover')
         with Pool(processes=args.threads) as pool:
-            basecalls = pool.starmap(_prefix_search_2d, starmap_input)
+            basecalls = pool.starmap(_beam_search_2d, starmap_input)
 
         # sort each segment by its first signal index
         joined_basecalls = ''.join([i[1] for i in sorted(basecalls + basecall_anchors)])
@@ -347,8 +363,8 @@ def pair_decode(args):
         assert(model1.kind == 'poreover')
         print('\t Starting consensus basecalling...',file=sys.stderr)
         with Pool(processes=args.threads) as pool:
-            basecalls = pool.starmap(_prefix_search_2d_envelope, starmap_input)
-        joined_basecalls = ''.join([i.decode() for i in basecalls])
+            basecalls = pool.starmap(_beam_search_2d_envelope, starmap_input)
+        joined_basecalls = ''.join(basecalls)
 
     # output final basecalled sequence
     with open(args.out+'.2d.fasta','a') as f:
