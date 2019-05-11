@@ -48,7 +48,7 @@ class transducer:
         viterbi_path = np.zeros(self.t_max, dtype=int)
         viterbi_path[-1] = np.argmax(v[-1])
         for i in reversed(range(0, len(v)-1)):
-            viterbi_path[i] = ptr[i][viterbi_path[i+1]]
+            viterbi_path[i] = ptr[i+1][viterbi_path[i+1]]
 
         # sequence
         sequence = remove_repeated(''.join(np.take(self.alphabet, viterbi_path))).upper()
