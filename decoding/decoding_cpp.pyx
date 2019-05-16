@@ -119,7 +119,8 @@ def cpp_beam_search_2d_by_row(y1_, y2_, envelope_ranges_=None, beam_width_=25, a
     finally:
         free(point_to_y1)
         free(point_to_y2)
-        free(point_to_envelope_ranges)
+        if envelope_ranges_ is not None:
+            free(point_to_envelope_ranges)
 
 @cython.boundscheck(False)
 @cython.wraparound(False)

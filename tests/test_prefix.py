@@ -5,7 +5,7 @@ Unit tests for decoding algorithms
 import unittest
 import numpy as np
 from collections import OrderedDict
-from testing import decoding, profile, joint_profile
+from testing import decoding, poreover_profile, joint_profile
 
 class TestForwardAlgorithm(unittest.TestCase):
 
@@ -15,7 +15,7 @@ class TestForwardAlgorithm(unittest.TestCase):
 
         y = np.array([[0.8,0.1,0.1],[0.1,0.3,0.6],[0.7,0.2,0.1],[0.1,0.1,0.8]])
         examples = ['AAAA','ABBA','ABA','AA','BB','A','B']
-        prof=profile(y,alphabet)
+        prof=poreover_profile(y,alphabet)
 
         for label in examples:
             label_int = [alphabet_dict[i] for i in label]
@@ -31,7 +31,7 @@ class TestForwardAlgorithm(unittest.TestCase):
 
         y = np.array([[0.8,0.1,0.1],[0.1,0.3,0.6],[0.7,0.2,0.1],[0.1,0.1,0.8]])
         examples = ['AAAA','ABBA','ABA','AA','BB','A','B']
-        prof=profile(y,alphabet)
+        prof=poreover_profile(y,alphabet)
 
         for label in examples:
             label_int = [alphabet_dict[i] for i in label]
@@ -44,7 +44,7 @@ class TestForwardAlgorithm(unittest.TestCase):
 
         y = np.array([[0.8,0.1,0.1],[0.1,0.3,0.6],[0.7,0.2,0.1],[0.1,0.1,0.8]], dtype=np.float32)
         examples = ['AAAA','ABBA','ABA','AA','BB','A','B']
-        prof=profile(y,alphabet)
+        prof=poreover_profile(y,alphabet)
 
         for label in examples:
             label_int = [alphabet_dict[i] for i in label]
@@ -59,7 +59,7 @@ class TestForwardAlgorithm(unittest.TestCase):
 
         def helper(y,l):
             label_int = [alphabet_dict[i] for i in label]
-            prof = profile(y,alphabet)
+            prof = poreover_profile(y,alphabet)
             alpha  = decoding.forward(label_int, y)
             prefix_prob = np.sum(decoding.forward_vec_no_gap(label_int,y,alpha[-2]))
             self.assertTrue(np.isclose(prefix_prob, prof.prefix_prob(label)))
@@ -81,7 +81,7 @@ class TestForwardAlgorithm(unittest.TestCase):
 
         def helper(y,l):
             label_int = [alphabet_dict[i] for i in label]
-            prof = profile(y,alphabet)
+            prof = poreover_profile(y,alphabet)
             alpha  = np.log(decoding.forward(label_int, y))
             prefix_prob = logsumexp(decoding.forward_vec_no_gap_log(label_int,np.log(y),alpha[-2]))
             print(prefix_prob, prof.prefix_prob(label))
@@ -100,7 +100,7 @@ class TestDecoding(unittest.TestCase):
         def helper(y):
             alphabet = ('A','B','')
             toy_alphabet = OrderedDict([('A',0),('B',1)])
-            prof = profile(y,alphabet)
+            prof = poreover_profile(y,alphabet)
             top_label = prof.top_label()
             search_top_label = decoding.prefix_search(y,alphabet=toy_alphabet)
             return((top_label[0] == search_top_label[0]) and np.isclose(top_label[1], search_top_label[1]))
@@ -119,7 +119,7 @@ class TestDecoding(unittest.TestCase):
         def helper(y):
             alphabet = ('A','B','')
             toy_alphabet = OrderedDict([('A',0),('B',1)])
-            prof = profile(y,alphabet)
+            prof = poreover_profile(y,alphabet)
             top_label = prof.top_label()
             search_top_label = decoding.prefix_search_log(np.log(y),alphabet=toy_alphabet)
             print(top_label[0],np.log(top_label[1]), search_top_label[0],search_top_label[1])
@@ -145,9 +145,9 @@ class TestPairDecoding(unittest.TestCase):
         y2 = np.array([[0.7,0.2,0.1],[0.2,0.3,0.5],[0.7,0.2,0.1],[0.05,0.05,0.9]])
         examples = ['AAAA','ABBA','ABA','AA','BB','A','B']
 
-        profile1=profile(y1,alphabet)
-        profile2=profile(y2,alphabet)
-        joint_prof = joint_profile(profile1, profile2)
+        profile1=poreover_profile(y1,alphabet)
+        profile2=poreover_profile(y2,alphabet)
+        joint_prof = joint__profile(profile1, profile2)
 
         for label in examples:
             label_int = [alphabet_dict[i] for i in label]
@@ -160,8 +160,8 @@ class TestPairDecoding(unittest.TestCase):
             alphabet = ('A','B','')
             toy_alphabet = OrderedDict([('A',0),('B',1)])
 
-            profile1= profile(y1,alphabet)
-            profile2=profile(y2,alphabet)
+            profile1= poreover_profile(y1,alphabet)
+            profile2=poreover_profile(y2,alphabet)
             joint_prof = joint_profile(profile1, profile2)
 
             top_label = joint_prof.top_label()
@@ -187,8 +187,8 @@ class TestPairDecoding(unittest.TestCase):
             alphabet = ('A','B','')
             toy_alphabet = OrderedDict([('A',0),('B',1)])
 
-            profile1= profile(y1,alphabet)
-            profile2=profile(y2,alphabet)
+            profile1= poreover_profile(y1,alphabet)
+            profile2=poreover_profile(y2,alphabet)
             joint_prof = joint_profile(profile1, profile2)
 
             top_label = joint_prof.top_label()
@@ -216,8 +216,8 @@ class TestPairDecoding(unittest.TestCase):
             alphabet = ('A','B','')
             toy_alphabet = OrderedDict([('A',0),('B',1)])
 
-            profile1= profile(y1,alphabet)
-            profile2=profile(y2,alphabet)
+            profile1= poreover_profile(y1,alphabet)
+            profile2=poreover_profile(y2,alphabet)
             joint_prof = joint_profile(profile1, profile2)
 
             top_label = joint_prof.top_label()
@@ -244,8 +244,8 @@ class TestPairDecoding(unittest.TestCase):
         def helper(y1,y2):
             alphabet = ('A','B','')
             toy_alphabet = OrderedDict([('A',0),('B',1)])
-            profile1= profile(y1,alphabet)
-            profile2=profile(y2,alphabet)
+            profile1= poreover_profile(y1,alphabet)
+            profile2=poreover_profile(y2,alphabet)
             joint_prof = joint_profile(profile1, profile2)
 
             gamma = decoding.pair_gamma(y1,y2)
@@ -266,8 +266,8 @@ class TestPairDecoding(unittest.TestCase):
         def helper(y1,y2):
             alphabet = ('A','B','')
             toy_alphabet = OrderedDict([('A',0),('B',1)])
-            profile1= profile(y1,alphabet)
-            profile2=profile(y2,alphabet)
+            profile1= poreover_profile(y1,alphabet)
+            profile2=poreover_profile(y2,alphabet)
             joint_prof = joint_profile(profile1, profile2)
 
             gamma = decoding.pair_gamma_log(np.log(y1),np.log(y2))
@@ -289,8 +289,8 @@ class TestPairDecoding(unittest.TestCase):
         def helper(y1,y2):
             alphabet = ('A','B','')
             toy_alphabet = OrderedDict([('A',0),('B',1)])
-            profile1= profile(y1,alphabet)
-            profile2=profile(y2,alphabet)
+            profile1= poreover_profile(y1,alphabet)
+            profile2=poreover_profile(y2,alphabet)
             joint_prof = joint_profile(profile1, profile2)
 
             gamma = decoding.decoding_cy.pair_gamma_log(np.log(y1).astype(np.float64),np.log(y2).astype(np.float64))
