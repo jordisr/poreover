@@ -130,10 +130,11 @@ def call(args):
 
         if args.logits:
             logits_ = sess.run(logits, feed_dict={X:stacked,sequence_length:sizes}).astype('float32')
+            logits_concatenate = np.concatenate(sess.run(tf.nn.softmax(logits_)))[:-1*max(sizes[0]-sizes[-1], 1)]
             if args.logits == 'csv':
-                np.savetxt(args.out+'.csv', np.concatenate(sess.run(tf.nn.softmax(logits_))), delimiter=',', header=','.join(['A','C','G','T','-']))
+                np.savetxt(args.out+'.csv', logits_concatenate, delimiter=',', header=','.join(['A','C','G','T','']), comments='', )
             else:
-                np.save(args.out, logits_)
+                np.save(args.out, logits_concatenate)
 
         if args.decoding == 'prefix':
             logits_ = sess.run(logits, feed_dict={X:stacked,sequence_length:sizes})
