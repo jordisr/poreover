@@ -128,10 +128,22 @@ def get_sequence_mapping(path, kind):
 def _beam_search_2d(logits1, logits2, b, b_tot, u1, u2, v1, v2):
     size = (u2-u1+1)*(v2-v1+1)
     print('\t {}/{} Basecalling box {}-{}x{}-{} (size: {} elements)...'.format(b,b_tot,u1,u2,v1,v2,size),file=sys.stderr)
-    seq = decoding.decoding_cpp.cpp_beam_search_2d_by_row(
-    logits1[u1:u2],
-    logits2[v1:v2])
-    return((u1, seq))
+    if size <= 1:
+        return(u1,'')
+    elif (u2-u1) < 1:
+        return((u1, decoding.prefix_search_log_cy(logits2[v1:v2])[0]))
+    elif (v2-v1) < 1:
+        return((u1, decoding.prefix_search_log_cy(logits1[u1:u2])[0]))
+    else:
+        try:
+            seq = decoding.decoding_cpp.cpp_beam_search_2d_by_row(
+            logits1[u1:u2],
+            logits2[v1:v2],
+            beam_width_=args.beam_width)
+            return((u1, seq))
+        except:
+            print('WARNING: Error while basecalling box {}-{}:{}-{}'.format(u1,u2,v1,v2))
+            return(u1,'')
 
 def _beam_search_2d_envelope(y1_subset, y2_subset, subset_envelope):
     return(decoding.decoding_cpp.cpp_beam_search_2d_by_row(
@@ -190,7 +202,8 @@ def pair_decode(args):
 
     model1 = decoding.decode.model_from_trace(in_path[0])
     model2 = decoding.decode.model_from_trace(in_path[1])
-    model2.reverse_complement()
+    if args.reverse_complement:
+        model2.reverse_complement()
 
     assert(model1.kind == model2.kind)
 
