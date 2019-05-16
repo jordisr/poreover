@@ -182,7 +182,7 @@ std::string beam_search_2d_by_row(double **y1, double **y2, int **envelope_range
     }
 
     for (int u=0; u<U; ++u) {
-        std::cout << "Starting row " << u << "/" << U << "\n";
+        // std::cout << "Starting row " << u << "/" << U << "\n";
         int row_start = envelope_ranges[u][0];
         int row_end = envelope_ranges[u][1];
 
@@ -214,11 +214,13 @@ std::string beam_search_2d_by_row(double **y1, double **y2, int **envelope_range
 
 }
 
+/*
 // write out final beam
 for (int b=0; b < beam_.size(); b++) {
 std::cout << "----" << tree.get_label(beam_.elements[b]) << " : "
 << beam_.elements[b]->joint_probability(U-1,V-1) << "\n";
 }
+*/
 
 auto top_node = beam_.top();
 return tree.get_label(top_node);
@@ -241,7 +243,7 @@ std::string beam_search_2d_by_row(double **y1, double **y2, int U, int V, std::s
     }
 
     for (int u=0; u<U; ++u) {
-        std::cout << "Starting row " << u << "/" << U << "\n";
+        //std::cout << "Starting row " << u << "/" << U << "\n";
         for (int b=0; b < beam_width; ++b) {
             auto beam_node = beam_.elements[b];
             tree.update_prob(beam_node, 0, u);
@@ -268,11 +270,13 @@ std::string beam_search_2d_by_row(double **y1, double **y2, int U, int V, std::s
         beam_.prune();
 }
 
+/*
 // write out final beam
 for (int b=0; b < beam_.size(); b++) {
 std::cout << "----" << tree.get_label(beam_.elements[b]) << " : "
 << beam_.elements[b]->joint_probability(U-1,V-1) << "\n";
 }
+*/
 
 auto top_node = beam_.top();
 return tree.get_label(top_node);

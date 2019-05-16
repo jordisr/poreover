@@ -61,6 +61,7 @@ parser_pair.add_argument('--out', default='out',help='Save FASTA sequence to fil
 parser_pair.add_argument('--threads', type=int, default=1, help='Processes to use')
 parser_pair.add_argument('--method', choices=['align', 'split', 'envelope'],default='align',help='Method for dividing up search space (see code)')
 parser_pair.add_argument('--debug', default=False, action='store_true', help='Pickle objects to file for debugging')
+parser_pair.add_argument('--algorithm', default='beam', choices=['prefix' ,'beam'], help='')
 # --method envelope
 parser_pair.add_argument('--padding', type=int, default=150, help='Padding for building alignment envelope')
 parser_pair.add_argument('--segments', type=int, default=8, help='Split full alignment envelope into N segments')
