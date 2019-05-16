@@ -55,6 +55,12 @@ def model_from_trace(f, basecaller=""):
             model = decoding.transducer.poreover(trace)
         except:
             raise
+    elif file_extension == '.csv':
+        trace = np.log(np.loadtxt(f, delimiter=',', skiprows=1))
+        if trace.shape[1] == 5:
+            model = decoding.transducer.poreover(trace)
+        elif trace.shape[1] == 8:
+            model = decoding.transducer.flipflop(trace)
     elif file_extension == '.hdf5' or basecaller == 'flappie':
         try:
             trace = trace_from_flappie(f)
