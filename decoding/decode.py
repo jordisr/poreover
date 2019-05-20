@@ -55,6 +55,12 @@ def model_from_trace(f, basecaller=""):
             model = decoding.transducer.poreover(trace)
         except:
             raise
+    elif file_extension == '.csv':
+        trace = np.log(np.loadtxt(f, delimiter=',', skiprows=1))
+        if trace.shape[1] == 5:
+            model = decoding.transducer.poreover(trace)
+        elif trace.shape[1] == 8:
+            model = decoding.transducer.flipflop(trace)
     elif file_extension == '.hdf5' or basecaller == 'flappie':
         try:
             trace = trace_from_flappie(f)
@@ -86,7 +92,10 @@ def decode(args):
     model = model_from_trace(in_path, args.basecaller)
 
     # call appropriate decoding function
-    sequence = model.viterbi_decode()
+    if args.algorithm == 'viterbi':
+        sequence = model.viterbi_decode()
+    elif args.algorithm == 'beam':
+        sequence = decoding.decoding_cpp.cpp_beam_search(model.log_prob, args.beam_width, "ACGT", flipflop=(model.kind == "flipflop"))
 
     # output decoded sequence
     fasta_header = os.path.basename(in_path)

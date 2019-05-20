@@ -10,16 +10,14 @@
 
 #define DEFAULT_VALUE -std::numeric_limits<double>::infinity()
 
-using namespace std;
-
 void print_row(double* row, int row_size) {
   for (int i=0; i<row_size; i++) {
-    cout << row[i] << " ";
+    std::cout << row[i] << " ";
   }
-  cout << endl;
+  std::cout << std::endl;
 }
 
-void forward_vec_log(string alphabet, int s, int i, int t_max, double** y, double* fw, double* fw_prev) {
+void forward_vec_log(std::string alphabet, int s, int i, int t_max, double** y, double* fw, double* fw_prev) {
   int alphabet_size = alphabet.length();
   for (int t=0; t<t_max; t++) {
     if (t==0) {
@@ -32,7 +30,7 @@ void forward_vec_log(string alphabet, int s, int i, int t_max, double** y, doubl
   }
 }
 
-void forward_vec_log(string alphabet, int s, int i, int t_max, double** y, double* fw) {
+void forward_vec_log(std::string alphabet, int s, int i, int t_max, double** y, double* fw) {
   int alphabet_size = alphabet.length();
   for (int t=0; t<t_max; t++) {
     if (t == 0) {
@@ -43,7 +41,7 @@ void forward_vec_log(string alphabet, int s, int i, int t_max, double** y, doubl
   }
 }
 
-void forward_vec_no_gap_log(string alphabet, int s, int i, int t_max, double** y, double* fw, double* fw_prev) {
+void forward_vec_no_gap_log(std::string alphabet, int s, int i, int t_max, double** y, double* fw, double* fw_prev) {
   int alphabet_size = alphabet.length();
   if (i==1) {
     fw[0] = y[0][s];
@@ -55,7 +53,7 @@ void forward_vec_no_gap_log(string alphabet, int s, int i, int t_max, double** y
   }
 }
 
-void forward(string alphabet, string label, double** y, int U) {
+void forward(std::string alphabet, std::string label, double** y, int U) {
   double* fw_prev = new double[U];
   double* fw = new double[U];
   int label_size = label.length();
@@ -78,15 +76,15 @@ void forward(string alphabet, string label, double** y, int U) {
   }
 }
 
-string pair_prefix_search_log(double **y1, double **y2, int **envelope_ranges, int U, int V, string alphabet) {
+std::string pair_prefix_search_log(double **y1, double **y2, int **envelope_ranges, int U, int V, std::string alphabet) {
 
-  //cout << "STARTING PREFIX SEARCH" << endl;
+  //std::cout << "STARTING PREFIX SEARCH" << std::endl;
 
   // initialize prefix search variables
   int alphabet_size = alphabet.length();
   bool continue_search = true;
   int search_level = 0;
-  string curr_label = "";
+  std::string curr_label = "";
 
   // gamma matrix DP
   SparseMatrix gamma_, gamma_ast;
@@ -94,9 +92,9 @@ string pair_prefix_search_log(double **y1, double **y2, int **envelope_ranges, i
     gamma_.push_row(envelope_ranges[u][0],envelope_ranges[u][1]);
     gamma_ast.push_row(envelope_ranges[u][0],envelope_ranges[u][1]);
   }
-  //cout << "STARTING GAMMA DP" << endl;
+  //std::cout << "STARTING GAMMA DP" << std::endl;
   pair_gamma_log_envelope_inplace(gamma_, gamma_ast, y1, y2, envelope_ranges, U, V, alphabet_size+1);
-  //cout << "Gamma(0,0): " << gamma_.get(0,0) << endl;
+  //std::cout << "Gamma(0,0): " << gamma_.get(0,0) << std::endl;
 
   // get gap Probability
   double gap_prob = 0;
@@ -108,16 +106,16 @@ string pair_prefix_search_log(double **y1, double **y2, int **envelope_ranges, i
   }
 
   // keeping track of top label and prefix
-  string best_label = "";
-  string best_label_prev = "";
+  std::string best_label = "";
+  std::string best_label_prev = "";
   double best_label_prob = gap_prob;
   double best_label_prob_prev = gap_prob;
 
   // first row of each forward matrix
   double* alpha1_prev = new double[U];
   double* alpha2_prev = new double[V];
-  fill_n(alpha1_prev, U, DEFAULT_VALUE);
-  fill_n(alpha2_prev, V, DEFAULT_VALUE);
+  std::fill_n(alpha1_prev, U, DEFAULT_VALUE);
+  std::fill_n(alpha2_prev, V, DEFAULT_VALUE);
 
   forward_vec_log(alphabet, alphabet_size, 0, U, y1, alpha1_prev);
   forward_vec_log(alphabet, alphabet_size, 0, V, y2, alpha2_prev);
@@ -125,8 +123,8 @@ string pair_prefix_search_log(double **y1, double **y2, int **envelope_ranges, i
   // initialize forward vectors
   double* alpha_ast1 = new double[U];
   double* alpha_ast2 = new double[V];
-  fill_n(alpha_ast1, U, DEFAULT_VALUE);
-  fill_n(alpha_ast2, V, DEFAULT_VALUE);
+  std::fill_n(alpha_ast1, U, DEFAULT_VALUE);
+  std::fill_n(alpha_ast2, V, DEFAULT_VALUE);
 
   double** alpha1 = new double*[alphabet_size];
   double** alpha2 = new double*[alphabet_size];
@@ -139,22 +137,22 @@ string pair_prefix_search_log(double **y1, double **y2, int **envelope_ranges, i
 
     // iterate over each non-gap character in alphabet
     for (int i=0; i<alphabet_size; i++) {
-      string prefix = curr_label + alphabet[i];
+      std::string prefix = curr_label + alphabet[i];
 
       // calculate prefix probability
       forward_vec_no_gap_log(alphabet, i, search_level, U, y1, alpha_ast1, alpha1_prev);
       forward_vec_no_gap_log(alphabet, i, search_level, V, y2, alpha_ast2, alpha2_prev);
 
       /*
-      cout << "alpha1:";
+      std::cout << "alpha1:";
       print_row(alpha1_prev,U);
-      cout << "alpha2:";
+      std::cout << "alpha2:";
       print_row(alpha2_prev,U);
 
 
-      cout << "alpha_ast1:";
+      std::cout << "alpha_ast1:";
       print_row(alpha_ast1,U);
-      cout << "alpha_ast2:";
+      std::cout << "alpha_ast2:";
       print_row(alpha_ast2,U);
       */
 
@@ -163,7 +161,7 @@ string pair_prefix_search_log(double **y1, double **y2, int **envelope_ranges, i
         int row_start = envelope_ranges[u][0];
         int row_end = envelope_ranges[u][1];
         for (int v=row_start; v<=row_end; v++) {
-          //cout << prefix_prob << ':' << u << ',' << v << ':' << alpha_ast1[u] + alpha_ast2[v] << ',' << gamma_.get(u+1,v+1) << endl;
+          //std::cout << prefix_prob << ':' << u << ',' << v << ':' << alpha_ast1[u] + alpha_ast2[v] << ',' << gamma_.get(u+1,v+1) << std::endl;
           prefix_prob = logaddexp(prefix_prob, alpha_ast1[u]+alpha_ast2[v]+gamma_.get(u+1,v+1));
         }
       }
@@ -177,12 +175,12 @@ string pair_prefix_search_log(double **y1, double **y2, int **envelope_ranges, i
       // calculate label probability
       alpha1[i] = new double[U];
       alpha2[i] = new double[V];
-      fill_n(alpha1[i], U, DEFAULT_VALUE);
-      fill_n(alpha2[i], V, DEFAULT_VALUE);
+      std::fill_n(alpha1[i], U, DEFAULT_VALUE);
+      std::fill_n(alpha2[i], V, DEFAULT_VALUE);
       forward_vec_log(alphabet, i, search_level, U, y1, alpha1[i], alpha1_prev);
       forward_vec_log(alphabet, i, search_level, V, y2, alpha2[i], alpha2_prev);
 
-      //cout <<  alpha1[i][U-1] + alpha2[i][V-1] << ":" <<  gamma_.get(0,0) << endl;
+      //std::cout <<  alpha1[i][U-1] + alpha2[i][V-1] << ":" <<  gamma_.get(0,0) << std::endl;
       double label_prob = alpha1[i][U-1] + alpha2[i][V-1] - gamma_.get(0,0);
       if (label_prob > best_label_prob_prev) {
         best_label_prob_prev = label_prob;
@@ -192,10 +190,10 @@ string pair_prefix_search_log(double **y1, double **y2, int **envelope_ranges, i
       // catch errors with probabilities and terminate search
       if (label_prob > 0) {
         continue_search = false;
-        cerr << "Error! Log prefix probability greater than 0" << endl;
+        std::cerr << "Error! Log prefix probability greater than 0" << std::endl;
       }
 
-      //cout << "search_level:" << search_level << " extending by " << alphabet[i] << " best_label:" << best_label << " label:" << prefix << " label_prob:" << label_prob << " prefix_prob:" << prefix_prob << endl;
+      //std::cout << "search_level:" << search_level << " extending by " << alphabet[i] << " best_label:" << best_label << " label:" << prefix << " label_prob:" << label_prob << " prefix_prob:" << prefix_prob << std::endl;
     }
 
     // just for testing with a few iterations
@@ -206,7 +204,7 @@ string pair_prefix_search_log(double **y1, double **y2, int **envelope_ranges, i
     if (best_prefix_prob < best_label_prob) {
       continue_search = false;
     } else {
-      //cout << "Best prefix was " << alphabet[best_prefix_i] << endl;
+      //std::cout << "Best prefix was " << alphabet[best_prefix_i] << std::endl;
       curr_label += alphabet[best_prefix_i];
 
       best_label = best_label_prev;
@@ -224,9 +222,9 @@ string pair_prefix_search_log(double **y1, double **y2, int **envelope_ranges, i
   }
   best_label = best_label_prev;
   best_label_prob = best_label_prob_prev;
-  //string result = best_label + ":" + to_string(best_label_prob);
-  string result = best_label;
-  //cout << result << endl;
+  //std::string result = best_label + ":" + to_string(best_label_prob);
+  std::string result = best_label;
+  //std::cout << result << std::endl;
   return(result);
 }
 
@@ -281,7 +279,7 @@ int main() {
   }
 
   // test gamma DP calculation
-  cout << pair_gamma_log_envelope(y1_ptr, y2_ptr, envelope_ranges_ptr, U, V, 3) << endl;
+  std::cout << pair_gamma_log_envelope(y1_ptr, y2_ptr, envelope_ranges_ptr, U, V, 3) << std::endl;
   double* fw = new double[U];
   for (int t=0; t<U; t++) {
     fw[t] = DEFAULT_VALUE;
@@ -290,19 +288,19 @@ int main() {
   // test forward vec calculation
   forward_vec_log("AB", 2, 0, U, y1_ptr, fw);
   for (int t=0; t<U; t++) {
-    cout << fw[t] << " ";
+    std::cout << fw[t] << " ";
   }
-  cout << endl;
+  std::cout << std::endl;
 
-  cout << logaddexp(DEFAULT_VALUE, -5) << endl;
-  cout << logaddexp(DEFAULT_VALUE, DEFAULT_VALUE) << endl;
+  std::cout << logaddexp(DEFAULT_VALUE, -5) << std::endl;
+  std::cout << logaddexp(DEFAULT_VALUE, DEFAULT_VALUE) << std::endl;
 
   // test forward matrix
-  cout << "Forward matrix" << endl;
+  std::cout << "Forward matrix" << std::endl;
   forward("AB", "AA", y1_ptr, U);
 
   // prefix search
-  cout << "Pair prefix search: " << pair_prefix_search_log(y1_ptr, y2_ptr, envelope_ranges_ptr, U, V, "AB") << endl;;
+  std::cout << "Pair prefix search: " << pair_prefix_search_log(y1_ptr, y2_ptr, envelope_ranges_ptr, U, V, "AB") << std::endl;;
 
   return 0;
 }

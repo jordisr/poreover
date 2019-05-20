@@ -125,6 +125,32 @@ def get_sequence_mapping(path, kind):
                 signal_to_sequence.append(label_len)
     return(sequence_to_signal, signal_to_sequence)
 
+def _beam_search_2d(logits1, logits2, b, b_tot, u1, u2, v1, v2):
+    size = (u2-u1+1)*(v2-v1+1)
+    print('\t {}/{} Basecalling box {}-{}x{}-{} (size: {} elements)...'.format(b,b_tot,u1,u2,v1,v2,size),file=sys.stderr)
+    if size <= 1:
+        return(u1,'')
+    elif (u2-u1) < 1:
+        return((u1, decoding.prefix_search_log_cy(logits2[v1:v2])[0]))
+    elif (v2-v1) < 1:
+        return((u1, decoding.prefix_search_log_cy(logits1[u1:u2])[0]))
+    else:
+        try:
+            seq = decoding.decoding_cpp.cpp_beam_search_2d_by_row(
+            logits1[u1:u2],
+            logits2[v1:v2],
+            beam_width_=args.beam_width)
+            return((u1, seq))
+        except:
+            print('WARNING: Error while basecalling box {}-{}:{}-{}'.format(u1,u2,v1,v2))
+            return(u1,'')
+
+def _beam_search_2d_envelope(y1_subset, y2_subset, subset_envelope):
+    return(decoding.decoding_cpp.cpp_beam_search_2d_by_row(
+    y1_subset,
+    y2_subset,
+    subset_envelope.tolist()))
+
 def _prefix_search_1d(y):
     # Perform 1d basecalling and get signal-sequence mapping
     (prefix, forward) = decoding.prefix_search_log_cy(y, return_forward=True)
@@ -176,7 +202,8 @@ def pair_decode(args):
 
     model1 = decoding.decode.model_from_trace(in_path[0])
     model2 = decoding.decode.model_from_trace(in_path[1])
-    model2.reverse_complement()
+    if args.reverse_complement:
+        model2.reverse_complement()
 
     assert(model1.kind == model2.kind)
 
@@ -198,7 +225,11 @@ def pair_decode(args):
 
         assert(model1.kind == 'poreover')
         with Pool(processes=args.threads) as pool:
-            basecalls = pool.starmap(_prefix_search_2d, starmap_input)
+            if args.algorithm == 'beam':
+                parallel_fn = _beam_search_2d
+            elif args.algorithm == 'prefix':
+                parallel_fn = _prefix_search_2d
+            basecalls = pool.starmap(parallel_fn, starmap_input)
 
         joined_basecalls = ''.join([b[1] for b in basecalls])
 
@@ -295,7 +326,11 @@ def pair_decode(args):
 
         assert(model1.kind == 'poreover')
         with Pool(processes=args.threads) as pool:
-            basecalls = pool.starmap(_prefix_search_2d, starmap_input)
+            if args.algorithm == 'beam':
+                parallel_fn = _beam_search_2d
+            elif args.algorithm == 'prefix':
+                parallel_fn = _prefix_search_2d
+            basecalls = pool.starmap(parallel_fn, starmap_input)
 
         # sort each segment by its first signal index
         joined_basecalls = ''.join([i[1] for i in sorted(basecalls + basecall_anchors)])
@@ -347,8 +382,12 @@ def pair_decode(args):
         assert(model1.kind == 'poreover')
         print('\t Starting consensus basecalling...',file=sys.stderr)
         with Pool(processes=args.threads) as pool:
-            basecalls = pool.starmap(_prefix_search_2d_envelope, starmap_input)
-        joined_basecalls = ''.join([i.decode() for i in basecalls])
+            if args.algorithm == 'beam':
+                parallel_fn = _beam_search_2d_envelope
+            elif args.algorithm == 'prefix':
+                parallel_fn = _prefix_search_2d_envelope
+            basecalls = pool.starmap(parallel_fn, starmap_input)
+        joined_basecalls = ''.join(basecalls)
 
     # output final basecalled sequence
     with open(args.out+'.2d.fasta','a') as f:

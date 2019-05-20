@@ -38,7 +38,7 @@ parser_call.add_argument('--out', default='out', help='Prefix for sequence outpu
 parser_call.add_argument('--window', type=int, default=400, help='Call read using chunks of this size')
 parser_call.add_argument('--logits', choices=['csv', 'npy'], default=False, help='Save softmax probabilities to CSV file or logits to binarized NumPy format')
 parser_call.add_argument('--decoding', default='greedy', choices=['greedy','beam', 'prefix', 'none'], help='Choice of CTC decoding algorithm to use. Greedy takes best path. Beam uses TensorFlow\'s built-in beam search. Prefix uses CTC prefix search decoding (but does not collapse repeated characters). None skips decoding and just runs neural network (output can be saved with --logits)')
-parser_call.add_argument('--ctc_threads', type=int, default=1, help='Number of threads to use for prefix decoding')
+parser_call.add_argument('--threads', type=int, default=1, help='Number of threads to use for prefix decoding')
 parser_call.add_argument('--no_stack', default=False, action='store_true', help='Basecall [1xSIGNAL_LENGTH] tensor instead of splitting it into windows (slower)')
 
 # Decode
@@ -47,7 +47,9 @@ parser_decode.set_defaults(func=decode)
 parser_decode.add_argument('in', help='Probabilities to decode (either .npy from PoreOver of HDF5/FAST5 from Flappie or Guppy)')
 parser_decode.add_argument('--out', help='Save FASTA sequence to file (default: stdout)')
 parser_decode.add_argument('--basecaller', choices=['poreover', 'flappie', 'guppy'], help='Basecaller used to generate probabilitiess')
-parser_decode.add_argument('--algorithm', default='viterbi', choices=['viterbi'], help='')
+parser_decode.add_argument('--algorithm', default='viterbi', choices=['viterbi' ,'beam'], help='')
+parser_decode.add_argument('--beam_width', type=int, default=25, help='Width for beam search')
+
 
 # Pair decode
 parser_pair= subparsers.add_parser('pair-decode', help='1d2 consensus decoding of two output probabilities')
@@ -55,10 +57,13 @@ parser_pair.set_defaults(func=pair_decode)
 # general options
 parser_pair.add_argument('in', nargs='+', help='Probabilities to decode (either .npy from PoreOver of HDF5/FAST5 from Flappie or Guppy)')
 parser_pair.add_argument('--basecaller', choices=['poreover', 'flappie', 'guppy'], help='Basecaller used to generate probabilitiess')
+parser_pair.add_argument('--reverse_complement', default=False, action='store_true', help='Whether to reverse complement the second sequence (default: False)')
 parser_pair.add_argument('--out', default='out',help='Save FASTA sequence to file (default: stdout)')
 parser_pair.add_argument('--threads', type=int, default=1, help='Processes to use')
 parser_pair.add_argument('--method', choices=['align', 'split', 'envelope'],default='align',help='Method for dividing up search space (see code)')
 parser_pair.add_argument('--debug', default=False, action='store_true', help='Pickle objects to file for debugging')
+parser_pair.add_argument('--algorithm', default='beam', choices=['prefix' ,'beam'], help='')
+parser_pair.add_argument('--beam_width', type=int, default=25, help='Width for beam search')
 # --method envelope
 parser_pair.add_argument('--padding', type=int, default=150, help='Padding for building alignment envelope')
 parser_pair.add_argument('--segments', type=int, default=8, help='Split full alignment envelope into N segments')

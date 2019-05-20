@@ -11,39 +11,22 @@ import decoding
 class profile:
     '''
     Simple class for probabilistic profiles. Label probabilities are calculated
-    by enumerating all paths. Useful for unit testing of CTC code on toy examples.
+    by enumerating all paths. Useful for unit testing of decoding on toy examples.
 
     Arguments:
     sofmax: numpy array of softmax probabilities, shape is Lx|alphabet|, where
         L is the number of observations
-    alphabet: tuple of the character alphabet, including the gap character
+    alphabet: tuple of the character/gap alphabet
     merge_function: function used to map paths to label sequences, this could
-        involve collapsing repeated labels or just removing gaps.
+        involve collapsing repeated labels or removing gaps.
     '''
-    def __init__(self, softmax, alphabet, merge_function=decoding.remove_gaps):
+    def __init__(self, softmax, alphabet, merge_function):
         self.softmax = softmax
         self.alphabet = alphabet
         self.merge_function = merge_function
-
+        self.total_path_prob = 0
         self.label_prob_ = dict()
         self.path_prob = dict()
-
-        total_path_prob  = 0
-
-        for path in itertools.product(range(len(alphabet)),repeat=len(self.softmax)):
-            path_prob_ = np.product(self.softmax[np.arange(len(self.softmax)),np.array(path)])
-            total_path_prob += path_prob_
-            self.path_prob[path] = path_prob_
-
-            label = self.merge_function([self.alphabet[l] for l in path])
-            if label in self.label_prob_:
-                self.label_prob_[label] += path_prob_
-            else:
-                self.label_prob_[label] = path_prob_
-
-        assert(np.isclose(total_path_prob, 1.0))
-
-        self.label_prob_ = OrderedDict(sorted(self.label_prob_.items(), key=operator.itemgetter(1), reverse=True))
 
     def top_label(self, n=1):
         l = list(self.label_prob_.items())
@@ -70,6 +53,66 @@ class profile:
                     if path[-1] != 2:
                         prefix_prob_ += path_prob_
         return(prefix_prob_)
+
+class poreover_profile(profile):
+    def __init__(self, prob, alphabet):
+        super().__init__(prob, alphabet, decoding.remove_gaps)
+
+        for path in itertools.product(range(len(alphabet)),repeat=len(self.softmax)):
+            path_prob_ = np.product(self.softmax[np.arange(len(self.softmax)),np.array(path)])
+            self.total_path_prob += path_prob_
+            self.path_prob[path] = path_prob_
+
+            label = self.merge_function([self.alphabet[l] for l in path])
+            if label in self.label_prob_:
+                self.label_prob_[label] += path_prob_
+            else:
+                self.label_prob_[label] = path_prob_
+
+        assert(np.isclose(self.total_path_prob, 1.0))
+
+        self.label_prob_ = OrderedDict(sorted(self.label_prob_.items(), key=operator.itemgetter(1), reverse=True))
+
+class flipflop_profile(profile):
+    def __init__(self, prob, alphabet):
+        super().__init__(prob, alphabet, lambda x: decoding.transducer.remove_repeated(x).upper())
+
+        self.transition = np.array([
+            [1,1,1,1,1,0,0,0],
+            [1,1,1,1,0,1,0,0],
+            [1,1,1,1,0,0,1,0],
+            [1,1,1,1,0,0,0,1],
+            [1,1,1,1,1,0,0,0],
+            [1,1,1,1,0,1,0,0],
+            [1,1,1,1,0,0,1,0],
+            [1,1,1,1,0,0,0,1]
+        ])
+
+        def extend_path(p):
+            return([p[:]+[j] for j in np.where(self.transition[p[-1]] == 1)[0]])
+
+        paths = [[i] for i in range(len(alphabet))]
+
+        for t in range(1,len(self.softmax)):
+            paths_ = []
+            for i in range(len(paths)):
+                for j in extend_path(paths[i]):
+                    paths_.append(j)
+            paths = paths_[:]
+
+        print(len(paths))
+
+        for path in paths:
+            path_prob_ = np.product(self.softmax[np.arange(len(self.softmax)),path])
+            self.total_path_prob += path_prob_
+            path_string = ''.join(np.take(self.alphabet, path))
+            self.path_prob[path_string] = path_prob_
+
+            label = self.merge_function(path_string)
+            if label in self.label_prob_:
+                self.label_prob_[label] += path_prob_
+            else:
+                self.label_prob_[label] = path_prob_
 
 class joint_profile:
     def __init__(self, prof1, prof2):
