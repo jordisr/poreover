@@ -96,6 +96,16 @@ def decode(args):
         sequence = model.viterbi_decode()
     elif args.algorithm == 'beam':
         sequence = decoding.decoding_cpp.cpp_beam_search(model.log_prob, args.beam_width, "ACGT", flipflop=(model.kind == "flipflop"))
+    elif args.algorithm == 'prefix':
+        assert(model.kind == "poreover")
+        # for comparing with previous results
+        window = args.window
+        i = 0
+        sequence = ""
+        while i+window < model.t_max:
+            sequence += decoding.prefix_search_log_cy(model.log_prob[i:i+window])[0]
+            i += window
+        sequence += decoding.prefix_search_log_cy(model.log_prob[i:])[0]
 
     # output decoded sequence
     fasta_header = os.path.basename(in_path)
