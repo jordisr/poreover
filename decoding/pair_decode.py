@@ -264,7 +264,10 @@ def pair_decode(args):
         #alignment = pairwise2.align.globalms(, , 2, -1, -.5, -.1)
         alignment = align.global_pair(basecall1, basecall2)
         alignment = np.array([list(s) for s in alignment[:2]])
-        print('\t Read sequence identity: {}'.format(np.sum(alignment[0] == alignment[1]) / len(alignment[0])), file=sys.stderr)
+        sequence_identity = np.sum(alignment[0] == alignment[1]) / len(alignment[0])
+        print('\t Read sequence identity: {}'.format(sequence_identity), file=sys.stderr)
+        if sequence_identity < 0.5:
+            sys.exit("Pairwise sequence identity between reads is below 50%. Did you mean to take the --reverse-complement of one of the reads?")
 
         # get alignment_to_sequence mapping
         alignment_to_sequence = np.zeros(shape=alignment.shape,dtype=int)
