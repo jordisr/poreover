@@ -73,20 +73,16 @@ class poreover_profile(profile):
 
         self.label_prob_ = OrderedDict(sorted(self.label_prob_.items(), key=operator.itemgetter(1), reverse=True))
 
+def flipflop_transition(flipflop_size):
+    a = np.ones((flipflop_size, flipflop_size))
+    b = np.identity(flipflop_size)
+    return np.block([[a,b],[a,b]])
+
 class flipflop_profile(profile):
     def __init__(self, prob, alphabet):
         super().__init__(prob, alphabet, lambda x: decoding.transducer.remove_repeated(x).upper())
-
-        self.transition = np.array([
-            [1,1,1,1,1,0,0,0],
-            [1,1,1,1,0,1,0,0],
-            [1,1,1,1,0,0,1,0],
-            [1,1,1,1,0,0,0,1],
-            [1,1,1,1,1,0,0,0],
-            [1,1,1,1,0,1,0,0],
-            [1,1,1,1,0,0,1,0],
-            [1,1,1,1,0,0,0,1]
-        ])
+        self.flipflop_size = int(len(alphabet)/2)
+        self.transition = flipflop_transition(self.flipflop_size)
 
         def extend_path(p):
             return([p[:]+[j] for j in np.where(self.transition[p[-1]] == 1)[0]])
@@ -99,8 +95,6 @@ class flipflop_profile(profile):
                 for j in extend_path(paths[i]):
                     paths_.append(j)
             paths = paths_[:]
-
-        print(len(paths))
 
         for path in paths:
             path_prob_ = np.product(self.softmax[np.arange(len(self.softmax)),path])

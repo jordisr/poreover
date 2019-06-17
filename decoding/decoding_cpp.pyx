@@ -17,6 +17,7 @@ cdef extern from "BeamSearch.h":
     string beam_search_2d(double**, double**, int**, int, int, string)
     string beam_search_2d_by_row(double**, double**, int**, int, int, string, int)
     string beam_search_2d_by_row(double**, double**, int, int, string, int)
+    double forward(double**, int, string, string, bool)
 
 cdef extern from "Gamma.h":
     double pair_gamma_log_envelope(double**, double**, int**, int, int, int)
@@ -26,6 +27,29 @@ cdef extern from "PairPrefixSearch.cpp":
 
 cdef extern from "PairPrefixSearch.h":
     string pair_prefix_search_log(double**, double**, int**, int, int, string)
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def cpp_forward(y_, label_, alphabet_="ACGT", flipflop=False):
+
+    cdef int U = y_.shape[0]
+    cdef int alphabet_size = y_.shape[1]
+    cdef string label = label_.encode("UTF-8")
+    cdef string alphabet = alphabet_.encode("UTF-8")
+    cdef double result
+
+    # Make sure the array a has the correct memory layout (here C-order)
+    cdef np.ndarray[double,ndim=2,mode="c"] y = np.asarray(y_, dtype=DTYPE, order="C")
+
+    # Create our helper array
+    cdef double** point_to_y = <double **>malloc(U * sizeof(double*))
+    try:
+        for u in range(U):
+            point_to_y[u] = &y[u, 0]
+        result = forward(&point_to_y[0], U, label, alphabet, flipflop)
+        return(result)
+    finally:
+        free(point_to_y)
 
 @cython.boundscheck(False)
 @cython.wraparound(False)

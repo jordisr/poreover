@@ -286,7 +286,10 @@ public:
 
     double emit_flip, emit_flop;
 
-    if (n->parent->last == n->last) {
+    if (n->parent->depth == 0 and t==0) {
+        emit_flip = y[t][n->last];
+        emit_flop = y[t][n->last + flipflop_size];
+    } else if (n->parent->last == n->last) {
       emit_flip = n->parent->probability_flop_at(t-1) + y[t][n->last];
       emit_flop = n->parent->probability_flip_at(t-1) + y[t][n->last + flipflop_size];
     } else {
@@ -295,8 +298,60 @@ public:
     }
 
     n->set_probability(t, logaddexp(emit_flip, stay_flip), logaddexp(emit_flop, stay_flop));
+    //std::cout << "Looking at parent:" << this->get_label(n->parent) << ": probability_flip(t-1)=" << n->parent->probability_flip_at(t-1) << ": probability_flop(t-1)=" << n->parent->probability_flop_at(t-1) << "\n";
+    //std::cout << y[t][n->last] << " " << y[t][n->last + flipflop_size] << "\n";
+    //std::cout << this->get_label(n) << " at t=" << t << ":" <<  exp(emit_flip) << "+" << exp(stay_flip) << "," << exp(emit_flop) << "+" << exp(stay_flop) << "=" << n->probability_at(t) << "\n";
   }
 
 };
+
+// Use existing PrefixTree data structure to calculate forward probabilities
+//  instead of explicit DP matrix. Should produce identical results.
+template <class TNode, class TTree>
+double forward_(double **y, int t_max, std::string label, std::string alphabet) {
+
+    int s_max = label.length();
+    int alphabet_size = alphabet.length();
+
+    // map label string to character indices
+    std::unordered_map<char, int> alphabet_map;
+    for (int a=0; a<alphabet_size; a++) {
+        alphabet_map[alphabet[a]] = a;
+    }
+
+    int *label_int = new int[s_max];
+    for (int s=0; s<s_max; s++) {
+        label_int[s] = alphabet_map[label[s]];
+    }
+
+    TTree tree(y, t_max, alphabet);
+    std::vector<TNode*> substrings;
+
+    auto currNode = tree.root;
+    for (int s=0; s<s_max; s++) {
+        currNode = currNode->add_child(label_int[s]);
+        substrings.push_back(currNode);
+        //currNode->set_probability(0, y[0][label_int[0]], y[0][label_int[0]+tree.flipflop_size]);
+        for (int t=0; t<t_max; t++) {
+            tree.update_prob(currNode, t);
+        }
+    }
+
+    /*
+    for (int s=0; s<s_max; s++) {
+        std::cout << s << ":" << substrings[s] << " from " << substrings[s]->parent << ":" << tree.get_label(substrings[s]) << ":" << substrings[s]->last_probability() << "\n";
+    }
+    */
+
+    return currNode->last_probability();
+}
+
+double forward(double **y, int t_max, std::string label, std::string alphabet, bool flipflop=false) {
+    if (flipflop) {
+        return forward_<FlipFlopNode, FlipFlopPrefixTree>(y, t_max, label, alphabet);
+    } else {
+        return forward_<PoreOverNode, PoreOverPrefixTree>(y, t_max, label, alphabet);
+    }
+}
 
 #endif
