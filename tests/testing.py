@@ -108,6 +108,8 @@ class flipflop_profile(profile):
             else:
                 self.label_prob_[label] = path_prob_
 
+        self.label_prob_ = OrderedDict(sorted(self.label_prob_.items(), key=operator.itemgetter(1), reverse=True))
+
 class joint_profile:
     def __init__(self, prof1, prof2):
         self.joint_label_prob_ = dict()

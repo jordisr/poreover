@@ -139,14 +139,14 @@ class parallel_decoder:
         elif (v2-v1) < 1:
             return((u1, decoding.prefix_search_log_cy(logits1[u1:u2])[0]))
         else:
-            seq = decoding.decoding_cpp.cpp_beam_search_2d_by_row(
+            seq = decoding.decoding_cpp.cpp_beam_search_2d(
             logits1[u1:u2],
             logits2[v1:v2],
             beam_width_=self.args.beam_width)
             return((u1, seq))
 
     def _beam_search_2d_envelope(self, y1_subset, y2_subset, subset_envelope):
-        return(decoding.decoding_cpp.cpp_beam_search_2d_by_row(
+        return(decoding.decoding_cpp.cpp_beam_search_2d(
         y1_subset,
         y2_subset,
         subset_envelope.tolist(),
