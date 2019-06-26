@@ -26,6 +26,14 @@ public:
   Node(int s) :last{s}, parent{nullptr} {}
   Node() :last{-1}, parent{nullptr} {}
 
+  /*
+  ~Node() {
+      for (auto x : children) {
+          delete x;
+      }
+  }
+  */
+
   int get_last() const { return last; }
   N* get_parent() const { return parent; }
 
@@ -230,14 +238,20 @@ class PrefixTree {
 public:
     std::string alphabet;
     TNode root;
+    std::vector<TNode> nodes;
 
     PrefixTree(std::string a) : alphabet{a} {}
+     ~PrefixTree() {
+         for (auto x : nodes) {
+             delete x;
+         }
+     }
 
     // expand children if node hasn't been expanded
     std::vector<TNode> expand(TNode n) {
       if (n->children.size() == 0) {
         for (int i=0; i < alphabet.length(); i++) {
-          n->add_child(i);
+          nodes.push_back(n->add_child(i));
         }
       }
       return n->children;
