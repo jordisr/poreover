@@ -126,8 +126,9 @@ def get_sequence_mapping(path, kind):
     return(sequence_to_signal, signal_to_sequence)
 
 class parallel_decoder:
-    def __init__(self, args):
+    def __init__(self, args, kind):
         self.args = args
+        self.kind = kind
 
     def _beam_search_2d(self, logits1, logits2, b, b_tot, u1, u2, v1, v2):
         size = (u2-u1+1)*(v2-v1+1)
@@ -142,7 +143,8 @@ class parallel_decoder:
             seq = decoding.decoding_cpp.cpp_beam_search_2d(
             logits1[u1:u2],
             logits2[v1:v2],
-            beam_width_=self.args.beam_width)
+            beam_width_=self.args.beam_width,
+            flipflop=(self.kind == "flipflop"))
             return((u1, seq))
 
     def _beam_search_2d_envelope(self, y1_subset, y2_subset, subset_envelope):
@@ -150,7 +152,8 @@ class parallel_decoder:
         y1_subset,
         y2_subset,
         subset_envelope.tolist(),
-        beam_width_=self.args.beam_width))
+        beam_width_=self.args.beam_width,
+        flipflop=(self.kind == "flipflop")))
 
     def _prefix_search_1d(self, y):
         # Perform 1d basecalling and get signal-sequence mapping
@@ -201,6 +204,7 @@ class parallel_decoder:
             else:
                 return(self._beam_search_2d)
         elif self.args.algorithm == 'prefix':
+            assert(self.kind == "poreover")
             if self.args.method == 'envelope':
                 return(self._prefix_search_2d_envelope)
             else:
@@ -221,7 +225,7 @@ def pair_decode(args):
     assert(model1.kind == model2.kind)
 
     # get appropriate helper function for multiprocessing
-    decoding_fn = parallel_decoder(args).get_function()
+    decoding_fn = parallel_decoder(args, model1.kind).get_function()
 
     if args.method == 'split':
         # calculate ranges on which to split read
@@ -239,7 +243,6 @@ def pair_decode(args):
         for i, b in enumerate(box_ranges):
             starmap_input.append((model1, model2, i,len(box_ranges)-1,b[0],b[1],b[2],b[3]))
 
-        assert(model1.kind == 'poreover')
         with Pool(processes=args.threads) as pool:
             basecalls = pool.starmap(decoding_fn, starmap_input)
 
@@ -256,9 +259,10 @@ def pair_decode(args):
         sequence_to_signal2, _ = get_sequence_mapping(_viterbi_path, model2.kind)
         assert(len(sequence_to_signal2) == len(basecall2))
 
-        with open(args.out+'.1d.fasta','a') as f:
-            print(fasta_format(in_path[0], basecall1),file=f)
-            print(fasta_format(in_path[1], basecall2),file=f)
+        if not getattr(args, 'unittest', False):
+            with open(args.out+'.1d.fasta','a') as f:
+                print(fasta_format(in_path[0], basecall1),file=f)
+                print(fasta_format(in_path[1], basecall2),file=f)
 
         print('\t Aligning basecalled sequences (Read1 is {} bp and Read2 is {} bp)...'.format(len(basecall1),len(basecall2)),file=sys.stderr)
         #alignment = pairwise2.align.globalms(, , 2, -1, -.5, -.1)
@@ -339,7 +343,6 @@ def pair_decode(args):
         for i, b in enumerate(basecall_boxes):
             starmap_input.append((model1, model2, i,len(basecall_boxes)-1,b[0],b[1],b[2],b[3]))
 
-        assert(model1.kind == 'poreover')
         with Pool(processes=args.threads) as pool:
             basecalls = pool.starmap(decoding_fn, starmap_input)
 
@@ -390,12 +393,14 @@ def pair_decode(args):
             subset_envelope = decoding.envelope.pad_envelope(subset_envelope, len(y1_subset), len(y2_subset))
             starmap_input.append( (y1_subset, y2_subset, subset_envelope) )
 
-        assert(model1.kind == 'poreover')
         print('\t Starting consensus basecalling...',file=sys.stderr)
         with Pool(processes=args.threads) as pool:
             basecalls = pool.starmap(decoding_fn, starmap_input)
         joined_basecalls = ''.join(basecalls)
 
     # output final basecalled sequence
-    with open(args.out+'.2d.fasta','a') as f:
-        print(fasta_format('consensus_{};{};{}'.format(args.method,in_path[0],in_path[1]), joined_basecalls), file=f)
+    if not getattr(args, 'unittest', False):
+        with open(args.out+'.2d.fasta','a') as f:
+            print(fasta_format('consensus_{};{};{}'.format(args.method,in_path[0],in_path[1]), joined_basecalls), file=f)
+
+    return((basecall1, basecall2), joined_basecalls)
