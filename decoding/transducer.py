@@ -61,8 +61,8 @@ class transducer:
         return('transducer(kind=%s, alphabet=%s, t_max=%s)' % (self.kind, self.alphabet, self.t_max))
 
 class poreover(transducer):
-    def __init__(self, log_prob):
-        super().__init__(log_prob, 'poreover', np.array(['A','C','G','T','']))
+    def __init__(self, log_prob, alphabet="ACGT"):
+        super().__init__(log_prob, 'poreover', np.array(list(alphabet)+['']))
 
     def reverse_complement(self):
         # (A,C,G,T,-)/(0,1,2,3,4) => (T,G,C,A,-)/(3,2,1,0,4)

@@ -3,6 +3,7 @@ cimport cython
 cimport numpy as np
 import numpy as np
 import copy
+from libcpp.string cimport string
 #from scipy.special import logsumexp
 
 from SparseMatrix cimport SparseMatrix
@@ -53,6 +54,74 @@ def diagonal_band_envelope(U,V,width,inside=1,outside=0):
             envelope.set(u,v,inside)
             envelope_indices.append((u,v))
     return(envelope, np.array(envelope_ranges), np.array(envelope_indices))
+
+@cython.boundscheck(False)  # Deactivate bounds checking
+@cython.wraparound(True)   # Deactivate negative indexing.
+def viterbi_acceptor(double [:,:] y, label_, alphabet='ACGT', band_size=0):
+    cdef Py_ssize_t t_max = y.shape[0]
+    cdef Py_ssize_t l_max = len(label_)
+    cdef int gap_char = len(alphabet)
+
+    # convert label to alphabet indices
+    alphabet_dict = {}
+    for i, c in enumerate(alphabet):
+        alphabet_dict[c] = i
+    cdef long [:] label = np.array([alphabet_dict[c] for c in label_]).astype(np.int64)
+
+    v_np = np.zeros((l_max+1, t_max))-np.inf
+    cdef double [:, :] v = v_np
+
+    ptr_np = np.zeros_like(v).astype(np.int64) + gap_char
+    cdef long [:, :] ptr = ptr_np
+
+    cdef Py_ssize_t t
+    cdef Py_ssize_t l
+
+    cdef double emit_prob
+    cdef double stay_prob
+    cdef double gap_prob
+
+    # optionally band Viterbi DP
+    cdef int band_size_
+    if band_size > 0:
+        band_size_ = band_size
+    else:
+        band_size_ = t_max
+
+    # initialize DP matrix
+    for t in range(t_max):
+        gap_prob = 0
+        for t_ in range(t+1):
+            gap_prob += y[t_, gap_char]
+        v[0, t] = gap_prob
+        ptr[0, t] = gap_char
+
+    v[1,0] = y[0,label[0]]
+    ptr[0,0] = 1
+
+    # fill out DP matrix
+    for l in range(1,l_max+1):
+        for t in range(max(1, int(l/l_max*t)-band_size_),min(t_max, int(l/l_max*t)+band_size_)):
+            if t >= l:
+                emit_prob = y[t, label[l-1]] + v[l-1,t-1]
+                stay_prob = y[t, gap_char] + v[l,t-1]
+                if emit_prob > stay_prob:
+                    v[l,t] = emit_prob
+                    ptr[l,t] = 1
+                else:
+                    v[l,t] = stay_prob
+                    ptr[l,t] = 0
+
+    # traceback
+    path = np.zeros(t_max).astype(int) + gap_char
+    l = len(label)
+    t = t_max-1
+    while (l > 0):
+        if ptr[l,t]:
+            path[t] = label[l-1]
+            l -= 1
+        t -= 1
+    return path
 
 @cython.boundscheck(False)  # Deactivate bounds checking
 @cython.wraparound(True)   # Deactivate negative indexing.

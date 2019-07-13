@@ -37,6 +37,19 @@ class profile:
         else:
             return(l[:n])
 
+    def top_path(self, n=1):
+        sorted_path_prob = sorted(self.path_prob.items(), key=operator.itemgetter(1), reverse=True)
+        if n == 1:
+            return(sorted_path_prob[0])
+        elif n > len(l):
+            return(sorted_path_prob)
+        else:
+            return(sorted_path_prob[:n])
+
+    def viterbi_decode(self):
+        top_path = self.top_path()[0]
+        return self.merge_function([self.alphabet[l] for l in top_path])
+
     def label_prob(self, label):
         return(self.label_prob_.get(label,0.))
 

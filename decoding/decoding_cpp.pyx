@@ -27,6 +27,20 @@ cdef extern from "PairPrefixSearch.cpp":
 cdef extern from "PairPrefixSearch.h":
     string pair_prefix_search_log(double**, double**, int**, int, int, string)
 
+cdef double** pointer_from_array_double(double [:,:] y):
+    cdef int U = y.shape[0]
+    cdef double** point_to_y = <double **>malloc(U * sizeof(double*))
+    for u in range(U):
+        point_to_y[u] = &y[u, 0]
+    return point_to_y
+
+cdef int** pointer_from_array_int(int [:,:] y):
+    cdef int U = y.shape[0]
+    cdef int** point_to_y = <int **>malloc(U * sizeof(int*))
+    for u in range(U):
+        point_to_y[u] = &y[u, 0]
+    return point_to_y
+
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def cpp_forward(y_, label_, alphabet_="ACGT", flipflop=False):
@@ -37,14 +51,10 @@ def cpp_forward(y_, label_, alphabet_="ACGT", flipflop=False):
     cdef string alphabet = alphabet_.encode("UTF-8")
     cdef double result
 
-    # Make sure the array a has the correct memory layout (here C-order)
     cdef np.ndarray[double,ndim=2,mode="c"] y = np.asarray(y_, dtype=DTYPE, order="C")
+    cdef double** point_to_y = pointer_from_array_double(y)
 
-    # Create our helper array
-    cdef double** point_to_y = <double **>malloc(U * sizeof(double*))
     try:
-        for u in range(U):
-            point_to_y[u] = &y[u, 0]
         result = forward(&point_to_y[0], U, label, alphabet, flipflop)
         return(result)
     finally:
@@ -59,14 +69,10 @@ def cpp_beam_search(y_, beam_width_=25, alphabet_="ACGT", flipflop=False):
     cdef string alphabet = alphabet_.encode("UTF-8")
     cdef int beam_width = beam_width_
 
-    # Make sure the array a has the correct memory layout (here C-order)
     cdef np.ndarray[double,ndim=2,mode="c"] y = np.asarray(y_, dtype=DTYPE, order="C")
+    cdef double** point_to_y = pointer_from_array_double(y)
 
-    # Create our helper array
-    cdef double** point_to_y = <double **>malloc(U * sizeof(double*))
     try:
-        for u in range(U):
-            point_to_y[u] = &y[u, 0]
         decoded_sequence = beam_search(&point_to_y[0], U, alphabet, beam_width, flipflop)
         return(decoded_sequence.decode("UTF-8").lstrip('\x00'))
     finally:
@@ -82,27 +88,20 @@ def cpp_beam_search_2d(y1_, y2_, envelope_ranges_=None, beam_width_=25, alphabet
     cdef int beam_width = beam_width_
     cdef string alphabet = alphabet_.encode("UTF-8")
 
-    # Make sure the array a has the correct memory layout (here C-order)
     cdef np.ndarray[double,ndim=2,mode="c"] y1 = np.asarray(y1_, dtype=DTYPE, order="C")
     cdef np.ndarray[double,ndim=2,mode="c"] y2 = np.asarray(y2_, dtype=DTYPE, order="C")
     cdef np.ndarray[int,ndim=2,mode="c"] envelope_ranges
     if envelope_ranges_ is not None:
         envelope_ranges = np.asarray(envelope_ranges_, dtype=np.intc, order="C")
 
-    # Create our helper array
-    cdef double** point_to_y1 = <double **>malloc(U * sizeof(double*))
-    cdef double** point_to_y2 = <double **>malloc(V * sizeof(double*))
+    cdef double** point_to_y1 = pointer_from_array_double(y1)
+    cdef double** point_to_y2 = pointer_from_array_double(y2)
     cdef int** point_to_envelope_ranges
     if envelope_ranges_ is not None:
-        point_to_envelope_ranges = <int **>malloc((U+1) * sizeof(int*))
+        point_to_envelope_ranges = pointer_from_array_int(envelope_ranges)
+
     try:
-        for u in range(U):
-            point_to_y1[u] = &y1[u, 0]
-        for v in range(V):
-            point_to_y2[v] = &y2[v, 0]
         if envelope_ranges_ is not None:
-            for u in range(U+1):
-                point_to_envelope_ranges[u] = &envelope_ranges[u,0]
             decoded_sequence = beam_search(&point_to_y1[0], &point_to_y2[0], U, V, alphabet, &point_to_envelope_ranges[0], beam_width, flipflop)
         else:
             decoded_sequence = beam_search(&point_to_y1[0], &point_to_y2[0], U, V, alphabet, beam_width, flipflop)
@@ -116,29 +115,21 @@ def cpp_beam_search_2d(y1_, y2_, envelope_ranges_=None, beam_width_=25, alphabet
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def cpp_pair_prefix_search_log(y1_, y2_, envelope_ranges_, alphabet_=b'ACGT'):
-#string pair_prefix_search_log(double **y1, double **y2, int **envelope_ranges, int U, int V, string alphabet)
 
     cdef int U = y1_.shape[0]
     cdef int V = y2_.shape[0]
     cdef int alphabet_size = y1_.shape[1]
     cdef string alphabet = alphabet_.encode("UTF-8")
 
-    # Make sure the array a has the correct memory layout (here C-order)
     cdef np.ndarray[double,ndim=2,mode="c"] y1 = np.asarray(y1_, dtype=DTYPE, order="C")
     cdef np.ndarray[double,ndim=2,mode="c"] y2 = np.asarray(y2_, dtype=DTYPE, order="C")
     cdef np.ndarray[int,ndim=2,mode="c"] envelope_ranges = np.asarray(envelope_ranges_, dtype=np.intc, order="C")
 
-    # Create our helper array
-    cdef double** point_to_y1 = <double **>malloc(U * sizeof(double*))
-    cdef double** point_to_y2 = <double **>malloc(V * sizeof(double*))
-    cdef int** point_to_envelope_ranges = <int **>malloc((U+1) * sizeof(int*))
+    cdef double** point_to_y1 = pointer_from_array_double(y1)
+    cdef double** point_to_y2 = pointer_from_array_double(y2)
+    cdef int** point_to_envelope_ranges = pointer_from_array_int(envelope_ranges)
+
     try:
-        for u in range(U):
-            point_to_y1[u] = &y1[u, 0]
-        for v in range(V):
-            point_to_y2[v] = &y2[v, 0]
-        for u in range(U+1):
-            point_to_envelope_ranges[u] = &envelope_ranges[u,0]
         decoded_sequence = pair_prefix_search_log(&point_to_y1[0], &point_to_y2[0], &point_to_envelope_ranges[0], U, V, alphabet)
         return(decoded_sequence)
     finally:
@@ -154,23 +145,15 @@ def cpp_pair_gamma_log_envelope(y1_, y2_, envelope_ranges_):
     cdef int V = y2_.shape[0]
     cdef int alphabet_size = y1_.shape[1]
 
-    # Make sure the array a has the correct memory layout (here C-order)
     cdef np.ndarray[double,ndim=2,mode="c"] y1 = np.asarray(y1_, dtype=DTYPE, order="C")
     cdef np.ndarray[double,ndim=2,mode="c"] y2 = np.asarray(y2_, dtype=DTYPE, order="C")
     cdef np.ndarray[int,ndim=2,mode="c"] envelope_ranges = np.asarray(envelope_ranges_, dtype=np.intc, order="C")
 
-    # Create our helper array
-    cdef double** point_to_y1 = <double **>malloc(U * sizeof(double*))
-    cdef double** point_to_y2 = <double **>malloc(V * sizeof(double*))
-    cdef int** point_to_envelope_ranges = <int **>malloc((U+1) * sizeof(int*))
+    cdef double** point_to_y1 = pointer_from_array_double(y1)
+    cdef double** point_to_y2 = pointer_from_array_double(y2)
+    cdef int** point_to_envelope_ranges = pointer_from_array_int(envelope_ranges)
+
     try:
-        for u in range(U):
-            point_to_y1[u] = &y1[u, 0]
-        for v in range(V):
-            point_to_y2[v] = &y2[v, 0]
-        for u in range(U+1):
-            point_to_envelope_ranges[u] = &envelope_ranges[u,0]
-        # Call the C function that expects a double**
         testy_mctest = pair_gamma_log_envelope(&point_to_y1[0], &point_to_y2[0], &point_to_envelope_ranges[0], U, V, alphabet_size)
         print(testy_mctest)
     finally:
