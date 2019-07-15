@@ -25,14 +25,11 @@ public:
   Node(int s, N* p) :last{s}, parent{p} {}
   Node(int s) :last{s}, parent{nullptr} {}
   Node() :last{-1}, parent{nullptr} {}
-
-  /*
-  ~Node() {
+  virtual ~Node() {
       for (auto x : children) {
           delete x;
       }
   }
-  */
 
   int get_last() const { return last; }
   N* get_parent() const { return parent; }
@@ -238,20 +235,17 @@ class PrefixTree {
 public:
     std::string alphabet;
     TNode root;
-    std::vector<TNode> nodes;
 
     PrefixTree(std::string a) : alphabet{a} {}
-     ~PrefixTree() {
-         for (auto x : nodes) {
-             delete x;
-         }
+     virtual ~PrefixTree() {
+        delete root;
      }
 
     // expand children if node hasn't been expanded
     std::vector<TNode> expand(TNode n) {
       if (n->children.size() == 0) {
         for (int i=0; i < alphabet.length(); i++) {
-          nodes.push_back(n->add_child(i));
+          n->add_child(i);
         }
       }
       return n->children;
@@ -456,6 +450,8 @@ double forward_(double **y, int t_max, std::string label, std::string alphabet) 
             tree.update_prob(currNode, t);
         }
     }
+
+    delete [] label_int;
 
     /*
     for (int s=0; s<s_max; s++) {
