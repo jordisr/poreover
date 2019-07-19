@@ -251,12 +251,22 @@ def pair_decode(args):
     else:
         print('\t Performing 1D basecalling...',file=sys.stderr)
 
-        basecall1, _viterbi_path = model1.viterbi_decode(return_path=True)
-        sequence_to_signal1, _ = get_sequence_mapping(_viterbi_path, model1.kind)
+        if args.single == 'viterbi':
+            basecall1, viterbi_path1 = model1.viterbi_decode(return_path=True)
+            basecall2, viterbi_path2 = model2.viterbi_decode(return_path=True)
+        elif args.single == 'beam':
+            print("Basecalling 1")
+            basecall1 = decoding.decoding_cpp.cpp_beam_search(model1.log_prob)
+            print("Resquiggling 1")
+            viterbi_path1 = decoding.decoding_cpp.cpp_viterbi_acceptor(model1.log_prob, basecall1, band_size=1000)
+            print("Basecalling 2")
+            basecall2 = decoding.decoding_cpp.cpp_beam_search(model2.log_prob)
+            viterbi_path2 = decoding.decoding_cpp.cpp_viterbi_acceptor(model2.log_prob, basecall2, band_size=1000)
+
+        sequence_to_signal1, _ = get_sequence_mapping(viterbi_path1, model1.kind)
         assert(len(sequence_to_signal1) == len(basecall1))
 
-        basecall2, _viterbi_path = model2.viterbi_decode(return_path=True)
-        sequence_to_signal2, _ = get_sequence_mapping(_viterbi_path, model2.kind)
+        sequence_to_signal2, _ = get_sequence_mapping(viterbi_path2, model2.kind)
         assert(len(sequence_to_signal2) == len(basecall2))
 
         if not getattr(args, 'unittest', False):

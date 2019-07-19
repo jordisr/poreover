@@ -18,6 +18,9 @@ cdef extern from "BeamSearch.h":
     string beam_search(double**, double**, int, int, string, int, bool)
     double forward(double**, int, string, string, bool)
 
+cdef extern from "Forward.h":
+    string viterbi_acceptor_poreover(double**, int, int, string, string alphabet)
+
 cdef extern from "Gamma.h":
     double pair_gamma_log_envelope(double**, double**, int**, int, int, int)
 
@@ -59,6 +62,25 @@ def cpp_forward(y_, label_, alphabet_="ACGT", flipflop=False):
         return(result)
     finally:
         free(point_to_y)
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def cpp_viterbi_acceptor(y_, label_, int band_size=1000, alphabet_="ACGT"):
+
+    cdef int U = y_.shape[0]
+    cdef int alphabet_size = y_.shape[1]
+    cdef string label = label_.encode("UTF-8")
+    cdef string alphabet = alphabet_.encode("UTF-8")
+
+    cdef np.ndarray[double,ndim=2,mode="c"] y = np.asarray(y_, dtype=DTYPE, order="C")
+    cdef double** point_to_y = pointer_from_array_double(y)
+
+    try:
+        path = viterbi_acceptor_poreover(&point_to_y[0], U, band_size, label, alphabet)
+    finally:
+        free(point_to_y)
+
+    return(np.array(list(path.decode('utf-8'))).astype(int))
 
 @cython.boundscheck(False)
 @cython.wraparound(False)

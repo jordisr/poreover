@@ -89,10 +89,9 @@ def viterbi_acceptor(double [:,:] y, label_, alphabet='ACGT', band_size=0):
         band_size_ = t_max
 
     # initialize DP matrix
+    gap_prob = 0
     for t in range(t_max):
-        gap_prob = 0
-        for t_ in range(t+1):
-            gap_prob += y[t_, gap_char]
+        gap_prob += y[t, gap_char]
         v[0, t] = gap_prob
         ptr[0, t] = gap_char
 
