@@ -3,7 +3,7 @@ cdef extern from "SparseMatrix.h":
 
 # Declare the class with cdef
 cdef extern from "SparseMatrix.h":
-    cdef cppclass SparseMatrix:
+    cdef cppclass SparseMatrix[double]:
         int length;
         void push_row(int, int);
         void set(int,int,double);

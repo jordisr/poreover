@@ -5,20 +5,22 @@
 #include <iostream>
 #include <limits>
 
-#define DEFAULT_VALUE -std::numeric_limits<double>::infinity()
-
+template <class T>
 class SparseRow {
   public:
     int start, end;
-    double* values;
+    T* values;
 
     SparseRow(int s, int e) {
       start = s;
       end = e;
-      values = new double[e-s+1];
+      values = new T[e-s+1];
       start = s;
       end = e;
     };
+    ~SparseRow() {
+        delete [] values;
+    }
 
     int get_start(void) {
       return start;
@@ -27,7 +29,7 @@ class SparseRow {
       return end;
     }
 
-    void set(int i, double x) {
+    void set(int i, T x) {
       // set single value in row
       if ((i >= start) && (i <= end)) {
         values[i-start] = x;
@@ -36,16 +38,16 @@ class SparseRow {
       }
     }
 
-    void set_values(double* x) {
+    void set_values(T* x) {
       // deep copy values
       for (int i=0; i < (end-start+1); i++) {
         this->set(i+start,x[i]);
       }
     }
 
-    const double get(int i) {
+    const T get(int i) {
       if ((i < start) || (i > end)) {
-        return DEFAULT_VALUE;
+        return -std::numeric_limits<T>::infinity();
       } else {
         return values[i-start];
       }
@@ -53,13 +55,20 @@ class SparseRow {
 };
 
 // class is vector of pointers to individual SparseRow objects
+template <class T>
 class SparseMatrix {
   public:
-    std::vector<SparseRow*> row;
+    std::vector<SparseRow<T>*> row;
     int length;
+    T default_value;
 
-    SparseMatrix(void) {
-    length = 0;
+    SparseMatrix() :length{0}, default_value{-std::numeric_limits<T>::infinity()} {}
+    SparseMatrix(T d) :length{0}, default_value{d} {}
+
+    ~SparseMatrix() {
+        for (auto x : row) {
+            delete x;
+        }
     }
 
     bool contains(int i, int j) {
@@ -76,25 +85,25 @@ class SparseMatrix {
 
     void push_row(int start, int end) {
       //std::cout << "Pushing row from " << start << " to " << end << std::endl;
-      SparseRow* rowPtr = new SparseRow(start, end);
+      SparseRow<T>* rowPtr = new SparseRow<T>(start, end);
       row.push_back(rowPtr);
       for (int v=start; v<=end; v++) {
-        rowPtr->set(v, DEFAULT_VALUE); // initialize row
+        rowPtr->set(v, default_value);
       }
       length += 1;
     }
 
-    void set(int i, int j, double value) {
+    void set(int i, int j, T value) {
       if ((0 <= i) && (i < length)) {
         row[i]->set(j, value);
       }
     }
 
-    double get(int i, int j) {
+    T get(int i, int j) {
       if ((0 <= i) && (i < length)) {
         return row[i]->get(j);
       } else {
-        return DEFAULT_VALUE;
+        return default_value;
       }
     }
 };
