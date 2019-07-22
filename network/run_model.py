@@ -44,6 +44,9 @@ def call(args):
             print("Found",len(fast5_files),"files to basecall")
             for fast5 in fast5_files:
                 args.fast5 = fast5
+                if args.logits:
+                    # use different filename for each saved logit
+                    args.out = os.path.basename(fast5)
                 call(args)
             sys.exit()
         else:

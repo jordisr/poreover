@@ -87,7 +87,7 @@ std::string pair_prefix_search_log(double **y1, double **y2, int **envelope_rang
   std::string curr_label = "";
 
   // gamma matrix DP
-  SparseMatrix gamma_, gamma_ast;
+  SparseMatrix<double> gamma_, gamma_ast;
   for (int u=0; u<U+1; u++) {
     gamma_.push_row(envelope_ranges[u][0],envelope_ranges[u][1]);
     gamma_ast.push_row(envelope_ranges[u][0],envelope_ranges[u][1]);

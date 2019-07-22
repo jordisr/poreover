@@ -10,13 +10,19 @@
 #include <functional>
 #include <cmath>
 
-//class Node;
-//class FlipFlopNode;
-//class PoreOverPrefixTree;
-//class FlipFlopPrefixTree;
-
 #include "Log.h"
 #include "PrefixTree.h"
+
+template <class T>
+bool node_greater(T n1, T n2) {
+  return (n1->last_probability() > n2->last_probability());
+}
+
+// basic length normalization
+template <class T>
+bool node_greater_normalized(T n1, T n2) {
+  return (n1->last_probability()-(n1->depth+1) > n2->last_probability()-(n2->depth+1));
+}
 
 template <class T>
 class Beam {
@@ -103,18 +109,12 @@ std::string beam_search_(double **y, int t_max, std::string alphabet, int beam_w
   return tree.get_label(top_node);
 }
 
-std::string beam_search(double **y, int t_max, std::string alphabet, int beam_width, bool flipflop=false) {
-  if (flipflop) {
-    return beam_search_<FlipFlopPrefixTree, Beam<FlipFlopNode*>>(y, t_max, alphabet, beam_width);
-  } else {
-    return beam_search_<PoreOverPrefixTree, Beam<PoreOverNode*>>(y, t_max, alphabet, beam_width);
-  }
-}
+// update beam after each move, still testing
+template <class TTree, class TBeam>
+std::string beam_search_2d_by_node(double **y1, double **y2, int **envelope_ranges, int U, int V, std::string alphabet, int beam_width) {
 
-std::string beam_search_2d(double **y1, double **y2, int **envelope_ranges, int U, int V, std::string alphabet, int beam_width=25) {
-
-  PoreOverPrefixTree2D tree(y1, U, y2, V, alphabet);
-  Beam<PoreOverNode2D*> beam_(beam_width);
+  TTree tree(y1, U, y2, V, alphabet);
+  TBeam beam_(beam_width);
 
   // first iteration, check bounds for (0,0)?
   auto children = tree.expand(tree.root);
@@ -154,23 +154,16 @@ std::string beam_search_2d(double **y1, double **y2, int **envelope_ranges, int 
       }
     }
 
-  /*
-  // write out beam
-  for (int b=0; b < beam_.size(); b++) {
-    std::cout << "----" << tree.get_label(beam_.elements[b]) << " : "
-              << beam_.elements[b]->joint_probability(U-1,V-1) << "\n";
-  }
-  */
-
   auto top_node = beam_.top();
   return tree.get_label(top_node);
 
 }
 
-std::string beam_search_2d_by_row(double **y1, double **y2, int **envelope_ranges, int U, int V, std::string alphabet, int beam_width=25) {
+template <class TTree, class TBeam>
+std::string beam_search_2d_by_row(double **y1, double **y2, int **envelope_ranges, int U, int V, std::string alphabet, int beam_width) {
 
-    PoreOverPrefixTree2D tree(y1, U, y2, V, alphabet);
-    Beam<PoreOverNode2D*> beam_(beam_width);
+    TTree tree(y1, U, y2, V, alphabet);
+    TBeam beam_(beam_width);
 
     // first iteration, check bounds for (0,0)?
     auto children = tree.expand(tree.root);
@@ -228,10 +221,11 @@ return tree.get_label(top_node);
 }
 
 // overloaded without alignment envelope
-std::string beam_search_2d_by_row(double **y1, double **y2, int U, int V, std::string alphabet, int beam_width=25) {
+template <class TTree, class TBeam>
+std::string beam_search_2d_by_row(double **y1, double **y2, int U, int V, std::string alphabet, int beam_width) {
 
-    PoreOverPrefixTree2D tree(y1, U, y2, V, alphabet);
-    Beam<PoreOverNode2D*> beam_(beam_width);
+    TTree tree(y1, U, y2, V, alphabet);
+    TBeam beam_(beam_width);
 
     // first iteration, check bounds for (0,0)?
     auto children = tree.expand(tree.root);
@@ -258,7 +252,6 @@ std::string beam_search_2d_by_row(double **y1, double **y2, int U, int V, std::s
         }
 
         for (int v=0; v<V; ++v) {
-
             for (int b=0; b < beam_.size(); b++) {
                 auto beam_node = beam_.elements[b];
                 tree.update_prob(beam_node, 1, v);
@@ -283,5 +276,31 @@ return tree.get_label(top_node);
 
 }
 
+// beam search on single read
+std::string beam_search(double **y, int t_max, std::string alphabet, int beam_width, bool flipflop=false) {
+  if (flipflop) {
+    return beam_search_<FlipFlopPrefixTree, Beam<FlipFlopNode*>>(y, t_max, alphabet, beam_width);
+  } else {
+    return beam_search_<PoreOverPrefixTree, Beam<PoreOverNode*>>(y, t_max, alphabet, beam_width);
+  }
+}
+
+// pair beam search with envelope
+std::string beam_search(double **y1, double **y2, int U, int V, std::string alphabet, int **envelope_ranges, int beam_width, bool flipflop=false) {
+    if (flipflop) {
+        return beam_search_2d_by_row<FlipFlopPrefixTree2D, Beam<FlipFlopNode2D*>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
+    } else {
+        return beam_search_2d_by_row<PoreOverPrefixTree2D, Beam<PoreOverNode2D*>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
+    }
+}
+
+// pair beam search without envelope
+std::string beam_search(double **y1, double **y2, int U, int V, std::string alphabet, int beam_width, bool flipflop=false) {
+    if (flipflop) {
+        return beam_search_2d_by_row<FlipFlopPrefixTree2D, Beam<FlipFlopNode2D*>>(y1, y2, U, V, alphabet, beam_width);
+    } else {
+        return beam_search_2d_by_row<PoreOverPrefixTree2D, Beam<PoreOverNode2D*>>(y1, y2, U, V, alphabet, beam_width);
+    }
+}
 
 #endif

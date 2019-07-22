@@ -125,73 +125,90 @@ def get_sequence_mapping(path, kind):
                 signal_to_sequence.append(label_len)
     return(sequence_to_signal, signal_to_sequence)
 
-def _beam_search_2d(logits1, logits2, b, b_tot, u1, u2, v1, v2):
-    size = (u2-u1+1)*(v2-v1+1)
-    print('\t {}/{} Basecalling box {}-{}x{}-{} (size: {} elements)...'.format(b,b_tot,u1,u2,v1,v2,size),file=sys.stderr)
-    if size <= 1:
-        return(u1,'')
-    elif (u2-u1) < 1:
-        return((u1, decoding.prefix_search_log_cy(logits2[v1:v2])[0]))
-    elif (v2-v1) < 1:
-        return((u1, decoding.prefix_search_log_cy(logits1[u1:u2])[0]))
-    else:
-        try:
-            seq = decoding.decoding_cpp.cpp_beam_search_2d_by_row(
+class parallel_decoder:
+    def __init__(self, args, kind):
+        self.args = args
+        self.kind = kind
+
+    def _beam_search_2d(self, logits1, logits2, b, b_tot, u1, u2, v1, v2):
+        size = (u2-u1+1)*(v2-v1+1)
+        print('\t {}/{} Basecalling box {}-{}x{}-{} (size: {} elements)...'.format(b,b_tot,u1,u2,v1,v2,size),file=sys.stderr)
+        if size <= 1:
+            return(u1,'')
+        elif (u2-u1) < 1:
+            return((u1, decoding.prefix_search_log_cy(logits2[v1:v2])[0]))
+        elif (v2-v1) < 1:
+            return((u1, decoding.prefix_search_log_cy(logits1[u1:u2])[0]))
+        else:
+            seq = decoding.decoding_cpp.cpp_beam_search_2d(
             logits1[u1:u2],
             logits2[v1:v2],
-            beam_width_=args.beam_width)
+            beam_width_=self.args.beam_width,
+            flipflop=(self.kind == "flipflop"))
             return((u1, seq))
-        except:
-            print('WARNING: Error while basecalling box {}-{}:{}-{}'.format(u1,u2,v1,v2))
-            return(u1,'')
 
-def _beam_search_2d_envelope(y1_subset, y2_subset, subset_envelope):
-    return(decoding.decoding_cpp.cpp_beam_search_2d_by_row(
-    y1_subset,
-    y2_subset,
-    subset_envelope.tolist()))
+    def _beam_search_2d_envelope(self, y1_subset, y2_subset, subset_envelope):
+        return(decoding.decoding_cpp.cpp_beam_search_2d(
+        y1_subset,
+        y2_subset,
+        subset_envelope.tolist(),
+        beam_width_=self.args.beam_width,
+        flipflop=(self.kind == "flipflop")))
 
-def _prefix_search_1d(y):
-    # Perform 1d basecalling and get signal-sequence mapping
-    (prefix, forward) = decoding.prefix_search_log_cy(y, return_forward=True)
-    try:
-        forward_indices = viterbi_path(forward)
-    except:
-        print('WARNING! Best label is blank! y.shape:{} forward.shape:{} prefix:{}'.format(y.shape, forward.shape, prefix))
-        return('',[]) # in case of gap being most probable
-
-    assert(len(prefix) == len(forward_indices))
-    assert(np.all(np.diff(forward_indices) >= 0))
-    return((prefix,forward_indices))
-
-def _prefix_search_2d(logits1, logits2, b, b_tot, u1, u2, v1, v2):
-    MEM_LIMIT = 1000000000 # 1 GB
-    size = (u2-u1+1)*(v2-v1+1)
-    assert(size > 0)
-    print('\t {}/{} Basecalling box {}-{}x{}-{} (size: {} elements)...'.format(b,b_tot,u1,u2,v1,v2,size),file=sys.stderr)
-
-    if size <= 1:
-        return(u1,'')
-    elif (u2-u1) < 1:
-        return((u1, decoding.prefix_search_log_cy(logits2[v1:v2])[0]))
-    elif (v2-v1) < 1:
-        return((u1, decoding.prefix_search_log_cy(logits1[u1:u2])[0]))
-    elif size*8 > MEM_LIMIT:
-        print('ERROR: Box too large to basecall {}-{}:{}-{} (size: {} elements)'.format(u1,u2,v1,v2,size))
-        return(u1,'')
-    else:
+    def _prefix_search_1d(self, y):
+        # Perform 1d basecalling and get signal-sequence mapping
+        (prefix, forward) = decoding.prefix_search_log_cy(y, return_forward=True)
         try:
-            return((u1, decoding.pair_prefix_search_log_cy(logits1[u1:u2],logits2[v1:v2])[0]))
+            forward_indices = viterbi_path(forward)
         except:
-            print('WARNING: Error while basecalling box {}-{}:{}-{}'.format(u1,u2,v1,v2))
-            return(u1,'')
+            print('WARNING! Best label is blank! y.shape:{} forward.shape:{} prefix:{}'.format(y.shape, forward.shape, prefix))
+            return('',[]) # in case of gap being most probable
 
-def _prefix_search_2d_envelope(y1_subset, y2_subset, subset_envelope):
-    return(decoding.decoding_cpp.cpp_pair_prefix_search_log(
-    y1_subset,
-    y2_subset,
-    subset_envelope.tolist(),
-    "ACGT"))
+        assert(len(prefix) == len(forward_indices))
+        assert(np.all(np.diff(forward_indices) >= 0))
+        return((prefix,forward_indices))
+
+    def _prefix_search_2d(self, logits1, logits2, b, b_tot, u1, u2, v1, v2):
+        MEM_LIMIT = 1000000000 # 1 GB
+        size = (u2-u1+1)*(v2-v1+1)
+        assert(size > 0)
+        print('\t {}/{} Basecalling box {}-{}x{}-{} (size: {} elements)...'.format(b,b_tot,u1,u2,v1,v2,size),file=sys.stderr)
+
+        if size <= 1:
+            return(u1,'')
+        elif (u2-u1) < 1:
+            return((u1, decoding.prefix_search_log_cy(logits2[v1:v2])[0]))
+        elif (v2-v1) < 1:
+            return((u1, decoding.prefix_search_log_cy(logits1[u1:u2])[0]))
+        elif size*8 > MEM_LIMIT:
+            print('ERROR: Box too large to basecall {}-{}:{}-{} (size: {} elements)'.format(u1,u2,v1,v2,size))
+            return(u1,'')
+        else:
+            try:
+                return((u1, decoding.pair_prefix_search_log_cy(logits1[u1:u2],logits2[v1:v2])[0]))
+            except:
+                print('WARNING: Error while basecalling box {}-{}:{}-{}'.format(u1,u2,v1,v2))
+                return(u1,'')
+
+    def _prefix_search_2d_envelope(self, y1_subset, y2_subset, subset_envelope):
+        return(decoding.decoding_cpp.cpp_pair_prefix_search_log(
+        y1_subset,
+        y2_subset,
+        subset_envelope.tolist(),
+        "ACGT"))
+
+    def get_function(self):
+        if self.args.algorithm == 'beam':
+            if self.args.method == 'envelope':
+                return(self._beam_search_2d_envelope)
+            else:
+                return(self._beam_search_2d)
+        elif self.args.algorithm == 'prefix':
+            assert(self.kind == "poreover")
+            if self.args.method == 'envelope':
+                return(self._prefix_search_2d_envelope)
+            else:
+                return(self._prefix_search_2d)
 
 def pair_decode(args):
     in_path = getattr(args, 'in')
@@ -206,6 +223,9 @@ def pair_decode(args):
         model2.reverse_complement()
 
     assert(model1.kind == model2.kind)
+
+    # get appropriate helper function for multiprocessing
+    decoding_fn = parallel_decoder(args, model1.kind).get_function()
 
     if args.method == 'split':
         # calculate ranges on which to split read
@@ -223,36 +243,45 @@ def pair_decode(args):
         for i, b in enumerate(box_ranges):
             starmap_input.append((model1, model2, i,len(box_ranges)-1,b[0],b[1],b[2],b[3]))
 
-        assert(model1.kind == 'poreover')
         with Pool(processes=args.threads) as pool:
-            if args.algorithm == 'beam':
-                parallel_fn = _beam_search_2d
-            elif args.algorithm == 'prefix':
-                parallel_fn = _prefix_search_2d
-            basecalls = pool.starmap(parallel_fn, starmap_input)
+            basecalls = pool.starmap(decoding_fn, starmap_input)
 
         joined_basecalls = ''.join([b[1] for b in basecalls])
 
     else:
         print('\t Performing 1D basecalling...',file=sys.stderr)
 
-        basecall1, _viterbi_path = model1.viterbi_decode(return_path=True)
-        sequence_to_signal1, _ = get_sequence_mapping(_viterbi_path, model1.kind)
+        if args.single == 'viterbi':
+            basecall1, viterbi_path1 = model1.viterbi_decode(return_path=True)
+            basecall2, viterbi_path2 = model2.viterbi_decode(return_path=True)
+        elif args.single == 'beam':
+            print("Basecalling 1")
+            basecall1 = decoding.decoding_cpp.cpp_beam_search(model1.log_prob)
+            print("Resquiggling 1")
+            viterbi_path1 = decoding.decoding_cpp.cpp_viterbi_acceptor(model1.log_prob, basecall1, band_size=1000)
+            print("Basecalling 2")
+            basecall2 = decoding.decoding_cpp.cpp_beam_search(model2.log_prob)
+            viterbi_path2 = decoding.decoding_cpp.cpp_viterbi_acceptor(model2.log_prob, basecall2, band_size=1000)
+
+        sequence_to_signal1, _ = get_sequence_mapping(viterbi_path1, model1.kind)
         assert(len(sequence_to_signal1) == len(basecall1))
 
-        basecall2, _viterbi_path = model2.viterbi_decode(return_path=True)
-        sequence_to_signal2, _ = get_sequence_mapping(_viterbi_path, model2.kind)
+        sequence_to_signal2, _ = get_sequence_mapping(viterbi_path2, model2.kind)
         assert(len(sequence_to_signal2) == len(basecall2))
 
-        with open(args.out+'.1d.fasta','a') as f:
-            print(fasta_format(in_path[0], basecall1),file=f)
-            print(fasta_format(in_path[1], basecall2),file=f)
+        if not getattr(args, 'unittest', False):
+            with open(args.out+'.1d.fasta','a') as f:
+                print(fasta_format(in_path[0], basecall1),file=f)
+                print(fasta_format(in_path[1], basecall2),file=f)
 
         print('\t Aligning basecalled sequences (Read1 is {} bp and Read2 is {} bp)...'.format(len(basecall1),len(basecall2)),file=sys.stderr)
         #alignment = pairwise2.align.globalms(, , 2, -1, -.5, -.1)
         alignment = align.global_pair(basecall1, basecall2)
         alignment = np.array([list(s) for s in alignment[:2]])
-        print('\t Read sequence identity: {}'.format(np.sum(alignment[0] == alignment[1]) / len(alignment[0])), file=sys.stderr)
+        sequence_identity = np.sum(alignment[0] == alignment[1]) / len(alignment[0])
+        print('\t Read sequence identity: {}'.format(sequence_identity), file=sys.stderr)
+        if sequence_identity < 0.5:
+            sys.exit("Pairwise sequence identity between reads is below 50%. Did you mean to take the --reverse-complement of one of the reads?")
 
         # get alignment_to_sequence mapping
         alignment_to_sequence = np.zeros(shape=alignment.shape,dtype=int)
@@ -324,13 +353,8 @@ def pair_decode(args):
         for i, b in enumerate(basecall_boxes):
             starmap_input.append((model1, model2, i,len(basecall_boxes)-1,b[0],b[1],b[2],b[3]))
 
-        assert(model1.kind == 'poreover')
         with Pool(processes=args.threads) as pool:
-            if args.algorithm == 'beam':
-                parallel_fn = _beam_search_2d
-            elif args.algorithm == 'prefix':
-                parallel_fn = _prefix_search_2d
-            basecalls = pool.starmap(parallel_fn, starmap_input)
+            basecalls = pool.starmap(decoding_fn, starmap_input)
 
         # sort each segment by its first signal index
         joined_basecalls = ''.join([i[1] for i in sorted(basecalls + basecall_anchors)])
@@ -379,16 +403,14 @@ def pair_decode(args):
             subset_envelope = decoding.envelope.pad_envelope(subset_envelope, len(y1_subset), len(y2_subset))
             starmap_input.append( (y1_subset, y2_subset, subset_envelope) )
 
-        assert(model1.kind == 'poreover')
         print('\t Starting consensus basecalling...',file=sys.stderr)
         with Pool(processes=args.threads) as pool:
-            if args.algorithm == 'beam':
-                parallel_fn = _beam_search_2d_envelope
-            elif args.algorithm == 'prefix':
-                parallel_fn = _prefix_search_2d_envelope
-            basecalls = pool.starmap(parallel_fn, starmap_input)
+            basecalls = pool.starmap(decoding_fn, starmap_input)
         joined_basecalls = ''.join(basecalls)
 
     # output final basecalled sequence
-    with open(args.out+'.2d.fasta','a') as f:
-        print(fasta_format('consensus_{};{};{}'.format(args.method,in_path[0],in_path[1]), joined_basecalls), file=f)
+    if not getattr(args, 'unittest', False):
+        with open(args.out+'.2d.fasta','a') as f:
+            print(fasta_format('consensus_{};{};{}'.format(args.method,in_path[0],in_path[1]), joined_basecalls), file=f)
+
+    return((basecall1, basecall2), joined_basecalls)

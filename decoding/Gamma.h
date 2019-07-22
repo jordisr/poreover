@@ -18,8 +18,8 @@ double pair_gamma_log_envelope(double **y1, double **y2, int **envelope_ranges, 
   //std::cout << "U: " << U << " V: " << V << endl;
 
     // intialization
-    SparseMatrix gamma_;
-    SparseMatrix gamma_ast;
+    SparseMatrix<double> gamma_;
+    SparseMatrix<double> gamma_ast;
 
     //std::cout << "CHECKPOINT: Initializing gamma matrix" << endl;
 
@@ -97,7 +97,7 @@ double pair_gamma_log_envelope(double **y1, double **y2, int **envelope_ranges, 
   return(gamma_.get(0,0));
 }
 
-void pair_gamma_log_envelope_inplace(SparseMatrix gamma_, SparseMatrix gamma_ast, double **y1, double **y2, int **envelope_ranges, int U, int V, int alphabet_size) {
+void pair_gamma_log_envelope_inplace(SparseMatrix<double> gamma_, SparseMatrix<double> gamma_ast, double **y1, double **y2, int **envelope_ranges, int U, int V, int alphabet_size) {
     gamma_.set(U,V,LOG_1);
     gamma_ast.set(U,V,LOG_1);
 
