@@ -225,11 +225,6 @@ double joint_probability(int u, int v) const {
 
 };
 
-template <class T>
-bool node_greater(T n1, T n2) {
-  return (n1->last_probability() > n2->last_probability());
-}
-
 template <class TNode>
 class PrefixTree {
 public:
@@ -368,7 +363,12 @@ public:
       emit_flop = DEFAULT_VALUE;
     }
 
-    n->set_probability(t, logaddexp(emit_flip, stay_flip), logaddexp(emit_flop, stay_flop));
+    double flip_prob =  logaddexp(emit_flip, stay_flip);
+    double flop_prob = logaddexp(emit_flop, stay_flop);
+
+    n->set_probability(t, flip_prob, flop_prob);
+
+    //n->set_probability(t, logaddexp(emit_flip, stay_flip), logaddexp(emit_flop, stay_flop));
     //std::cout << "Looking at parent:" << this->get_label(n->parent) << ": probability_flip(t-1)=" << n->parent->probability_flip_at(t-1) << ": probability_flop(t-1)=" << n->parent->probability_flop_at(t-1) << "\n";
     //std::cout << y[t][n->last] << " " << y[t][n->last + flipflop_size] << "\n";
     //std::cout << this->get_label(n) << " at t=" << t << ":" <<  exp(emit_flip) << "+" << exp(stay_flip) << "," << exp(emit_flop) << "+" << exp(stay_flop) << "=" << n->probability_at(t) << "\n";
@@ -415,7 +415,19 @@ public:
       emit_flop = DEFAULT_VALUE;
     }
 
-    n->set_probability(i, t, logaddexp(emit_flip, stay_flip), logaddexp(emit_flop, stay_flop));
+    double flip_prob =  logaddexp(emit_flip, stay_flip);
+    double flop_prob = logaddexp(emit_flop, stay_flop);
+
+    if (flip_prob >= flop_prob) {
+        flop_prob = DEFAULT_VALUE;
+    } else {
+        flip_prob = DEFAULT_VALUE;
+    }
+
+    flop_prob = DEFAULT_VALUE;
+    flip_prob = DEFAULT_VALUE;
+
+    n->set_probability(i, t, flip_prob, flop_prob);
   }
 };
 

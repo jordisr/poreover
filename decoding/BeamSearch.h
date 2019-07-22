@@ -10,13 +10,19 @@
 #include <functional>
 #include <cmath>
 
-//class Node;
-//class FlipFlopNode;
-//class PoreOverPrefixTree;
-//class FlipFlopPrefixTree;
-
 #include "Log.h"
 #include "PrefixTree.h"
+
+template <class T>
+bool node_greater(T n1, T n2) {
+  return (n1->last_probability() > n2->last_probability());
+}
+
+// basic length normalization
+template <class T>
+bool node_greater_normalized(T n1, T n2) {
+  return (n1->last_probability()-(n1->depth+1) > n2->last_probability()-(n2->depth+1));
+}
 
 template <class T>
 class Beam {
