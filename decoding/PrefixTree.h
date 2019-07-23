@@ -418,6 +418,7 @@ public:
     double flip_prob =  logaddexp(emit_flip, stay_flip);
     double flop_prob = logaddexp(emit_flop, stay_flop);
 
+    /*
     if (flip_prob >= flop_prob) {
         flop_prob = DEFAULT_VALUE;
     } else {
@@ -426,6 +427,7 @@ public:
 
     flop_prob = DEFAULT_VALUE;
     flip_prob = DEFAULT_VALUE;
+    */
 
     n->set_probability(i, t, flip_prob, flop_prob);
   }
