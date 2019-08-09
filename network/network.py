@@ -21,14 +21,30 @@ class rnn(tf.keras.Model):
         x = self.rnn3(x)
         return self.dense(x)
 
+class cnn_rnn(tf.keras.Model):
+    def __init__(self, num_neurons=128, num_labels=4, input_size=1000):
+        super(cnn_rnn, self).__init__()
+        self.cnn1 = tf.keras.layers.Conv1D(kernel_size=3, filters=256, strides=1, input_shape=(input_size,1), activation="relu", padding="same")
+        self.rnn1 = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(num_neurons, return_sequences=True))
+        self.rnn2 = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(num_neurons, return_sequences=True))
+        self.rnn3 = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(num_neurons, return_sequences=True))
+        self.dense = tf.keras.layers.Dense(num_labels+1, activation=None)
+
+    def call(self, x):
+        x = self.cnn1(x)
+        x = self.rnn1(x)
+        x = self.rnn2(x)
+        x = self.rnn3(x)
+        return self.dense(x)
+
 def train_ctc_model(model, dataset, training_steps=10, optimizer=tf.keras.optimizers.Adam(), save_frequency=10, log_frequency=10, log_file=sys.stderr, ctc_merge_repeated=False):
     avg_loss = []
     checkpoint = 0
     checkpoint_dir = 'saved'
     for t in range(training_steps):
 
-        X, y, sequence_length = dataset.next_batch(32)
-        y_true = tf.sparse.SparseTensor(*helpers.sparse_tuple_from(y))
+        X, y, sequence_length = dataset.next_batch()
+        y_true = tf.sparse.SparseTensor(*sparse_tuple_from(y))
 
         with tf.GradientTape() as tape:
             y_pred = model(X.astype(np.float32))
@@ -149,7 +165,12 @@ def call(args):
         model_file = tf.train.latest_checkpoint(args.model)
     else:
         model_file = args.model
-    model = rnn()
+
+    if args.model == 'rnn':
+        model = rnn()
+    elif args.model == 'cnn_rnn':
+        model = cnn_rnn()
+
     model.load_weights(model_file)
 
     logits_ = model.call(stacked)
