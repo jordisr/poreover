@@ -79,7 +79,19 @@ def train(args):
     (train_events, train_bases) = batch.load_data(args.data, INPUT_DIM)
     data = batch.data_helper(train_events, train_bases, batch_size=64, small_batch=False, return_length=True)
 
-    model = rnn()
+    if args.model == 'rnn':
+        model = rnn()
+    elif args.model == 'cnn_rnn':
+        model = cnn_rnn()
+
+    # restart training from weights in checkpoint
+    if args.restart:
+        if os.path.isdir(args.restart):
+            model_file = tf.train.latest_checkpoint(args.restart)
+        else:
+            model_file = args.restart
+        model.load_weights(model_file)
+
     train_ctc_model(model, data, training_steps=args.training_steps, save_frequency=args.save_every, log_frequency=args.loss_every, log_file=log_file)
 
 def call(args):
@@ -166,11 +178,7 @@ def call(args):
     else:
         model_file = args.model
 
-    if args.model == 'rnn':
-        model = rnn()
-    elif args.model == 'cnn_rnn':
-        model = cnn_rnn()
-
+    model = rnn()
     model.load_weights(model_file)
 
     logits_ = model.call(stacked)

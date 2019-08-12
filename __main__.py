@@ -27,6 +27,7 @@ parser_train.add_argument('--save_every', type=int, default=10000, help='Frequen
 parser_train.add_argument('--loss_every', type=int, default=100, help='Frequency with which to output minibatch loss')
 parser_train.add_argument('--ctc_merge_repeated', action='store_true', default=False, help='boolean option for tf.compat.v1.nn.ctc_loss')
 parser_train.add_argument('--model', default='rnn', choices=['rnn', 'cnn_rnn'], help='Neural network architecture to use')
+parser_train.add_argument('--restart', default=False, help='Trained model to load (if directory, loads latest from checkpoint file)')
 
 # Call
 parser_call = subparsers.add_parser('call', help='Base call one or multiple reads using neural network')
