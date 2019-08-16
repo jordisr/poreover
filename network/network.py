@@ -37,34 +37,38 @@ class cnn_rnn(tf.keras.Model):
         x = self.rnn3(x)
         return self.dense(x)
 
-def train_ctc_model(model, dataset, training_steps=10, optimizer=tf.keras.optimizers.Adam(), save_frequency=10, log_frequency=10, log_file=sys.stderr, ctc_merge_repeated=False):
+def train_ctc_model(model, dataset, epochs=1, optimizer=tf.keras.optimizers.Adam(), save_frequency=10, log_frequency=10, log_file=sys.stderr, ctc_merge_repeated=False):
     avg_loss = []
     checkpoint = 0
     checkpoint_dir = 'saved'
-    for t in range(training_steps):
+    t=0
+    for e in range(epochs):
+        for X,y in dataset:
 
-        X, y, sequence_length = dataset.next_batch()
-        y_true = tf.sparse.SparseTensor(*sparse_tuple_from(y))
+            sequence_length = tf.ones(32, dtype=np.int32)*y.shape[1]
+            with tf.GradientTape() as tape:
+                y_pred = model(X)
+                #print(X.shape, y.shape, y_pred.shape)
+                loss = tf.reduce_mean(tf.compat.v1.nn.ctc_loss(inputs=y_pred,
+                                                labels=y,
+                                                sequence_length=sequence_length,
+                                                time_major=False,
+                                                preprocess_collapse_repeated=False,
+                                                ctc_merge_repeated=ctc_merge_repeated))
+                avg_loss.append(loss)
 
-        with tf.GradientTape() as tape:
-            y_pred = model(X.astype(np.float32))
-            loss = tf.reduce_mean(tf.compat.v1.nn.ctc_loss(inputs=y_pred,
-                                            labels=y_true,
-                                            sequence_length=sequence_length,
-                                            time_major=False,
-                                            preprocess_collapse_repeated=False,
-                                            ctc_merge_repeated=ctc_merge_repeated))
-            avg_loss.append(loss)
+                if t % save_frequency == 0:
+                    model.save_weights(os.path.join(checkpoint_dir,"checkpoint-{}".format(checkpoint)))
+                    checkpoint += 1
 
-            if t % save_frequency == 0:
-                model.save_weights(os.path.join(checkpoint_dir,"checkpoint-{}".format(checkpoint)))
-                checkpoint += 1
+                if t % log_frequency == 0:
+                    print(t,loss.numpy(),file=log_file)
 
-            if t % log_frequency == 0:
-                print(t,loss.numpy(),file=log_file)
+            gradients = tape.gradient(loss, model.trainable_variables)
+            optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+            t += 1
 
-        gradients = tape.gradient(loss, model.trainable_variables)
-        optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+        dataset.shuffle()
 
     model.save_weights(os.path.join(checkpoint_dir, "final"))
 
@@ -76,8 +80,11 @@ def train(args):
     for k,v in args.__dict__.items():
         print(k,'=',v, file=log_file)
 
-    (train_events, train_bases) = batch.load_data(args.data, INPUT_DIM)
-    data = batch.data_helper(train_events, train_bases, batch_size=64, small_batch=False, return_length=True)
+    # load npz training data
+    training = np.load(args.data)
+    signal = np.expand_dims(training['signal'],axis=2)
+    labels = tf.RaggedTensor.from_row_lengths(training['labels'].astype(np.int32),training['row_lengths'].astype(np.int32)).to_sparse()
+    dataset = tf.data.Dataset.zip((tf.data.Dataset.from_tensor_slices(signal), tf.data.Dataset.from_tensor_slices(labels)))
 
     if args.model == 'rnn':
         model = rnn()
@@ -92,7 +99,7 @@ def train(args):
             model_file = args.restart
         model.load_weights(model_file)
 
-    train_ctc_model(model, data, training_steps=args.training_steps, save_frequency=args.save_every, log_frequency=args.loss_every, log_file=log_file)
+    train_ctc_model(model, dataset.batch(64), save_frequency=args.save_every, log_frequency=args.loss_every, log_file=log_file)
 
 def call(args):
     WINDOW_SIZE = args.window
