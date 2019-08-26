@@ -6,8 +6,7 @@ import argparse, sys, glob, os
 script_dir = os.path.dirname(__file__)
 sys.path.insert(1, script_dir+'/network')
 
-from network.run_model import call
-from network.train_model import train
+from network.network import call, train
 from decoding.decode import decode
 from decoding.pair_decode import pair_decode
 
@@ -22,7 +21,7 @@ parser_train.set_defaults(func=train)
 parser_train.add_argument('--data', help='Location of training data', required=True)
 parser_train.add_argument('--save_dir', default='.',help='Directory to save checkpoints')
 parser_train.add_argument('--name', default='run', help='Name of run')
-parser_train.add_argument('--training_steps', type=int, default=1000, help='Number of iterations to run training (default: 1000)')
+parser_train.add_argument('--epochs', type=int, default=1, help='Number of epochs to train on (default: 1)')
 parser_train.add_argument('--save_every', type=int, default=10000, help='Frequency with which to save checkpoint files (default: 10000)')
 parser_train.add_argument('--loss_every', type=int, default=100, help='Frequency with which to output minibatch loss')
 parser_train.add_argument('--ctc_merge_repeated', action='store_true', default=False, help='boolean option for tf.compat.v1.nn.ctc_loss')

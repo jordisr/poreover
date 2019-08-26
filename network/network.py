@@ -3,9 +3,7 @@ import tensorflow as tf
 import sys, os
 from pathlib import Path
 
-# some custom helper functions
-import batch
-from helpers import sparse_tuple_from
+BATCH_SIZE = 64
 
 def rnn(num_neurons=128, num_labels=4, input_size=1000):
     return tf.keras.Sequential([tf.keras.layers.Bidirectional(tf.keras.layers.GRU(num_neurons, return_sequences=True), input_shape=(input_size,1)),
@@ -27,8 +25,7 @@ def train_ctc_model(model, dataset, epochs=1, optimizer=tf.keras.optimizers.Adam
     t=0
     for e in range(epochs):
         for X,y in dataset:
-
-            sequence_length = tf.ones(32, dtype=np.int32)*y.shape[1]
+            sequence_length = tf.ones(BATCH_SIZE, dtype=np.int32)*y.shape[1]
             with tf.GradientTape() as tape:
                 y_pred = model(X)
                 #print(X.shape, y.shape, y_pred.shape)
@@ -82,7 +79,8 @@ def train(args):
             model_file = args.restart
         model.load_weights(model_file)
 
-    train_ctc_model(model, dataset.batch(64), save_frequency=args.save_every, log_frequency=args.loss_every, log_file=log_file)
+    avg_loss = train_ctc_model(model, dataset.batch(BATCH_SIZE, drop_remainder=True), epochs=args.epochs, save_frequency=args.save_every, log_frequency=args.loss_every, log_file=log_file, ctc_merge_repeated=args.ctc_merge_repeated)
+    print(avg_loss, sys.stderr)
 
 def call(args):
     WINDOW_SIZE = args.window
