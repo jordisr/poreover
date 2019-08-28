@@ -23,32 +23,29 @@ def train_ctc_model(model, dataset, epochs=1, optimizer=tf.keras.optimizers.Adam
     checkpoint = 0
     checkpoint_dir = 'saved'
     t=0
-    for e in range(epochs):
-        for X,y in dataset:
-            sequence_length = tf.ones(BATCH_SIZE, dtype=np.int32)*y.shape[1]
-            with tf.GradientTape() as tape:
-                y_pred = model(X)
-                #print(X.shape, y.shape, y_pred.shape)
-                loss = tf.reduce_mean(tf.compat.v1.nn.ctc_loss(inputs=y_pred,
-                                                labels=y,
-                                                sequence_length=sequence_length,
-                                                time_major=False,
-                                                preprocess_collapse_repeated=False,
-                                                ctc_merge_repeated=ctc_merge_repeated))
-                avg_loss.append(loss)
+    for X,y in dataset.shuffle(buffer_size=1000).repeat(epochs):
+        sequence_length = tf.ones(BATCH_SIZE, dtype=np.int32)*y.shape[1]
+        with tf.GradientTape() as tape:
+            y_pred = model(X)
+            #print(X.shape, y.shape, y_pred.shape)
+            loss = tf.reduce_mean(tf.compat.v1.nn.ctc_loss(inputs=y_pred,
+                                            labels=y,
+                                            sequence_length=sequence_length,
+                                            time_major=False,
+                                            preprocess_collapse_repeated=False,
+                                            ctc_merge_repeated=ctc_merge_repeated))
+            avg_loss.append(loss)
 
-                if t % save_frequency == 0:
-                    model.save_weights(os.path.join(checkpoint_dir,"checkpoint-{}".format(checkpoint)))
-                    checkpoint += 1
+            if t % save_frequency == 0:
+                model.save_weights(os.path.join(checkpoint_dir,"checkpoint-{}".format(checkpoint)))
+                checkpoint += 1
 
-                if t % log_frequency == 0:
-                    print(t,loss.numpy(),file=log_file)
+            if t % log_frequency == 0:
+                print(t,loss.numpy(),file=log_file)
 
-            gradients = tape.gradient(loss, model.trainable_variables)
-            optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-            t += 1
-
-        dataset.shuffle()
+        gradients = tape.gradient(loss, model.trainable_variables)
+        optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+        t += 1
 
     model.save_weights(os.path.join(checkpoint_dir, "final"))
 
