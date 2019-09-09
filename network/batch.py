@@ -73,10 +73,11 @@ class data_helper:
     small_batch=True returns the last batch even if it is smaller
     return_length=True returns a list with the length of each sequence
     '''
-    def __init__(self, X, y, small_batch=True, return_length=False):
+    def __init__(self, X, y, batch_size=32, small_batch=True, return_length=False):
         # core data structure
         self.X = np.array(X)
         self.y = np.array(y)
+        self.batch_size = batch_size
 
         # pointer to current minibatch
         self.batch_i = 0
@@ -101,11 +102,11 @@ class data_helper:
         self.y = self.y[indices]
 
     # get next minibatch
-    def next_batch(self,batch_size):
-        if self.batch_i+batch_size < self.LENGTH:
+    def next_batch(self):
+        if self.batch_i+self.batch_size < self.LENGTH:
             batch_start = self.batch_i
-            batch_end = batch_start + batch_size
-            self.batch_i += batch_size
+            batch_end = batch_start + self.batch_size
+            self.batch_i += self.batch_size
             NEW_EPOCH = False
         elif self.SMALL_BATCH:
             batch_start = self.batch_i
@@ -115,7 +116,7 @@ class data_helper:
         else:
             self.batch_i = 0
             batch_start = self.batch_i
-            batch_end = batch_start + batch_size
+            batch_end = batch_start + self.batch_size
             NEW_EPOCH = True
 
         batch_X = self.X[batch_start:batch_end]

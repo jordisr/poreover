@@ -6,6 +6,15 @@ import network
 import os
 from scipy.special import logsumexp
 
+def fasta_format(name, seq, width=60):
+    fasta = '>'+name+'\n'
+    window = 0
+    while window+width < len(seq):
+        fasta += (seq[window:window+width]+'\n')
+        window += width
+    fasta += (seq[window:]+'\n')
+    return(fasta)
+
 def softmax(logits):
     dim = len(logits.shape)
     axis_to_sum = dim-1
@@ -113,4 +122,4 @@ def decode(args):
         fasta_file = sys.stdout
     else:
         fasta_file = open(args.out+'.fasta','a')
-    print(network.run_model.fasta_format(fasta_header, sequence), file=fasta_file)
+    print(fasta_format(fasta_header, sequence), file=fasta_file)
