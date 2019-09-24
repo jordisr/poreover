@@ -13,17 +13,32 @@ def rnn(num_neurons=128, num_labels=4, input_size=1000):
     tf.keras.layers.Bidirectional(tf.keras.layers.GRU(num_neurons, return_sequences=True)),
     tf.keras.layers.Dense(num_labels+1, activation=None)])
 
-def cnn_rnn(num_neurons=128, num_labels=4, input_size=1000):
-    return tf.keras.Sequential([tf.keras.layers.Conv1D(kernel_size=3, filters=256, strides=1, input_shape=(input_size,1), activation="relu", padding="same"),
+def cnn_rnn(num_neurons=128, num_labels=4, input_size=1000, kernel_size=3, filters=256, strides=1):
+    return tf.keras.Sequential([tf.keras.layers.Conv1D(kernel_size=kernel_size, filters=filters, strides=strides, input_shape=(input_size,1), activation="relu", padding="same"),
     tf.keras.layers.Bidirectional(tf.keras.layers.GRU(num_neurons, return_sequences=True)),
     tf.keras.layers.Bidirectional(tf.keras.layers.GRU(num_neurons, return_sequences=True)),
     tf.keras.layers.Bidirectional(tf.keras.layers.GRU(num_neurons, return_sequences=True)),
+    tf.keras.layers.Dense(num_labels+1, activation=None)])
+
+def taiyaki_like(input_size=1000, num_labels=4):
+    return tf.keras.Sequential([
+    tf.keras.layers.Conv1D(kernel_size=19, filters=256, strides=2, input_shape=(input_size,1), activation="relu", padding="same"),
+    tf.keras.layers.GRU(256, return_sequences=True, go_backwards=False),
+    tf.keras.layers.GRU(256, return_sequences=True, go_backwards=True),
+    tf.keras.layers.GRU(256, return_sequences=True, go_backwards=False),
+    tf.keras.layers.GRU(256, return_sequences=True, go_backwards=True),
+    tf.keras.layers.GRU(256, return_sequences=True, go_backwards=False),
     tf.keras.layers.Dense(num_labels+1, activation=None)])
 
 def train_ctc_model(model, dataset, optimizer=tf.keras.optimizers.Adam(), save_frequency=10, log_frequency=10, log_file=sys.stderr, ctc_merge_repeated=False):
     avg_loss = []
     checkpoint = 0
     checkpoint_dir = 'saved'
+
+    json_config = model.to_json()
+    with open(checkpoint_dir+'/model.json', 'w') as json_file:
+        json_file.write(json_config)
+
     t=0
     for X,y in dataset:
         sequence_length = tf.ones(X.shape[0], dtype=np.int32)*1000
@@ -81,13 +96,18 @@ def train(args):
 
 def call(args):
 
-    # if model argument is a directory load the latest model in it
-    if os.path.isdir(args.model):
-        model_file = tf.train.latest_checkpoint(args.model)
+    if os.path.isdir(args.weights):
+        model_file = tf.train.latest_checkpoint(args.weights)
+        if args.model is None:
+            json_config_path = args.weights+'/model.json'
     else:
-        model_file = args.model
+        model_file = args.weights
+        json_config_path = args.model
 
-    model = rnn()
+    with open(json_config_path.model) as json_file:
+        json_config = json_file.read()
+
+    model = tf.keras.models.model_from_json(json_config)
     model.load_weights(model_file)
 
     if args.fast5:

@@ -31,11 +31,12 @@ parser_train.add_argument('--restart', default=False, help='Trained model to loa
 # Call
 parser_call = subparsers.add_parser('call', help='Base call one or multiple reads using neural network')
 parser_call.set_defaults(func=call)
-parser_call.add_argument('--model', default=os.path.join(script_dir,'models/r9.5'), help='Trained model to load (if directory, loads latest from checkpoint file)')
+parser_call.add_argument('--weights', help='Trained weights to load into model (if directory, loads latest from checkpoint file)', required=True)
+parser_call.add_argument('--model', help='Model config JSON file', default=None)
 parser_call.add_argument('--scaling', default='standard', choices=['standard', 'current', 'median', 'rescale'], help='Type of preprocessing (should be same as training)')
 parser_call.add_argument('--fast5', default=False, help='Single FAST5 file or directory of FAST5 files', required=True)
 parser_call.add_argument('--out', default='out', help='Prefix for sequence output')
-parser_call.add_argument('--window', type=int, default=400, help='Call read using chunks of this size')
+parser_call.add_argument('--window', type=int, default=1000, help='Call read using chunks of this size')
 parser_call.add_argument('--format', choices=['csv', 'npy'], default='npy', help='Save softmax probabilities to CSV file or logits to binarized NumPy format')
 parser_call.add_argument('--no_stack', default=False, action='store_true', help='Basecall [1xSIGNAL_LENGTH] tensor instead of splitting it into windows (slower)')
 
