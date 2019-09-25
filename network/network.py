@@ -30,38 +30,69 @@ def taiyaki_like(input_size=1000, num_labels=4):
     tf.keras.layers.GRU(256, return_sequences=True, go_backwards=False),
     tf.keras.layers.Dense(num_labels+1, activation=None)])
 
-def train_ctc_model(model, dataset, optimizer=tf.keras.optimizers.Adam(), save_frequency=10, log_frequency=10, log_file=sys.stderr, ctc_merge_repeated=False):
+def ragged_from_list_of_lists(l):
+    return tf.RaggedTensor.from_row_lengths(np.concatenate(l), np.array([len(i) for i in l]))
+
+def validation_error(model, dataset):
+    edit_distance = []
+    for X,y in dataset:
+        tmp1 = np.argmax(tf.nn.softmax(model(X)).numpy(), axis=2).astype(np.int32)
+        tmp2 = [x[np.where(x < 4)] for x in tmp1]
+        tmp3 = ragged_from_list_of_lists(tmp2).to_sparse()
+        edit_distance.append(tf.reduce_mean(tf.edit_distance(hypothesis=tmp3, truth=y, normalize=True)).numpy())
+    return(np.mean(edit_distance))
+
+def train_ctc_model(model, dataset, optimizer=tf.keras.optimizers.Adam(), checkpoint_dir="saved", save_frequency=10, log_frequency=10, log_file=sys.stderr, ctc_merge_repeated=False, validation_size=0, early_stopping=True):
     avg_loss = []
     checkpoint = 0
-    checkpoint_dir = 'saved'
+    t = 0
+
+    if not os.path.exists(checkpoint_dir):
+        os.makedirs(checkpoint_dir)
+
+    training_dataset = dataset.skip(validation_size)
+    test_dataset = dataset.take(validation_size)
 
     json_config = model.to_json()
     with open(checkpoint_dir+'/model.json', 'w') as json_file:
         json_file.write(json_config)
 
-    t=0
-    for X,y in dataset:
-        sequence_length = tf.ones(X.shape[0], dtype=np.int32)*1000
-        with tf.GradientTape() as tape:
-            y_pred = model(X)
-            loss = tf.reduce_mean(tf.compat.v1.nn.ctc_loss(inputs=y_pred,
-                                            labels=y,
-                                            sequence_length=sequence_length,
-                                            time_major=False,
-                                            preprocess_collapse_repeated=False,
-                                            ctc_merge_repeated=ctc_merge_repeated))
-            avg_loss.append(loss)
+    writer = tf.summary.create_file_writer(checkpoint_dir)
+    with writer.as_default():
+        for X,y in training_dataset:
+
+            sequence_length = tf.ones(X.shape[0], dtype=np.int32)*1000
+            with tf.GradientTape() as tape:
+                y_pred = model(X)
+                loss = tf.reduce_mean(tf.compat.v1.nn.ctc_loss(inputs=y_pred,
+                                                labels=y,
+                                                sequence_length=sequence_length,
+                                                time_major=False,
+                                                preprocess_collapse_repeated=False,
+                                                ctc_merge_repeated=ctc_merge_repeated))
+                avg_loss.append(loss)
+
+                gradients = tape.gradient(loss, model.trainable_variables)
+                optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
             if t % save_frequency == 0:
                 model.save_weights(os.path.join(checkpoint_dir,"checkpoint-{}".format(checkpoint)))
                 checkpoint += 1
 
             if t % log_frequency == 0:
-                print(t,loss.numpy(),file=log_file)
+                print("Iteration:{}\tLoss:{}".format(t,loss.numpy()), file=sys.stderr)
 
-        gradients = tape.gradient(loss, model.trainable_variables)
-        optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-        t += 1
+            tf.summary.scalar("loss", loss, step=t)
+            if t % log_frequency:
+                writer.flush()
+
+            if t % save_frequency == 0 and validation_size > 0:
+                edit_distance = validation_error(model, test_dataset)
+                print("Iteration:{}\tEdit distance (test):{}".format(t,edit_distance), file=sys.stderr)
+                tf.summary.scalar("test_edit_distance",edit_distance, step=t)
+                writer.flush()
+
+            t += 1
 
     model.save_weights(os.path.join(checkpoint_dir, "final"))
 
