@@ -3,6 +3,7 @@ import tensorflow as tf
 import sys, os
 import h5py
 import glob
+import datetime
 from pathlib import Path
 
 INPUT_DIM=1
@@ -42,22 +43,23 @@ def validation_error(model, dataset):
         edit_distance.append(tf.reduce_mean(tf.edit_distance(hypothesis=tmp3, truth=y, normalize=True)).numpy())
     return(np.mean(edit_distance))
 
-def train_ctc_model(model, dataset, optimizer=tf.keras.optimizers.Adam(), checkpoint_dir="saved", save_frequency=10, log_frequency=10, log_file=sys.stderr, ctc_merge_repeated=False, validation_size=0, early_stopping=True):
+def train_ctc_model(model, dataset, optimizer=tf.keras.optimizers.Adam(), checkpoint_dir="run", save_frequency=10, log_frequency=10, log_file=sys.stderr, ctc_merge_repeated=False, validation_size=0, early_stopping=True):
     avg_loss = []
     checkpoint = 0
     t = 0
 
-    if not os.path.exists(checkpoint_dir):
-        os.makedirs(checkpoint_dir)
+    out_dir = checkpoint_dir+'_'+datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
 
     training_dataset = dataset.skip(validation_size)
     test_dataset = dataset.take(validation_size)
 
     json_config = model.to_json()
-    with open(checkpoint_dir+'/model.json', 'w') as json_file:
+    with open(out_dir+'/model.json', 'w') as json_file:
         json_file.write(json_config)
 
-    writer = tf.summary.create_file_writer(checkpoint_dir)
+    writer = tf.compat.v2.summary.create_file_writer(out_dir)
     with writer.as_default():
         for X,y in training_dataset:
 
@@ -76,30 +78,30 @@ def train_ctc_model(model, dataset, optimizer=tf.keras.optimizers.Adam(), checkp
                 optimizer.apply_gradients(zip(gradients, model.trainable_variables))
 
             if t % save_frequency == 0:
-                model.save_weights(os.path.join(checkpoint_dir,"checkpoint-{}".format(checkpoint)))
+                model.save_weights(os.path.join(out_dir,"checkpoint-{}".format(checkpoint)))
                 checkpoint += 1
 
             if t % log_frequency == 0:
                 print("Iteration:{}\tLoss:{}".format(t,loss.numpy()), file=sys.stderr)
 
-            tf.summary.scalar("loss", loss, step=t)
+            tf.compat.v2.summary.scalar("loss", loss, step=t)
             if t % log_frequency:
                 writer.flush()
 
             if t % save_frequency == 0 and validation_size > 0:
                 edit_distance = validation_error(model, test_dataset)
                 print("Iteration:{}\tEdit distance (test):{}".format(t,edit_distance), file=sys.stderr)
-                tf.summary.scalar("test_edit_distance",edit_distance, step=t)
+                tf.compat.v2.summary.scalar("test_edit_distance",edit_distance, step=t)
                 writer.flush()
 
             t += 1
 
-    model.save_weights(os.path.join(checkpoint_dir, "final"))
+    model.save_weights(os.path.join(out_dir, "final"))
 
     return avg_loss
 
 def train(args):
-    log_file = open(args.save_dir+'/'+args.name+'.out','w')
+    log_file = sys.stderr
     print('Command-line arguments:',file=log_file)
     for k,v in args.__dict__.items():
         print(k,'=',v, file=log_file)
@@ -123,7 +125,7 @@ def train(args):
             model_file = args.restart
         model.load_weights(model_file)
 
-    train_ctc_model(model, dataset.shuffle(buffer_size=5000).repeat(args.epochs).batch(64, drop_remainder=True), save_frequency=args.save_every, log_frequency=args.loss_every, log_file=log_file)
+    train_ctc_model(model, dataset.shuffle(buffer_size=5000).repeat(args.epochs).batch(64, drop_remainder=True), checkpoint_dir=args.name, save_frequency=args.save_every, log_frequency=args.loss_every, log_file=log_file)
 
 def call(args):
 
