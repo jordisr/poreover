@@ -18,7 +18,7 @@ subparsers.required=True
 # Train
 parser_train = subparsers.add_parser('train', help='Train a neural network base calling model')
 parser_train.set_defaults(func=train)
-parser_train.add_argument('--data', help='Location of training data', required=True)
+parser_train.add_argument('--data', help='Location of training data in compressed npz format', required=True)
 parser_train.add_argument('--save_dir', default='.',help='Directory to save checkpoints')
 parser_train.add_argument('--name', default='run', help='Name of run')
 parser_train.add_argument('--epochs', type=int, default=1, help='Number of epochs to train on (default: 1)')
@@ -27,6 +27,9 @@ parser_train.add_argument('--loss_every', type=int, default=100, help='Frequency
 parser_train.add_argument('--ctc_merge_repeated', action='store_true', default=False, help='boolean option for tf.compat.v1.nn.ctc_loss')
 parser_train.add_argument('--model', default='rnn', choices=['rnn', 'cnn_rnn'], help='Neural network architecture to use')
 parser_train.add_argument('--restart', default=False, help='Trained model to load (if directory, loads latest from checkpoint file)')
+parser_train.add_argument('--batch_size', default=64, type=int, help='Minibatch size for training')
+parser_train.add_argument('--num_neurons', type=int, default=128, help='Number of neurons in RNN layers')
+parser_train.add_argument('--kernel_size', type=int, default=9, help='Kernel size in Conv1D layer')
 
 # Call
 parser_call = subparsers.add_parser('call', help='Base call one or multiple reads using neural network')

@@ -111,11 +111,12 @@ def train(args):
     signal = np.expand_dims(training['signal'],axis=2)
     labels = tf.RaggedTensor.from_row_lengths(training['labels'].astype(np.int32),training['row_lengths'].astype(np.int32)).to_sparse()
     dataset = tf.data.Dataset.zip((tf.data.Dataset.from_tensor_slices(signal), tf.data.Dataset.from_tensor_slices(labels)))
+    dataset.shuffle(buffer_size=2000000)
 
     if args.model == 'rnn':
-        model = rnn()
+        model = rnn(num_neurons=args.num_neurons)
     elif args.model == 'cnn_rnn':
-        model = cnn_rnn()
+        model = cnn_rnn(num_neurons=args.num_neurons, kernel_size=args.kernel_size)
 
     # restart training from weights in checkpoint
     if args.restart:
@@ -125,7 +126,7 @@ def train(args):
             model_file = args.restart
         model.load_weights(model_file)
 
-    train_ctc_model(model, dataset.shuffle(buffer_size=5000).repeat(args.epochs).batch(64, drop_remainder=True), checkpoint_dir=args.name, save_frequency=args.save_every, log_frequency=args.loss_every, log_file=log_file)
+    train_ctc_model(model, dataset.shuffle(buffer_size=5000).repeat(args.epochs).batch(args.batch_size, drop_remainder=True), checkpoint_dir=args.name, save_frequency=args.save_every, log_frequency=args.loss_every, log_file=log_file)
 
 def call(args):
 
@@ -137,7 +138,7 @@ def call(args):
         model_file = args.weights
         json_config_path = args.model
 
-    with open(json_config_path.model) as json_file:
+    with open(json_config_path) as json_file:
         json_config = json_file.read()
 
     model = tf.keras.models.model_from_json(json_config)
