@@ -126,7 +126,9 @@ def train(args):
             model_file = args.restart
         model.load_weights(model_file)
 
-    train_ctc_model(model, dataset.shuffle(buffer_size=5000).repeat(args.epochs).batch(args.batch_size, drop_remainder=True), checkpoint_dir=args.name, save_frequency=args.save_every, log_frequency=args.loss_every, log_file=log_file)
+    validation_size = int(int(len(list(dataset))/args.batch_size)*args.holdout)
+    print("Setting aside {}% of data for validation: {} batches".format(args.holdout*100, validation_size))
+    train_ctc_model(model, dataset.shuffle(buffer_size=5000).repeat(args.epochs).batch(args.batch_size, drop_remainder=True), checkpoint_dir=args.name, save_frequency=args.save_every, log_frequency=args.loss_every, log_file=log_file, validation_size=validation_size)
 
 def call(args):
 
