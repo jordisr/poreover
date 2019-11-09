@@ -127,7 +127,7 @@ def train(args):
         model.load_weights(model_file)
 
     validation_size = int(int(len(list(dataset))/args.batch_size)*args.holdout)
-    print("Setting aside {}% of data for validation: {} batches".format(args.holdout*100, validation_size))
+    print("Setting aside {}% of data for validation: {} batches".format(args.holdout*100, validation_size), file=sys.stderr)
     train_ctc_model(model, dataset.shuffle(buffer_size=5000).repeat(args.epochs).batch(args.batch_size, drop_remainder=True), checkpoint_dir=args.name, save_frequency=args.save_every, log_frequency=args.loss_every, log_file=log_file, validation_size=validation_size)
 
 def call(args):
@@ -144,25 +144,29 @@ def call(args):
         json_config = json_file.read()
 
     model = tf.keras.models.model_from_json(json_config)
+    #model = cnn_rnn(kernel_size=9)
     model.load_weights(model_file)
 
     if args.fast5:
         if os.path.isdir(args.fast5):
             fast5_files =  glob.glob(args.fast5+'/*.fast5')
             print("Found",len(fast5_files),"files to basecall")
+            file_counter = 0
             for fast5 in fast5_files:
                 args.fast5 = fast5
                 args.out = os.path.basename(fast5)
                 call_helper(args, model)
+                file_counter += 1
+                if file_counter % 10 == 0:
+                    print("Basecalled {} files".format(file_counter))
         else:
             call_helper(args, model)
     else:
         sys.exit("An input file must be specified with --fast5!")
 
-def call_helper(args, model):
+def parse_fast5(f, scaling='standard'):
 
-    # read raw signal from FAST5 file
-    hdf = h5py.File(args.fast5,'r')
+    hdf = h5py.File(f,'r')
 
     # basic parameters
     read_string = list(hdf['/Raw/Reads'].keys())[0]
@@ -180,43 +184,53 @@ def call_helper(args, model):
     offset = hdf['UniqueGlobalKey']['channel_id'].attrs['offset']
     sampling_rate = hdf['UniqueGlobalKey']['channel_id'].attrs['sampling_rate']
 
-    raw_signal = [s for s in raw_signal if 200 < s < 800] # very rough heuristic for abasic region
+    raw_signal = [s for s in raw_signal if 200 < s < 800] # very rough heuristic for abasic region (still needed?)
 
-    # rescale signal (should be same as option selected in make_labeled_data.py)
-    if args.scaling == 'standard':
+    # rescale signal (should be same as option used in training)
+    if scaling == 'standard':
         # standardize
         signal = (raw_signal - np.mean(raw_signal))/np.std(raw_signal)
-    elif args.scaling == 'current':
-        # convert to current
-        signal = (raw_signal+offset)/alpha # convert to pA
-    elif args.scaling == 'median':
+    elif scaling == 'current':
+        # convert to current (pA)
+        signal = (raw_signal+offset)/alpha
+    elif scaling == 'median':
         # divide by median
         signal = raw_signal / np.median(raw_signal)
-    elif args.scaling == 'rescale':
+    elif scaling == 'rescale':
         signal = (raw_signal - np.mean(raw_signal))/(np.max(raw_signal) - np.min(raw_signal))
 
-    if not args.no_stack:
-        # split signal into blocks to allow for faster basecalling with the GPU
-        rounded = int(len(signal)/args.window)*args.window
-        stacked = np.reshape(signal[:rounded], (-1, args.window, INPUT_DIM))
-        sizes = [len(i) for i in stacked]
+    return signal
 
-        if rounded < len(signal):
-            last_row = np.zeros(args.window)
-            last_row[:len(signal)-rounded] = signal[rounded:]
-            last_row = np.expand_dims(last_row,1)
-            sizes.append(len(signal)-rounded)
-            stacked = np.vstack((stacked,np.expand_dims(last_row,0)))
-    else:
-        stacked = np.reshape(np.expand_dims(signal,axis=1), (1, len(signal), INPUT_DIM))
-        sizes = [len(i) for i in stacked]
+def call_helper(args, model):
 
+    # load scaled signal from FAST5 file
+    signal = parse_fast5(args.fast5, scaling=args.scaling)
+
+    # split signal into blocks to allow for faster basecalling with the GPU
+    batch_size = 128
+    window_size = args.window
+
+    num_padded_batches, last_batch_index = divmod(len(signal),window_size*batch_size)
+    if last_batch_index > 0:
+        num_padded_batches += 1
+
+    padded_signal = np.zeros(window_size*batch_size*num_padded_batches)
+    padded_signal[:len(signal)] = signal
+    padded_batches = padded_signal.reshape((num_padded_batches, batch_size, window_size, INPUT_DIM))
+    #print(len(signal), num_padded_batches, last_batch_index)
+
+    output = []
     # run forward pass
-    logits_ = model(stacked)
-    softmax = tf.nn.softmax(logits_)
+    for batch in padded_batches:
+        softmax_batch = tf.nn.softmax(model(batch))
+        output.append(np.concatenate(softmax_batch))
+
+    if last_batch_index > 0:
+        output[-1] = output[-1][:last_batch_index]
 
     # now just saving logits, can use decode submodule for decoding probabilities
-    logits_concatenate = np.concatenate(softmax)[:-1*max(sizes[0]-sizes[-1], 1)]
+    logits_concatenate = np.concatenate(output)
+
     if args.format == 'csv':
         np.savetxt(args.out+'.csv', logits_concatenate, delimiter=',', header=','.join(['A','C','G','T','']), comments='', )
     else:
