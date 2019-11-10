@@ -198,17 +198,12 @@ def parse_fast5(f, scaling='standard'):
         signal = raw_signal / np.median(raw_signal)
     elif scaling == 'rescale':
         signal = (raw_signal - np.mean(raw_signal))/(np.max(raw_signal) - np.min(raw_signal))
+    elif scaling == 'raw':
+        signal = raw_signal
 
     return signal
 
-def call_helper(args, model):
-
-    # load scaled signal from FAST5 file
-    signal = parse_fast5(args.fast5, scaling=args.scaling)
-
-    # split signal into blocks to allow for faster basecalling with the GPU
-    batch_size = 128
-    window_size = args.window
+def batch_input(signal, window_size, batch_size=128):
 
     num_padded_batches, last_batch_index = divmod(len(signal),window_size*batch_size)
     if last_batch_index > 0:
@@ -217,9 +212,18 @@ def call_helper(args, model):
     padded_signal = np.zeros(window_size*batch_size*num_padded_batches)
     padded_signal[:len(signal)] = signal
     padded_batches = padded_signal.reshape((num_padded_batches, batch_size, window_size, INPUT_DIM))
-    #print(len(signal), num_padded_batches, last_batch_index)
 
+    return padded_batches, last_batch_index
+
+def call_helper(args, model):
+
+    # load scaled signal from FAST5 file
+    signal = parse_fast5(args.fast5, scaling=args.scaling)
+
+    # split signal into blocks to allow for faster basecalling with the GPU
+    padded_batches, last_batch_index = batch_input(signal, window_size=args.window)
     output = []
+
     # run forward pass
     for batch in padded_batches:
         softmax_batch = tf.nn.softmax(model(batch))
