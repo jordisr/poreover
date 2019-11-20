@@ -28,15 +28,13 @@ def logit_to_log_likelihood(logits):
     return( (logits.T - logsumexp(logits,axis=2).T).T )
 
 def load_logits(file_path, flatten=False):
-    #read_raw = np.fromfile(file_path,dtype=np.float32)
-    #read_reshape = read_raw.reshape(-1,window,5) # assuming alphabet of 5 and window size of 200
     read_reshape = np.load(file_path)
-    if np.isclose(np.sum(read_reshape[0,0]), 1):
+    if np.isclose(np.sum(read_reshape[0]), 1):
         print('WARNING: Logits appear to be probabilities. Taking log.',file=sys.stderr)
         read_reshape = np.log(read_reshape)
     else:
         read_reshape = logit_to_log_likelihood(read_reshape)
-    if flatten:
+    if flatten and len(read_reshape.shape) > 2:
         return(np.concatenate(read_reshape))
     else:
         return(read_reshape)
