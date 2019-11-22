@@ -29,6 +29,8 @@ from multiprocessing import Pool
 import argparse, random, sys, glob, os, re
 from scipy.special import logsumexp
 #from Bio import pairwise2
+import copy
+from itertools import starmap
 
 import decoding
 import align
@@ -212,6 +214,24 @@ class parallel_decoder:
 
 def pair_decode(args):
     in_path = getattr(args, 'in')
+    print("This is the input mofos!:{}".format(in_path))
+    if len(in_path) == 1:
+        args_list = []
+        with open(in_path[0], 'r') as read_pairs:
+            for n, line in enumerate(read_pairs):
+                args_copy = copy.deepcopy(args)
+                setattr(args_copy, 'in', line.split())
+                args_copy.out = "pair{}".format(n)
+                args_list.append(args_copy)
+
+        with Pool(processes=args.threads) as pool:
+            basecalls = pool.map(pair_decode_helper, args_list)
+    else:
+        pair_decode_helper(args)
+
+def pair_decode_helper(args):
+    print(args)
+    in_path = getattr(args, 'in')
     if len(in_path) != 2:
         raise "Exactly two reads are required"
 
@@ -243,8 +263,9 @@ def pair_decode(args):
         for i, b in enumerate(box_ranges):
             starmap_input.append((model1, model2, i,len(box_ranges)-1,b[0],b[1],b[2],b[3]))
 
-        with Pool(processes=args.threads) as pool:
-            basecalls = pool.starmap(decoding_fn, starmap_input)
+        #with Pool(processes=args.threads) as pool:
+        #    basecalls = pool.starmap(decoding_fn, starmap_input)
+        basecalls = starmap(decoding_fn, starmap_input)
 
         joined_basecalls = ''.join([b[1] for b in basecalls])
 
@@ -353,8 +374,9 @@ def pair_decode(args):
         for i, b in enumerate(basecall_boxes):
             starmap_input.append((model1, model2, i,len(basecall_boxes)-1,b[0],b[1],b[2],b[3]))
 
-        with Pool(processes=args.threads) as pool:
-            basecalls = pool.starmap(decoding_fn, starmap_input)
+        #with Pool(processes=args.threads) as pool:
+        #    basecalls = pool.starmap(decoding_fn, starmap_input)
+        basecalls = starmap(decoding_fn, starmap_input)
 
         # sort each segment by its first signal index
         joined_basecalls = ''.join([i[1] for i in sorted(basecalls + basecall_anchors)])
@@ -404,8 +426,9 @@ def pair_decode(args):
             starmap_input.append( (y1_subset, y2_subset, subset_envelope) )
 
         print('\t Starting consensus basecalling...',file=sys.stderr)
-        with Pool(processes=args.threads) as pool:
-            basecalls = pool.starmap(decoding_fn, starmap_input)
+        #with Pool(processes=args.threads) as pool:
+        #    basecalls = pool.starmap(decoding_fn, starmap_input)
+        basecalls = starmap(decoding_fn, starmap_input)
         joined_basecalls = ''.join(basecalls)
 
     # output final basecalled sequence
