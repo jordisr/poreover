@@ -1,4 +1,5 @@
 import numpy as np
+from itertools import groupby
 
 def remove_repeated(s):
     out = ''
@@ -70,6 +71,23 @@ class poreover(transducer):
 
     def viterbi_decode(self, return_path=False):
         return(self.argmax_decode(return_path))
+
+class bonito(transducer):
+    def __init__(self, log_prob, alphabet="ACGT"):
+        super().__init__(log_prob, 'bonito', np.array(list(alphabet)+['']))
+
+    def reverse_complement(self):
+        # (A,C,G,T,-)/(0,1,2,3,4) => (T,G,C,A,-)/(3,2,1,0,4)
+        self.log_prob = self.log_prob[::-1,[3,2,1,0,4]]
+
+    def viterbi_decode(self, return_path=False):
+        argmax_string, argmax_path = self.argmax_decode(return_path=True)
+        viterbi_string = ''.join(np.take(self.alphabet, np.array([g[0] for g in groupby(argmax_path)])))
+        print(viterbi_string)
+        if return_path == True:
+            return(viterbi_string, argmax_path)
+        else:
+            return(viterbi_string)
 
 class flipflop(transducer):
     def __init__(self, log_prob):

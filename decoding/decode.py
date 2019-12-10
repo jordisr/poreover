@@ -56,12 +56,19 @@ def trace_from_guppy(p):
 def model_from_trace(f, basecaller=""):
     # infer model type from file
     file_name, file_extension = os.path.splitext(f)
-    if file_extension == '.npy' or basecaller == 'poreover':
+    if file_extension == '.npy' and basecaller == 'poreover':
         try:
             trace = load_logits(f, flatten=True)
             model = decoding.transducer.poreover(trace)
         except:
             raise
+    elif file_extension == '.npy' and basecaller == 'bonito':
+            try:
+                trace = load_logits(f, flatten=True)
+                trace = trace[::,[1,2,3,4,0]]
+                model = decoding.transducer.bonito(trace)
+            except:
+                raise
     elif file_extension == '.csv':
         trace = np.log(np.loadtxt(f, delimiter=',', skiprows=1))
         if trace.shape[1] == 5:
@@ -97,12 +104,13 @@ def decode(args):
     # load probabilities from running basecaller
     in_path = getattr(args, 'in')
     model = model_from_trace(in_path, args.basecaller)
+    model_type = {'poreover':'ctc','flipflop':'ctc_flipflop','bonito':'ctc_merge_repeats'}
 
     # call appropriate decoding function
     if args.algorithm == 'viterbi':
         sequence = model.viterbi_decode()
     elif args.algorithm == 'beam':
-        sequence = decoding.decoding_cpp.cpp_beam_search(model.log_prob, args.beam_width, "ACGT", flipflop=(model.kind == "flipflop"))
+        sequence = decoding.decoding_cpp.cpp_beam_search(model.log_prob, args.beam_width, "ACGT", model_type[model.kind])
     elif args.algorithm == 'prefix':
         assert(model.kind == "poreover")
         # for comparing with previous results
