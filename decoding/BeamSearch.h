@@ -277,12 +277,14 @@ return tree.get_label(top_node);
 }
 
 // beam search on single read
-std::string beam_search(double **y, int t_max, std::string alphabet, int beam_width, bool flipflop=false) {
-  if (flipflop) {
-    return beam_search_<FlipFlopPrefixTree, Beam<FlipFlopNode*>>(y, t_max, alphabet, beam_width);
-  } else {
-    return beam_search_<PoreOverPrefixTree, Beam<PoreOverNode*>>(y, t_max, alphabet, beam_width);
-  }
+std::string beam_search(double **y, int t_max, std::string alphabet, int beam_width, std::string model="ctc") {
+    if (model == "ctc") {
+        return beam_search_<PoreOverPrefixTree, Beam<PoreOverNode*>>(y, t_max, alphabet, beam_width);
+    } else if (model == "ctc_merge_repeats") {
+        return beam_search_<BonitoPrefixTree, Beam<BonitoNode*>>(y, t_max, alphabet, beam_width);
+    } else if (model == "ctc_flipflop") {
+        return beam_search_<FlipFlopPrefixTree, Beam<FlipFlopNode*>>(y, t_max, alphabet, beam_width);
+    }
 }
 
 // pair beam search with envelope

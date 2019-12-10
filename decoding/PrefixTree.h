@@ -225,6 +225,54 @@ double joint_probability(int u, int v) const {
 
 };
 
+class BonitoNode : public Node<BonitoNode>{
+public:
+  std::unordered_map<int, double> probability;
+  std::unordered_map<int, double> probability_gap;
+  std::unordered_map<int, double> probability_no_gap;
+  int max_t = 0;
+
+  BonitoNode(int s, BonitoNode* p) : Node<BonitoNode>(s, p) {}
+  BonitoNode(int s) : Node<BonitoNode>(s) {}
+  BonitoNode() : Node<BonitoNode>() {}
+
+   double probability_at(int t) const {
+    if (probability.count(t) > 0) {
+      return probability.at(t);
+    } else {
+      return DEFAULT_VALUE;
+    }
+  }
+
+  double probability_gap_at(int t) const {
+   if (probability_gap.count(t) > 0) {
+     return probability_gap.at(t);
+   } else {
+     return DEFAULT_VALUE;
+   }
+ }
+
+   double probability_no_gap_at(int t) const {
+    if (probability_no_gap.count(t) > 0) {
+      return probability_no_gap.at(t);
+    } else {
+      return DEFAULT_VALUE;
+    }
+  }
+
+  double last_probability() const {
+    return probability.at(max_t);
+  }
+
+  void set_probability(int t, double gap_val, double no_gap_val) {
+    probability[t] = logaddexp(gap_val, no_gap_val);
+    probability_gap[t] = gap_val;
+    probability_no_gap[t] = no_gap_val;
+    max_t = t;
+  }
+
+};
+
 template <class TNode>
 class PrefixTree {
 public:
@@ -433,6 +481,38 @@ public:
   }
 };
 
+class BonitoPrefixTree : public PrefixTree<BonitoNode*> {
+public:
+  int t_max;
+  double **y;
+  int gap_char;
+
+  BonitoPrefixTree(double **d, int v, std::string a) : PrefixTree<BonitoNode*>(a), y{d}, t_max{v} {
+    gap_char = alphabet.length();
+    root = new BonitoNode(gap_char);
+    root->probability[-1] = 0;
+    root->probability_gap[-1] = 0;
+    root->probability_no_gap[-1] = DEFAULT_VALUE;
+  }
+
+  void update_prob(BonitoNode* n, int t) {
+    double gap_prob = n->probability_at(t-1) + y[t][gap_char];
+    double no_gap_prob;
+
+    if (n->parent->depth == 0 and t==0) {
+        no_gap_prob = y[t][n->last];
+    } else if (n->parent->last == n->last) {
+      no_gap_prob = logaddexp(n->parent->probability_gap_at(t-1) + y[t][n->last], n->probability_no_gap_at(t-1) + y[t][n->last]);
+    } else {
+      no_gap_prob = logaddexp(n->parent->probability_at(t-1) + y[t][n->last], n->probability_no_gap_at(t-1) + y[t][n->last]);
+    }
+
+    n->set_probability(t, gap_prob, no_gap_prob);
+
+  }
+
+};
+
 // Use existing PrefixTree data structure to calculate forward probabilities
 //  instead of explicit DP matrix. Should produce identical results.
 template <class TNode, class TTree>
@@ -476,10 +556,12 @@ double forward_(double **y, int t_max, std::string label, std::string alphabet) 
     return currNode->last_probability();
 }
 
-double forward(double **y, int t_max, std::string label, std::string alphabet, bool flipflop=false) {
-    if (flipflop) {
+double forward(double **y, int t_max, std::string label, std::string alphabet, std::string model="ctc") {
+    if (model == "ctc") {
         return forward_<FlipFlopNode, FlipFlopPrefixTree>(y, t_max, label, alphabet);
-    } else {
+    } else if (model == "ctc_merge_repeats") {
+        return forward_<BonitoNode, BonitoPrefixTree>(y, t_max, label, alphabet);
+    } else if (model == "ctc_flipflop") {
         return forward_<PoreOverNode, PoreOverPrefixTree>(y, t_max, label, alphabet);
     }
 }
