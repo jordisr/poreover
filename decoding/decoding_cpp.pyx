@@ -13,10 +13,10 @@ DTYPE = np.float64
 ctypedef np.float64_t DTYPE_t
 
 cdef extern from "BeamSearch.h":
-    string beam_search(double**, int, string, int, bool)
+    string beam_search(double**, int, string, int, string)
     string beam_search(double**, double**, int, int, string, int**, int, bool)
     string beam_search(double**, double**, int, int, string, int, bool)
-    double forward(double**, int, string, string, bool)
+    double forward(double**, int, string, string, string)
 
 cdef extern from "Forward.h":
     string viterbi_acceptor_poreover(double**, int, int, string, string alphabet)
@@ -46,19 +46,20 @@ cdef int** pointer_from_array_int(int [:,:] y):
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cpp_forward(y_, label_, alphabet_="ACGT", flipflop=False):
+def cpp_forward(y_, label_, alphabet_="ACGT", model_="ctc"):
 
     cdef int U = y_.shape[0]
     cdef int alphabet_size = y_.shape[1]
     cdef string label = label_.encode("UTF-8")
     cdef string alphabet = alphabet_.encode("UTF-8")
+    cdef string model = model_.encode("UTF-8")
     cdef double result
 
     cdef np.ndarray[double,ndim=2,mode="c"] y = np.asarray(y_, dtype=DTYPE, order="C")
     cdef double** point_to_y = pointer_from_array_double(y)
 
     try:
-        result = forward(&point_to_y[0], U, label, alphabet, flipflop)
+        result = forward(&point_to_y[0], U, label, alphabet, model)
         return(result)
     finally:
         free(point_to_y)
@@ -84,18 +85,19 @@ def cpp_viterbi_acceptor(y_, label_, int band_size=1000, alphabet_="ACGT"):
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cpp_beam_search(y_, beam_width_=25, alphabet_="ACGT", flipflop=False):
+def cpp_beam_search(y_, beam_width_=25, alphabet_="ACGT", model_="ctc"):
 
     cdef int U = y_.shape[0]
     cdef int alphabet_size = y_.shape[1]
     cdef string alphabet = alphabet_.encode("UTF-8")
+    cdef string model = model_.encode("UTF-8")
     cdef int beam_width = beam_width_
 
     cdef np.ndarray[double,ndim=2,mode="c"] y = np.asarray(y_, dtype=DTYPE, order="C")
     cdef double** point_to_y = pointer_from_array_double(y)
 
     try:
-        decoded_sequence = beam_search(&point_to_y[0], U, alphabet, beam_width, flipflop)
+        decoded_sequence = beam_search(&point_to_y[0], U, alphabet, beam_width, model)
         return(decoded_sequence.decode("UTF-8").lstrip('\x00'))
     finally:
         free(point_to_y)
