@@ -83,7 +83,6 @@ class bonito(transducer):
     def viterbi_decode(self, return_path=False):
         argmax_string, argmax_path = self.argmax_decode(return_path=True)
         viterbi_string = ''.join(np.take(self.alphabet, np.array([g[0] for g in groupby(argmax_path)])))
-        print(viterbi_string)
         if return_path == True:
             return(viterbi_string, argmax_path)
         else:

@@ -288,20 +288,24 @@ std::string beam_search(double **y, int t_max, std::string alphabet, int beam_wi
 }
 
 // pair beam search with envelope
-std::string beam_search(double **y1, double **y2, int U, int V, std::string alphabet, int **envelope_ranges, int beam_width, bool flipflop=false) {
-    if (flipflop) {
-        return beam_search_2d_by_row<FlipFlopPrefixTree2D, Beam<FlipFlopNode2D*>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
-    } else {
+std::string beam_search(double **y1, double **y2, int U, int V, std::string alphabet, int **envelope_ranges, int beam_width, std::string model="ctc") {
+    if (model == "ctc") {
         return beam_search_2d_by_row<PoreOverPrefixTree2D, Beam<PoreOverNode2D*>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
+    } else if (model == "ctc_merge_repeats") {
+        return beam_search_2d_by_row<BonitoPrefixTree2D, Beam<BonitoNode2D*>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
+    } else if (model == "ctc_flipflop") {
+        return beam_search_2d_by_row<FlipFlopPrefixTree2D, Beam<FlipFlopNode2D*>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
     }
 }
 
 // pair beam search without envelope
-std::string beam_search(double **y1, double **y2, int U, int V, std::string alphabet, int beam_width, bool flipflop=false) {
-    if (flipflop) {
-        return beam_search_2d_by_row<FlipFlopPrefixTree2D, Beam<FlipFlopNode2D*>>(y1, y2, U, V, alphabet, beam_width);
-    } else {
+std::string beam_search(double **y1, double **y2, int U, int V, std::string alphabet, int beam_width, std::string model="ctc") {
+    if (model == "ctc") {
         return beam_search_2d_by_row<PoreOverPrefixTree2D, Beam<PoreOverNode2D*>>(y1, y2, U, V, alphabet, beam_width);
+    } else if (model == "ctc_merge_repeats") {
+        return beam_search_2d_by_row<BonitoPrefixTree2D, Beam<BonitoNode2D*>>(y1, y2, U, V, alphabet, beam_width);
+    } else if (model == "ctc_flipflop") {
+        return beam_search_2d_by_row<FlipFlopPrefixTree2D, Beam<FlipFlopNode2D*>>(y1, y2, U, V, alphabet, beam_width);
     }
 }
 

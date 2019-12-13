@@ -125,12 +125,20 @@ def get_sequence_mapping(path, kind):
                     label_len += 1
                     sequence_to_signal.append(i)
                 signal_to_sequence.append(label_len)
+    elif kind is 'bonito':
+        for i, p in enumerate(path):
+            if p == 4 or path[i] == path[i-1]:
+                pass
+            else:
+                sequence_to_signal.append(i)
+                signal_to_sequence.append(label_len)
+                label_len += 1
     return(sequence_to_signal, signal_to_sequence)
 
 class parallel_decoder:
     def __init__(self, args, kind):
         self.args = args
-        self.kind = kind
+        self.kind = {'poreover':'ctc','flipflop':'ctc_flipflop','bonito':'ctc_merge_repeats'}[self.args.basecaller]
 
     def _beam_search_2d(self, logits1, logits2, b, b_tot, u1, u2, v1, v2):
         size = (u2-u1+1)*(v2-v1+1)
@@ -146,7 +154,7 @@ class parallel_decoder:
             logits1[u1:u2],
             logits2[v1:v2],
             beam_width_=self.args.beam_width,
-            flipflop=(self.kind == "flipflop"))
+            model_=self.kind)
             return((u1, seq))
 
     def _beam_search_2d_envelope(self, y1_subset, y2_subset, subset_envelope):
@@ -155,7 +163,7 @@ class parallel_decoder:
         y2_subset,
         subset_envelope.tolist(),
         beam_width_=self.args.beam_width,
-        flipflop=(self.kind == "flipflop")))
+        model_=self.kind))
 
     def _prefix_search_1d(self, y):
         # Perform 1d basecalling and get signal-sequence mapping
@@ -214,7 +222,6 @@ class parallel_decoder:
 
 def pair_decode(args):
     in_path = getattr(args, 'in')
-    print("This is the input mofos!:{}".format(in_path))
     if len(in_path) == 1:
         args_list = []
         with open(in_path[0], 'r') as read_pairs:
@@ -237,8 +244,8 @@ def pair_decode_helper(args):
 
     print('Read1:{} Read2:{}'.format(in_path[0], in_path[1]),file=sys.stderr)
 
-    model1 = decoding.decode.model_from_trace(in_path[0])
-    model2 = decoding.decode.model_from_trace(in_path[1])
+    model1 = decoding.decode.model_from_trace(in_path[0], args.basecaller)
+    model2 = decoding.decode.model_from_trace(in_path[1], args.basecaller)
     if args.reverse_complement:
         model2.reverse_complement()
 
@@ -285,6 +292,7 @@ def pair_decode_helper(args):
             viterbi_path2 = decoding.decoding_cpp.cpp_viterbi_acceptor(model2.log_prob, basecall2, band_size=1000)
 
         sequence_to_signal1, _ = get_sequence_mapping(viterbi_path1, model1.kind)
+        print(len(sequence_to_signal1), len(basecall1))
         assert(len(sequence_to_signal1) == len(basecall1))
 
         sequence_to_signal2, _ = get_sequence_mapping(viterbi_path2, model2.kind)

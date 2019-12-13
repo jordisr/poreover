@@ -273,6 +273,69 @@ public:
 
 };
 
+class BonitoNode2D : public Node<BonitoNode2D>{
+public:
+  static const int dim = 2;
+  std::unordered_map<int, double> probability[dim];
+  std::unordered_map<int, double> probability_gap[dim];
+  std::unordered_map<int, double> probability_no_gap[dim];
+  int last_t[dim] = {0, 0};
+
+  BonitoNode2D(int s, BonitoNode2D* p) : Node<BonitoNode2D>(s, p) {}
+  BonitoNode2D(int s) : Node<BonitoNode2D>(s) {}
+  BonitoNode2D() : Node<BonitoNode2D>() {}
+
+   double probability_at(int n, int t) const {
+    if (probability[n].count(t) > 0) {
+      return probability[n].at(t);
+    } else {
+      return DEFAULT_VALUE;
+    }
+  }
+
+  double probability_gap_at(int n, int t) const {
+   if (probability_gap[n].count(t) > 0) {
+     return probability_gap[n].at(t);
+   } else {
+     return DEFAULT_VALUE;
+   }
+ }
+
+   double probability_no_gap_at(int n, int t) const {
+    if (probability_no_gap[n].count(t) > 0) {
+      return probability_no_gap[n].at(t);
+    } else {
+      return DEFAULT_VALUE;
+    }
+  }
+
+  double probability_at(int t) const {
+    return probability_at(0, t) + probability_at(1, t);
+  }
+
+  double joint_probability(int u, int v) const {
+     return probability_at(0, u) + probability_at(1, v);
+  }
+
+  double last_probability() const {
+    double prob_sum = 0;
+    for (int n=0; n<dim; ++n) {
+      prob_sum += probability[n].at(last_t[n]);
+      //prob_sum += probability_at(n,last_t[n]);
+    }
+    return prob_sum;
+     //return probability[0].at(last_t[0]) + probability[1].at(last_t[1]); //2D case
+  }
+
+  void set_probability(int i, int t, double gap_val, double no_gap_val) {
+    probability[i][t] = logaddexp(gap_val, no_gap_val);
+    probability_gap[i][t] = gap_val;
+    probability_no_gap[i][t] = no_gap_val;
+    last_t[i] = t;
+  }
+
+};
+
 template <class TNode>
 class PrefixTree {
 public:
@@ -508,6 +571,47 @@ public:
     }
 
     n->set_probability(t, gap_prob, no_gap_prob);
+
+  }
+
+};
+
+class BonitoPrefixTree2D : public PrefixTree<BonitoNode2D*> {
+public:
+  static const int dim = 2;
+  int t_max[dim];
+  double **y[dim];
+  int gap_char;
+
+  BonitoPrefixTree2D(double **d1, int u, double **d2, int v, std::string a) : PrefixTree<BonitoNode2D*>(a) {
+
+    y[0] = d1;
+    y[1] = d2;
+    t_max[0] = u;
+    t_max[1] = v;
+    gap_char = alphabet.length();
+    root = new BonitoNode2D(gap_char);
+    root->probability[0][-1] = 0;
+    root->probability[1][-1] = 0;
+    root->probability_gap[0][-1] = 0;
+    root->probability_gap[1][-1] = 0;
+    root->probability_no_gap[0][-1] = DEFAULT_VALUE;
+    root->probability_no_gap[0][-1] = DEFAULT_VALUE;
+  }
+
+  void update_prob(BonitoNode2D* n, int i, int t) {
+    double gap_prob = n->probability_at(i, t-1) + y[i][t][gap_char];
+    double no_gap_prob;
+
+    if (n->parent->depth == 0 and t==0) {
+        no_gap_prob = y[i][t][n->last];
+    } else if (n->parent->last == n->last) {
+      no_gap_prob = logaddexp(n->parent->probability_gap_at(i,t-1) + y[i][t][n->last], n->probability_no_gap_at(i,t-1) + y[i][t][n->last]);
+    } else {
+      no_gap_prob = logaddexp(n->parent->probability_at(i,t-1) + y[i][t][n->last], n->probability_no_gap_at(i,t-1) + y[i][t][n->last]);
+    }
+
+    n->set_probability(i, t, gap_prob, no_gap_prob);
 
   }
 

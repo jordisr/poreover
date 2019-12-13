@@ -14,8 +14,8 @@ ctypedef np.float64_t DTYPE_t
 
 cdef extern from "BeamSearch.h":
     string beam_search(double**, int, string, int, string)
-    string beam_search(double**, double**, int, int, string, int**, int, bool)
-    string beam_search(double**, double**, int, int, string, int, bool)
+    string beam_search(double**, double**, int, int, string, int**, int, string)
+    string beam_search(double**, double**, int, int, string, int, string)
     double forward(double**, int, string, string, string)
 
 cdef extern from "Forward.h":
@@ -104,13 +104,14 @@ def cpp_beam_search(y_, beam_width_=25, alphabet_="ACGT", model_="ctc"):
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cpp_beam_search_2d(y1_, y2_, envelope_ranges_=None, beam_width_=25, alphabet_="ACGT", flipflop=False):
+def cpp_beam_search_2d(y1_, y2_, envelope_ranges_=None, beam_width_=25, alphabet_="ACGT", model_="ctc"):
 
     cdef int U = y1_.shape[0]
     cdef int V = y2_.shape[0]
     cdef int alphabet_size = y1_.shape[1]
     cdef int beam_width = beam_width_
     cdef string alphabet = alphabet_.encode("UTF-8")
+    cdef string model = model_.encode("UTF-8")
 
     cdef np.ndarray[double,ndim=2,mode="c"] y1 = np.asarray(y1_, dtype=DTYPE, order="C")
     cdef np.ndarray[double,ndim=2,mode="c"] y2 = np.asarray(y2_, dtype=DTYPE, order="C")
@@ -126,9 +127,9 @@ def cpp_beam_search_2d(y1_, y2_, envelope_ranges_=None, beam_width_=25, alphabet
 
     try:
         if envelope_ranges_ is not None:
-            decoded_sequence = beam_search(&point_to_y1[0], &point_to_y2[0], U, V, alphabet, &point_to_envelope_ranges[0], beam_width, flipflop)
+            decoded_sequence = beam_search(&point_to_y1[0], &point_to_y2[0], U, V, alphabet, &point_to_envelope_ranges[0], beam_width, model)
         else:
-            decoded_sequence = beam_search(&point_to_y1[0], &point_to_y2[0], U, V, alphabet, beam_width, flipflop)
+            decoded_sequence = beam_search(&point_to_y1[0], &point_to_y2[0], U, V, alphabet, beam_width, model)
         return(decoded_sequence.decode("UTF-8").lstrip('\x00'))
     finally:
         free(point_to_y1)
