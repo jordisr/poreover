@@ -41,8 +41,8 @@ class beam_2d_toy(unittest.TestCase):
 
         prof=flipflop_profile(y, alphabet_tuple)
         joint_prof=joint_profile(prof, prof)
-        result_1d = decoding.decoding_cpp.cpp_beam_search(np.log(y), alphabet_="AB", flipflop=True)
-        result_2d = decoding.decoding_cpp.cpp_beam_search_2d(np.log(y), np.log(y), alphabet_="AB", flipflop=True)
+        result_1d = decoding.decoding_cpp.cpp_beam_search(np.log(y), alphabet_="AB", model_='ctc_flipflop')
+        result_2d = decoding.decoding_cpp.cpp_beam_search_2d(np.log(y), np.log(y), alphabet_="AB", model_='ctc_flipflop')
         self.assertTrue(result_1d == result_2d)
 
 class beam_2d_same(unittest.TestCase):

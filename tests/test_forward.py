@@ -30,7 +30,7 @@ class TestForwardAlgorithm(unittest.TestCase):
 
         for label in examples:
             fw_prob_actual =  np.log(prof.label_prob(label))
-            fw_prob  = decoding.decoding_cpp.cpp_forward(np.log(y), label, alphabet, flipflop=True)
+            fw_prob  = decoding.decoding_cpp.cpp_forward(np.log(y), label, alphabet, model_='ctc_flipflop')
             print(label, fw_prob_actual, fw_prob)
             self.assertTrue(np.isclose(fw_prob_actual, fw_prob))
 

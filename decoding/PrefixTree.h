@@ -662,11 +662,11 @@ double forward_(double **y, int t_max, std::string label, std::string alphabet) 
 
 double forward(double **y, int t_max, std::string label, std::string alphabet, std::string model="ctc") {
     if (model == "ctc") {
-        return forward_<FlipFlopNode, FlipFlopPrefixTree>(y, t_max, label, alphabet);
+        return forward_<PoreOverNode, PoreOverPrefixTree>(y, t_max, label, alphabet);
     } else if (model == "ctc_merge_repeats") {
         return forward_<BonitoNode, BonitoPrefixTree>(y, t_max, label, alphabet);
     } else if (model == "ctc_flipflop") {
-        return forward_<PoreOverNode, PoreOverPrefixTree>(y, t_max, label, alphabet);
+        return forward_<FlipFlopNode, FlipFlopPrefixTree>(y, t_max, label, alphabet);
     }
 }
 
