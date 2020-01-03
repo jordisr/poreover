@@ -4,6 +4,7 @@ import sys, os
 import h5py
 import glob
 import datetime
+import progressbar
 from pathlib import Path
 
 INPUT_DIM=1
@@ -136,6 +137,8 @@ def call(args):
         model_file = tf.train.latest_checkpoint(args.weights)
         if args.model is None:
             json_config_path = args.weights+'/model.json'
+        else:
+            json_config_path = args.model
     else:
         model_file = args.weights
         json_config_path = args.model
@@ -143,22 +146,18 @@ def call(args):
     with open(json_config_path) as json_file:
         json_config = json_file.read()
 
-    model = tf.keras.models.model_from_json(json_config)
-    #model = cnn_rnn(kernel_size=9)
+    model = tf.keras.models.model_from_json(json_config) # this left in for general correctness
+    #model = cnn_rnn(kernel_size=9) # but it's much faster to specify architecture explicitly (why???)
     model.load_weights(model_file)
 
     if args.fast5:
         if os.path.isdir(args.fast5):
             fast5_files =  glob.glob(args.fast5+'/*.fast5')
-            print("Found",len(fast5_files),"files to basecall")
-            file_counter = 0
-            for fast5 in fast5_files:
+            for i in progressbar.progressbar(range(len(fast5_files))):
+                fast5 = fast5_files[i]
                 args.fast5 = fast5
                 args.out = os.path.basename(fast5)
                 call_helper(args, model)
-                file_counter += 1
-                if file_counter % 10 == 0:
-                    print("Basecalled {} files".format(file_counter))
         else:
             call_helper(args, model)
     else:
@@ -176,7 +175,7 @@ def parse_fast5(f, scaling='standard'):
 
     # raw events and signals
     raw_signal_path = '/Raw/Reads/'+read_string+'/Signal'
-    raw_signal = hdf[raw_signal_path]
+    raw_signal = np.array(hdf[raw_signal_path])
     assert(len(raw_signal) == read_duration)
 
     # for converting raw signal to current (pA)
@@ -184,7 +183,8 @@ def parse_fast5(f, scaling='standard'):
     offset = hdf['UniqueGlobalKey']['channel_id'].attrs['offset']
     sampling_rate = hdf['UniqueGlobalKey']['channel_id'].attrs['sampling_rate']
 
-    raw_signal = [s for s in raw_signal if 200 < s < 800] # very rough heuristic for abasic region (still needed?)
+    # very rough heuristic for abasic region (still needed?)
+    raw_signal = raw_signal[np.logical_and(raw_signal > 200, raw_signal < 800)]
 
     # rescale signal (should be same as option used in training)
     if scaling == 'standard':
