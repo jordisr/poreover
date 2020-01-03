@@ -133,21 +133,23 @@ def train(args):
 
 def call(args):
 
+    if args.model is None:
+        # if no model architecture is specified, use default architecture
+        model = cnn_rnn(kernel_size=9)
+    else:
+        # otherwise, load architecture from JSON file
+        # for some reason, this is much slower than specifying model explicitly
+        # possibly (?) related to https://github.com/tensorflow/tensorflow/issues/31243
+        json_config_path = args.model
+        with open(json_config_path) as json_file:
+            json_config = json_file.read()
+            model = tf.keras.models.model_from_json(json_config)
+
+    # load trained model weights
     if os.path.isdir(args.weights):
         model_file = tf.train.latest_checkpoint(args.weights)
-        if args.model is None:
-            json_config_path = args.weights+'/model.json'
-        else:
-            json_config_path = args.model
     else:
         model_file = args.weights
-        json_config_path = args.model
-
-    with open(json_config_path) as json_file:
-        json_config = json_file.read()
-
-    model = tf.keras.models.model_from_json(json_config) # this left in for general correctness
-    #model = cnn_rnn(kernel_size=9) # but it's much faster to specify architecture explicitly (why???)
     model.load_weights(model_file)
 
     if args.fast5:
@@ -226,7 +228,11 @@ def call_helper(args, model):
 
     # run forward pass
     for batch in padded_batches:
-        softmax_batch = tf.nn.softmax(model(batch))
+        if args.model is None:
+            softmax_batch = tf.nn.softmax(model(batch))
+        else:
+             # ~4x slower than model(batch) if using model_from_json
+            softmax_batch = tf.nn.softmax(model.predict_on_batch(batch))
         output.append(np.concatenate(softmax_batch))
 
     if last_batch_index > 0:
