@@ -24,6 +24,13 @@ class beam_2d_toy(unittest.TestCase):
         result_2d = decoding.decoding_cpp.cpp_beam_search_2d(np.log(y), np.log(y), alphabet_="AB")
         self.assertTrue(result_1d == result_2d)
 
+    def test_same_2(self):
+        y = np.array([[0.4,0.5,0.1],[0.4,0.2,0.4],[0.3,0.5,0.2]])
+        result_1d = decoding.decoding_cpp.cpp_beam_search(np.log(y), alphabet_="AB")
+        result_2d = decoding.decoding_cpp.cpp_new_beam_search(np.log(y), np.log(y), alphabet_="AB", beam_width_=2)
+        print(result_1d, result_2d)
+        self.assertTrue(result_1d == result_2d)
+
     def test_full_envelope(self):
         y1 = np.array([[0.8,0.1,0.1],[0.1,0.3,0.6],[0.7,0.2,0.1],[0.1,0.1,0.8]])
         y2 = np.array([[0.7,0.2,0.1],[0.2,0.3,0.5],[0.7,0.2,0.1],[0.05,0.05,0.9]])
@@ -57,8 +64,16 @@ class beam_2d_same(unittest.TestCase):
         y = self.model.log_prob
         result_1d = decoding.decoding_cpp.cpp_beam_search(y)
         result_2d = decoding.decoding_cpp.cpp_beam_search_2d(y, y)
-        print(result_1d, result_2d, decoding.prefix_search_log(y))
-        #self.assertTrue(result_1d == result_2d)
+        print(result_1d, result_2d)
+        self.assertTrue(result_1d == result_2d)
+
+    def test_same_2(self):
+        y = self.model.log_prob
+        result_1d = decoding.decoding_cpp.cpp_beam_search(y, alphabet_="ACGT", beam_width_=10)
+        result_2d = decoding.decoding_cpp.cpp_new_beam_search(y, y, alphabet_="ACGT", beam_width_=10)
+        print(result_1d, result_2d)
+        print(decoding.decoding_cpp.cpp_forward(y, result_1d), decoding.decoding_cpp.cpp_forward(y, result_2d))
+        self.assertTrue(result_1d == result_2d)
 
     def test_full_envelope(self):
         full_seq = decoding.decoding_cpp.cpp_beam_search_2d(self.model.log_prob, self.model.log_prob)

@@ -11,61 +11,8 @@
 #include <cmath>
 
 #include "Log.h"
+#include "Beam.h"
 #include "PrefixTree.h"
-
-template <class T>
-bool node_greater(T n1, T n2) {
-  return (n1->last_probability() > n2->last_probability());
-}
-
-// basic length normalization
-template <class T>
-bool node_greater_normalized(T n1, T n2) {
-  return (n1->last_probability()-(n1->depth+1) > n2->last_probability()-(n2->depth+1));
-}
-
-template <class T>
-class Beam {
-  public:
-    int width;
-    std::vector<T> elements;
-
-    Beam(int w): width{w} {}
-
-    void push(T n) {
-      elements.push_back(n);
-    }
-
-    void push(std::vector<T> n_vector) {
-      for (int i=0; i < n_vector.size(); i++) {
-        elements.push_back(n_vector[i]);
-      }
-    }
-
-    int size() {
-      return elements.size();
-    }
-
-    void prune() {
-        // sort elements, eliminate duplicates, then prune beam to top W
-        std::sort(elements.begin(), elements.end()); // sorting twice to remove duplicate elements
-        auto last = std::unique(elements.begin(), elements.end());
-        elements.erase(last, elements.end());
-        //std::partial_sort(elements.begin(), elements.begin()+width, elements.end(), node_greater);
-        std::sort(elements.begin(), elements.end(), node_greater<T>);
-        if (elements.size() > width) {
-          int element_size = elements.size();
-          for (int i=width; i < element_size; i++) {
-            elements.pop_back();
-          }
-      }
-    }
-
-    T top() {
-      return elements[0];
-    }
-
-};
 
 template <class TTree, class TBeam>
 std::string beam_search_(double **y, int t_max, std::string alphabet, int beam_width) {

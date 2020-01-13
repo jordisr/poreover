@@ -1,23 +1,13 @@
+#ifndef BEAM_HPP
+#define BEAM_HPP
+
 #include <set>
 #include <vector>
 #include <unordered_set>
 #include <iterator>
 
 template <class T>
-class compare_mod {
-public:
-    int n;
-
-    compare_mod(int n_) : n{n_} {}
-    compare_mod() : n{1} {}
-
-    bool operator()(T x, T y) {
-      return ((x % n) > (y % n));
-    }
-};
-
-template <class T>
-class node_greater2 {
+class node_greater {
 public:
   bool operator()(T x, T y) {
     auto lhs = x->last_probability();
@@ -28,7 +18,14 @@ public:
 };
 
 template <class T>
-class Beam1 {
+bool node_greater_fun(const T x, const T y) {
+    auto lhs = x->last_probability();
+    auto rhs = y->last_probability();
+    return (lhs > rhs);
+}
+
+template <class T>
+class Beam {
     /*
     Previous Beam implementation using std::vector and explicit sort calls
     */
@@ -36,7 +33,7 @@ class Beam1 {
     int width;
     std::vector<T> elements;
 
-    Beam1(int w): width{w} {}
+    Beam(int w): width{w} {}
 
     void push(T n) {
       elements.push_back(n);
@@ -56,7 +53,7 @@ class Beam1 {
         // sort elements, eliminate duplicates, then prune beam to top W
         std::sort(elements.begin(), elements.end()); // sorting twice to remove duplicate elements
         auto last = std::unique(elements.begin(), elements.end());
-        std::cout << "Removing " << elements.end() - last << " duplicates out of " << elements.size() << "\n";
+        //std::cout << "Removing " << elements.end() - last << " duplicates out of " << elements.size() << "\n";
         elements.erase(last, elements.end());
         /*
         std::unordered_set<T> s;
@@ -67,7 +64,7 @@ class Beam1 {
 
         //std::sort(elements.begin(), elements.end(), node_greater<T>);
         if (elements.size() > width) {
-          std::partial_sort(elements.begin(), elements.begin()+width, elements.end(), node_greater<T>);
+          std::partial_sort(elements.begin(), elements.begin()+width, elements.end(), node_greater_fun<T>);
           elements.erase(elements.begin()+width, elements.end());
           /*
           int element_size = elements.size();
@@ -91,7 +88,7 @@ class Beam2 {
     */
   public:
     int width;
-    std::set<T, node_greater2<T>> elements;
+    std::set<T, node_greater<T>> elements;
     //std::set<T> elements;
 
     Beam2(int w): width{w} {}
@@ -168,3 +165,5 @@ class Beam3 {
     }
 
 };
+
+#endif

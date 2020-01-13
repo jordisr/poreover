@@ -76,6 +76,7 @@ public:
   static const int dim = 2;
   std::unordered_map<int, double> probability[dim];
   int last_t[dim] = {0, 0};
+  double last_prob[dim] = {0, 0};
 
   PoreOverNode2D(int s, PoreOverNode2D* p) : Node<PoreOverNode2D>(s, p) {}
   PoreOverNode2D(int s) : Node<PoreOverNode2D>(s) {}
@@ -98,17 +99,18 @@ double joint_probability(int u, int v) const {
 }
 
  double last_probability() const {
-   double prob_sum = 0;
-   for (int n=0; n<dim; ++n) {
-     prob_sum += probability[n].at(last_t[n]);
-   }
-   return prob_sum;
-    //return probability[0].at(last_t[0]) + probability[1].at(last_t[1]); //2D case
+   return last_prob[0] + last_prob[1];
  }
 
  void set_probability(int i, int t, double val) {
    probability[i][t] = val;
    last_t[i] = t;
+   last_prob[i] = val;
+ }
+
+ void set_probability(int i, int t) {
+   last_t[i] = t;
+   last_prob[i] = probability_at(i, t);
  }
 
 };
@@ -439,7 +441,9 @@ public:
       double stay_state = c+d;
 
       n->set_probability(i, t, logaddexp(emit_state, stay_state));
-    }
+  } else {
+      n->set_probability(i, t);
+  }
   }
 
 };
