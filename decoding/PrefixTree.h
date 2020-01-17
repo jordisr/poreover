@@ -77,7 +77,7 @@ public:
   std::unordered_map<int, double> probability[dim];
   int last_t[dim] = {0, 0};
   double last_prob[dim] = {0, 0};
-  double max_prob[dim] = {0, 0};
+  double max_prob[dim] = {DEFAULT_VALUE, DEFAULT_VALUE};
 
   PoreOverNode2D(int s, PoreOverNode2D* p) : Node<PoreOverNode2D>(s, p) {}
   PoreOverNode2D(int s) : Node<PoreOverNode2D>(s) {}
@@ -105,6 +105,11 @@ double joint_probability(int u, int v) const {
 
  double max_probability() const {
    return last_prob[0] + max_prob[1];
+ }
+
+ void reset_max() {
+   max_prob[0] = DEFAULT_VALUE;
+   max_prob[1] = DEFAULT_VALUE;
  }
 
  void set_probability(int i, int t, double val) {
@@ -178,7 +183,7 @@ public:
   std::unordered_map<int, double> probability[dim];
   std::unordered_map<int, double> probability_flip[dim];
   std::unordered_map<int, double> probability_flop[dim];
-  double max_prob[dim] = {0, 0};
+  double max_prob[dim] = {DEFAULT_VALUE, DEFAULT_VALUE};
   int last_t[dim] = {0, 0};
 
   FlipFlopNode2D(int s, FlipFlopNode2D* p) : Node<FlipFlopNode2D>(s, p) {}
@@ -229,6 +234,11 @@ double joint_probability(int u, int v) const {
 
  double max_probability() const {
    return probability[0].at(last_t[0]) + max_prob[1];
+ }
+
+ void reset_max() {
+   max_prob[0] = DEFAULT_VALUE;
+   max_prob[1] = DEFAULT_VALUE;
  }
 
  void set_probability(int i, int t, double flip_val, double flop_val) {
@@ -297,7 +307,7 @@ public:
   std::unordered_map<int, double> probability[dim];
   std::unordered_map<int, double> probability_gap[dim];
   std::unordered_map<int, double> probability_no_gap[dim];
-  double max_prob[dim] = {0, 0};
+  double max_prob[dim] = {DEFAULT_VALUE, DEFAULT_VALUE};
   int last_t[dim] = {0, 0};
 
   BonitoNode2D(int s, BonitoNode2D* p) : Node<BonitoNode2D>(s, p) {}
@@ -348,6 +358,11 @@ public:
 
   double max_probability() const {
     return probability[0].at(last_t[0]) + max_prob[1];
+  }
+
+  void reset_max() {
+    max_prob[0] = DEFAULT_VALUE;
+    max_prob[1] = DEFAULT_VALUE;
   }
 
   void set_probability(int i, int t, double gap_val, double no_gap_val) {
