@@ -239,9 +239,9 @@ std::string beam_search(double **y1, double **y2, int U, int V, std::string alph
     if (model == "ctc") {
         return beam_search_2d_by_row<PoreOverPrefixTree2D, Beam<PoreOverNode2D*, node_greater_max<PoreOverNode2D*>>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
     } else if (model == "ctc_merge_repeats") {
-        return beam_search_2d_by_row<BonitoPrefixTree2D, Beam<BonitoNode2D*, node_greater<BonitoNode2D*>>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
+        return beam_search_2d_by_row<BonitoPrefixTree2D, Beam<BonitoNode2D*, node_greater_max<BonitoNode2D*>>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
     } else if (model == "ctc_flipflop") {
-        return beam_search_2d_by_row<FlipFlopPrefixTree2D, Beam<FlipFlopNode2D*, node_greater<FlipFlopNode2D*>>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
+        return beam_search_2d_by_row<FlipFlopPrefixTree2D, Beam<FlipFlopNode2D*, node_greater_max<FlipFlopNode2D*>>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
     }
 }
 
@@ -250,9 +250,9 @@ std::string beam_search(double **y1, double **y2, int U, int V, std::string alph
     if (model == "ctc") {
         return beam_search_2d_by_row<PoreOverPrefixTree2D, Beam<PoreOverNode2D*, node_greater_max<PoreOverNode2D*>>>(y1, y2, U, V, alphabet, beam_width);
     } else if (model == "ctc_merge_repeats") {
-        return beam_search_2d_by_row<BonitoPrefixTree2D, Beam<BonitoNode2D*, node_greater<BonitoNode2D*>>>(y1, y2, U, V, alphabet, beam_width);
+        return beam_search_2d_by_row<BonitoPrefixTree2D, Beam<BonitoNode2D*, node_greater_max<BonitoNode2D*>>>(y1, y2, U, V, alphabet, beam_width);
     } else if (model == "ctc_flipflop") {
-        return beam_search_2d_by_row<FlipFlopPrefixTree2D, Beam<FlipFlopNode2D*, node_greater<FlipFlopNode2D*>>>(y1, y2, U, V, alphabet, beam_width);
+        return beam_search_2d_by_row<FlipFlopPrefixTree2D, Beam<FlipFlopNode2D*, node_greater_max<FlipFlopNode2D*>>>(y1, y2, U, V, alphabet, beam_width);
     }
 }
 

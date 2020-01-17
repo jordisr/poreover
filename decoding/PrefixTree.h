@@ -111,6 +111,9 @@ double joint_probability(int u, int v) const {
    probability[i][t] = val;
    last_t[i] = t;
    last_prob[i] = val;
+   if (val > max_prob[i]) {
+     max_prob[i] = val;
+   }
  }
 
  void set_probability(int i, int t) {
@@ -175,6 +178,7 @@ public:
   std::unordered_map<int, double> probability[dim];
   std::unordered_map<int, double> probability_flip[dim];
   std::unordered_map<int, double> probability_flop[dim];
+  double max_prob[dim] = {0, 0};
   int last_t[dim] = {0, 0};
 
   FlipFlopNode2D(int s, FlipFlopNode2D* p) : Node<FlipFlopNode2D>(s, p) {}
@@ -223,11 +227,18 @@ double joint_probability(int u, int v) const {
     //return probability[0].at(last_t[0]) + probability[1].at(last_t[1]); //2D case
  }
 
+ double max_probability() const {
+   return probability[0].at(last_t[0]) + max_prob[1];
+ }
+
  void set_probability(int i, int t, double flip_val, double flop_val) {
    probability[i][t] = logaddexp(flip_val, flop_val);
    probability_flip[i][t] = flip_val;
    probability_flop[i][t] = flop_val;
    last_t[i] = t;
+   if (probability[i][t] > max_prob[i]) {
+     max_prob[i] = probability[i][t];
+   }
  }
 
 };
@@ -286,6 +297,7 @@ public:
   std::unordered_map<int, double> probability[dim];
   std::unordered_map<int, double> probability_gap[dim];
   std::unordered_map<int, double> probability_no_gap[dim];
+  double max_prob[dim] = {0, 0};
   int last_t[dim] = {0, 0};
 
   BonitoNode2D(int s, BonitoNode2D* p) : Node<BonitoNode2D>(s, p) {}
@@ -334,11 +346,18 @@ public:
      //return probability[0].at(last_t[0]) + probability[1].at(last_t[1]); //2D case
   }
 
+  double max_probability() const {
+    return probability[0].at(last_t[0]) + max_prob[1];
+  }
+
   void set_probability(int i, int t, double gap_val, double no_gap_val) {
     probability[i][t] = logaddexp(gap_val, no_gap_val);
     probability_gap[i][t] = gap_val;
     probability_no_gap[i][t] = no_gap_val;
     last_t[i] = t;
+    if (probability[i][t] > max_prob[i]) {
+      max_prob[i] = probability[i][t];
+    }
   }
 
 };
