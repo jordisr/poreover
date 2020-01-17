@@ -226,33 +226,33 @@ return tree.get_label(top_node);
 // beam search on single read
 std::string beam_search(double **y, int t_max, std::string alphabet, int beam_width, std::string model="ctc") {
     if (model == "ctc") {
-        return beam_search_<PoreOverPrefixTree, Beam<PoreOverNode*>>(y, t_max, alphabet, beam_width);
+        return beam_search_<PoreOverPrefixTree, Beam<PoreOverNode*, node_greater<PoreOverNode*>>>(y, t_max, alphabet, beam_width);
     } else if (model == "ctc_merge_repeats") {
-        return beam_search_<BonitoPrefixTree, Beam<BonitoNode*>>(y, t_max, alphabet, beam_width);
+        return beam_search_<BonitoPrefixTree, Beam<BonitoNode*, node_greater<BonitoNode*>>>(y, t_max, alphabet, beam_width);
     } else if (model == "ctc_flipflop") {
-        return beam_search_<FlipFlopPrefixTree, Beam<FlipFlopNode*>>(y, t_max, alphabet, beam_width);
+        return beam_search_<FlipFlopPrefixTree, Beam<FlipFlopNode*, node_greater<FlipFlopNode*>>>(y, t_max, alphabet, beam_width);
     }
 }
 
 // pair beam search with envelope
 std::string beam_search(double **y1, double **y2, int U, int V, std::string alphabet, int **envelope_ranges, int beam_width, std::string model="ctc") {
     if (model == "ctc") {
-        return beam_search_2d_by_row<PoreOverPrefixTree2D, Beam<PoreOverNode2D*>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
+        return beam_search_2d_by_row<PoreOverPrefixTree2D, Beam<PoreOverNode2D*, node_greater_max<PoreOverNode2D*>>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
     } else if (model == "ctc_merge_repeats") {
-        return beam_search_2d_by_row<BonitoPrefixTree2D, Beam<BonitoNode2D*>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
+        return beam_search_2d_by_row<BonitoPrefixTree2D, Beam<BonitoNode2D*, node_greater<BonitoNode2D*>>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
     } else if (model == "ctc_flipflop") {
-        return beam_search_2d_by_row<FlipFlopPrefixTree2D, Beam<FlipFlopNode2D*>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
+        return beam_search_2d_by_row<FlipFlopPrefixTree2D, Beam<FlipFlopNode2D*, node_greater<FlipFlopNode2D*>>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
     }
 }
 
 // pair beam search without envelope
 std::string beam_search(double **y1, double **y2, int U, int V, std::string alphabet, int beam_width, std::string model="ctc") {
     if (model == "ctc") {
-        return beam_search_2d_by_row<PoreOverPrefixTree2D, Beam<PoreOverNode2D*>>(y1, y2, U, V, alphabet, beam_width);
+        return beam_search_2d_by_row<PoreOverPrefixTree2D, Beam<PoreOverNode2D*, node_greater_max<PoreOverNode2D*>>>(y1, y2, U, V, alphabet, beam_width);
     } else if (model == "ctc_merge_repeats") {
-        return beam_search_2d_by_row<BonitoPrefixTree2D, Beam<BonitoNode2D*>>(y1, y2, U, V, alphabet, beam_width);
+        return beam_search_2d_by_row<BonitoPrefixTree2D, Beam<BonitoNode2D*, node_greater<BonitoNode2D*>>>(y1, y2, U, V, alphabet, beam_width);
     } else if (model == "ctc_flipflop") {
-        return beam_search_2d_by_row<FlipFlopPrefixTree2D, Beam<FlipFlopNode2D*>>(y1, y2, U, V, alphabet, beam_width);
+        return beam_search_2d_by_row<FlipFlopPrefixTree2D, Beam<FlipFlopNode2D*, node_greater<FlipFlopNode2D*>>>(y1, y2, U, V, alphabet, beam_width);
     }
 }
 

@@ -77,6 +77,7 @@ public:
   std::unordered_map<int, double> probability[dim];
   int last_t[dim] = {0, 0};
   double last_prob[dim] = {0, 0};
+  double max_prob[dim] = {0, 0};
 
   PoreOverNode2D(int s, PoreOverNode2D* p) : Node<PoreOverNode2D>(s, p) {}
   PoreOverNode2D(int s) : Node<PoreOverNode2D>(s) {}
@@ -100,6 +101,10 @@ double joint_probability(int u, int v) const {
 
  double last_probability() const {
    return last_prob[0] + last_prob[1];
+ }
+
+ double max_probability() const {
+   return last_prob[0] + max_prob[1];
  }
 
  void set_probability(int i, int t, double val) {

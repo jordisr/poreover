@@ -100,7 +100,7 @@ std::string new_beam_search(double **y1, double **y2, int U, int V, std::string 
 }
 
 std::string new_beam_search_wrapper(double **y1, double **y2, int U, int V, std::string alphabet, int beam_width, std::string model="ctc") {
-  return new_beam_search<PoreOverPrefixTree2D, Beam<PoreOverNode2D*>>(y1, y2, U, V, alphabet, beam_width);
+  return new_beam_search<PoreOverPrefixTree2D, Beam<PoreOverNode2D*, node_greater<PoreOverNode2D*>>>(y1, y2, U, V, alphabet, beam_width);
 }
 
 #endif

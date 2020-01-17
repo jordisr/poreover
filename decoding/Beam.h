@@ -12,19 +12,36 @@ public:
   bool operator()(T x, T y) {
     auto lhs = x->last_probability();
     auto rhs = y->last_probability();
-    //std::cout << lhs << " < " << rhs << " = " << (lhs < rhs) << "\n";
     return (lhs > rhs);
   }
 };
 
 template <class T>
-bool node_greater_fun(const T x, const T y) {
+class node_greater_max {
+public:
+  bool operator()(T x, T y) {
+    auto lhs = x->max_probability();
+    auto rhs = y->max_probability();
+    return (lhs > rhs);
+  }
+};
+
+template <class T>
+bool node_greater_fun(T x, T y) {
     auto lhs = x->last_probability();
     auto rhs = y->last_probability();
     return (lhs > rhs);
 }
 
 template <class T>
+bool node_greater_fun_max(T x, T y) {
+    auto lhs = x->max_probability();
+    auto rhs = y->max_probability();
+    return (lhs > rhs);
+}
+
+// T is node type (e.g. PoreOverNode2D), F is comparator functor for sorting beam (e.g. node_greater)
+template <class T, class F>
 class Beam {
     /*
     Previous Beam implementation using std::vector and explicit sort calls
@@ -64,7 +81,7 @@ class Beam {
 
         //std::sort(elements.begin(), elements.end(), node_greater<T>);
         if (elements.size() > width) {
-          std::partial_sort(elements.begin(), elements.begin()+width, elements.end(), node_greater_fun<T>);
+          std::partial_sort(elements.begin(), elements.begin()+width, elements.end(), F());
           elements.erase(elements.begin()+width, elements.end());
           /*
           int element_size = elements.size();
@@ -81,14 +98,14 @@ class Beam {
 
 };
 
-template <class T>
+template <class T, class F>
 class Beam2 {
     /*
     Beam implementation using std::set as backend
     */
   public:
     int width;
-    std::set<T, node_greater<T>> elements;
+    std::set<T, F> elements;
     //std::set<T> elements;
 
     Beam2(int w): width{w} {}
