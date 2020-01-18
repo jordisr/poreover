@@ -144,6 +144,9 @@ std::string beam_search_2d_by_row(double **y1, double **y2, int **envelope_range
 
             for (int b=0; b < beam_.size(); b++) {
                 auto beam_node = beam_.elements[b];
+                if (v == row_start) {
+                  beam_node->reset_max();
+                }
                 tree.update_prob(beam_node, 1, v);
             }
 
@@ -201,6 +204,9 @@ std::string beam_search_2d_by_row(double **y1, double **y2, int U, int V, std::s
         for (int v=0; v<V; ++v) {
             for (int b=0; b < beam_.size(); b++) {
                 auto beam_node = beam_.elements[b];
+                if (v == 0) {
+                  beam_node->reset_max();
+                }
                 tree.update_prob(beam_node, 1, v);
             }
 

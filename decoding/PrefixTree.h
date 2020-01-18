@@ -124,6 +124,9 @@ double joint_probability(int u, int v) const {
  void set_probability(int i, int t) {
    last_t[i] = t;
    last_prob[i] = probability_at(i, t);
+   if (probability_at(i, t) > max_prob[i]) {
+     max_prob[i] = probability_at(i, t);
+   }
  }
 
 };
