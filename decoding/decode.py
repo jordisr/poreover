@@ -30,7 +30,7 @@ def logit_to_log_likelihood(logits):
 def load_logits(file_path, flatten=False):
     read_reshape = np.load(file_path)
     if np.isclose(np.sum(read_reshape[0]), 1):
-        print('WARNING: Logits appear to be probabilities. Taking log.',file=sys.stderr)
+        #print('WARNING: Logits appear to be probabilities. Taking log.',file=sys.stderr)
         read_reshape = np.log(read_reshape)
     else:
         read_reshape = logit_to_log_likelihood(read_reshape)
