@@ -77,19 +77,8 @@ parser_pair.add_argument('--window', type=int, default=200, help='Segment size u
 parser_pair.add_argument('--matches', type=int, default=8, help='Match size for building anchors')
 parser_pair.add_argument('--indels', type=int, default=10, help='Indel size for building anchors')
 
-# set up logger
-progressbar.streams.wrap_stderr()
-logging.basicConfig()
-logger = logging.getLogger()
-handler = logging.StreamHandler()
-formatter = logging.Formatter('%(message)s')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
-logger.setLevel(logging.INFO)
-
 # Parse arguments and call corresponding command
 args = parser.parse_args()
-setattr(args, 'logger', logger)
 args.func(args)
 
 print(args, file=sys.stderr)

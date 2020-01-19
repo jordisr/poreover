@@ -25,10 +25,11 @@ The method of segentation is determined by the --method flag.
     the --window parameter.
 '''
 import numpy as np
-from multiprocessing import Pool
+from multiprocessing import Pool, get_logger
 import argparse, random, sys, glob, os, re
 from scipy.special import logsumexp
 #from Bio import pairwise2
+import logging
 import copy
 import progressbar
 from itertools import starmap
@@ -222,6 +223,17 @@ class parallel_decoder:
                 return(self._prefix_search_2d)
 
 def pair_decode(args):
+
+    # set up logger - should make it global
+    progressbar.streams.wrap_stderr()
+    #logging.basicConfig()
+    logger = get_logger()
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter('%(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
     in_path = getattr(args, 'in')
     if len(in_path) == 1:
         args_list = []
@@ -258,12 +270,13 @@ def pair_decode(args):
         pair_decode_helper(args)
 
 def pair_decode_helper(args):
-    logger = getattr(args, 'logger') # should set it globally but just testing for now
+    #logger = getattr(args, 'logger') # should set it globally but just testing for now
+    logger = get_logger() # get multiprocessing logger
     in_path = getattr(args, 'in')
     if len(in_path) != 2:
         logger.error("ERROR: Exactly two reads are required")
 
-    logger.debug('Read1:{} Read2:{}'.format(in_path[0], in_path[1]),file=sys.stderr)
+    logger.debug('Read1:{} Read2:{}'.format(in_path[0], in_path[1]))
 
     model1 = decoding.decode.model_from_trace(in_path[0], args.basecaller)
     model2 = decoding.decode.model_from_trace(in_path[1], args.basecaller)
