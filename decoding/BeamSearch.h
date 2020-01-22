@@ -157,14 +157,6 @@ std::string beam_search_2d_by_row(double **y1, double **y2, int **envelope_range
 
 }
 
-/*
-// write out final beam
-for (int b=0; b < beam_.size(); b++) {
-std::cout << "----" << tree.get_label(beam_.elements[b]) << " : "
-<< beam_.elements[b]->joint_probability(U-1,V-1) << "\n";
-}
-*/
-
 auto top_node = beam_.top();
 return tree.get_label(top_node);
 
@@ -201,7 +193,7 @@ std::string beam_search_2d_by_row(double **y1, double **y2, int U, int V, std::s
             }
         }
 
-        for (int v=0; v<V; ++v) {
+        for (int v=0; v<std::min(u,V); ++v) {
             for (int b=0; b < beam_.size(); b++) {
                 auto beam_node = beam_.elements[b];
                 if (v == 0) {
@@ -214,6 +206,17 @@ std::string beam_search_2d_by_row(double **y1, double **y2, int U, int V, std::s
 
         // take top beam_width nodes
         beam_.prune();
+
+        // write out beam
+        //for (int b=0; b < beam_.size(); b++) {
+        //std::cout << "u=" << u << ", v=(0," << V << ")" << "----" << tree.get_label(beam_.elements[b]) << " : " << beam_.elements[b]->max_probability() << "\tmax[1] at v=" << beam_.elements[b]->max_t[1] << "\n";
+        //}
+
+        // just output statistics from top node
+        //auto top_node_ = beam_.top();
+        //std::string top_node_label = tree.get_label(top_node_);
+        //std::cout << "u=" << u << ", v=(0," << V << ")" << "----" << top_node_ << " : " << top_node_->max_probability() << "\tmax[1] at v=" << top_node_->max_t[1] << "\n";
+
 }
 
 /*

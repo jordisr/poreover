@@ -76,6 +76,7 @@ public:
   static const int dim = 2;
   std::unordered_map<int, double> probability[dim];
   int last_t[dim] = {0, 0};
+  int max_t[dim] = {0, 0};
   double last_prob[dim] = {0, 0};
   double max_prob[dim] = {DEFAULT_VALUE, DEFAULT_VALUE};
 
@@ -117,6 +118,7 @@ double joint_probability(int u, int v) const {
    last_t[i] = t;
    last_prob[i] = val;
    if (val > max_prob[i]) {
+     max_t[i] = t;
      max_prob[i] = val;
    }
  }
@@ -126,6 +128,7 @@ double joint_probability(int u, int v) const {
    last_prob[i] = probability_at(i, t);
    if (probability_at(i, t) > max_prob[i]) {
      max_prob[i] = probability_at(i, t);
+     max_t[i] = t;
    }
  }
 
@@ -188,6 +191,7 @@ public:
   std::unordered_map<int, double> probability_flop[dim];
   double max_prob[dim] = {DEFAULT_VALUE, DEFAULT_VALUE};
   int last_t[dim] = {0, 0};
+  int max_t[dim] = {0, 0};
 
   FlipFlopNode2D(int s, FlipFlopNode2D* p) : Node<FlipFlopNode2D>(s, p) {}
   FlipFlopNode2D(int s) : Node<FlipFlopNode2D>(s) {}
@@ -251,6 +255,7 @@ double joint_probability(int u, int v) const {
    last_t[i] = t;
    if (probability[i][t] > max_prob[i]) {
      max_prob[i] = probability[i][t];
+     max_t[i] = t;
    }
  }
 
@@ -312,6 +317,7 @@ public:
   std::unordered_map<int, double> probability_no_gap[dim];
   double max_prob[dim] = {DEFAULT_VALUE, DEFAULT_VALUE};
   int last_t[dim] = {0, 0};
+  int max_t[dim] = {0, 0};
 
   BonitoNode2D(int s, BonitoNode2D* p) : Node<BonitoNode2D>(s, p) {}
   BonitoNode2D(int s) : Node<BonitoNode2D>(s) {}
@@ -375,6 +381,7 @@ public:
     last_t[i] = t;
     if (probability[i][t] > max_prob[i]) {
       max_prob[i] = probability[i][t];
+      max_t[i] = t;
     }
   }
 
@@ -473,7 +480,6 @@ public:
 
   void update_prob(PoreOverNode2D* n, int i, int t) {
 
-    if (n->probability[i].count(t) == 0) {
       double a = n->parent->probability_at(i, t-1);
       double b = y[i][t][n->last];
       double emit_state = a+b;
@@ -483,9 +489,6 @@ public:
       double stay_state = c+d;
 
       n->set_probability(i, t, logaddexp(emit_state, stay_state));
-  } else {
-      n->set_probability(i, t);
-  }
   }
 
 };
