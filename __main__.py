@@ -70,7 +70,6 @@ parser_pair.add_argument('--algorithm', default='beam', choices=['prefix' ,'beam
 parser_pair.add_argument('--beam_width', type=int, default=25, help='Width for beam search')
 # --method envelope
 parser_pair.add_argument('--padding', type=int, default=150, help='Padding for building alignment envelope')
-parser_pair.add_argument('--segments', type=int, default=8, help='Split full alignment envelope into N segments')
 # --method split
 parser_pair.add_argument('--window', type=int, default=200, help='Segment size used for splitting reads')
 # --method align

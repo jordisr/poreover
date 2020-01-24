@@ -267,7 +267,9 @@ def pair_decode(args):
             pool.join()
 
     else:
-        pair_decode_helper(args)
+        seqs_1d, seq_2d = pair_decode_helper(args)
+        with open(args.out+'.fasta', 'w') as out_fasta:
+            print(seq_2d, file=out_fasta)
 
 def pair_decode_helper(args):
     #logger = getattr(args, 'logger') # should set it globally but just testing for now
@@ -441,37 +443,10 @@ def pair_decode_helper(args):
 
         # Build envelope
         alignment_col = decoding.envelope.get_alignment_columns(alignment)
-        full_envelope = decoding.envelope.build_envelope(y1,y2,alignment_col, sequence_to_signal1, sequence_to_signal2, padding=args.padding)
-
-        # split envelope into subsets
-        number_subsets = args.segments
-        window = int(len(y1)/number_subsets)
-        subsets = np.zeros(shape=(number_subsets, 4)).astype(int)
-        s = 0
-        u = 0
-        while s < number_subsets:
-            start = u
-            end = u+window
-            subsets[s,0] = start
-            subsets[s,1] = end
-            subsets[s,2] = np.min(full_envelope[start:end,0])
-            subsets[s,3] = np.max(full_envelope[start:end,1])
-            s += 1
-            u = end
-
-        starmap_input = []
-        for subset in subsets:
-            y1_subset = y1[subset[0]:subset[1]]
-            y2_subset = y2[subset[2]:subset[3]]
-            subset_envelope = decoding.envelope.offset_envelope(full_envelope, subset)
-            subset_envelope = decoding.envelope.pad_envelope(subset_envelope, len(y1_subset), len(y2_subset))
-            starmap_input.append( (y1_subset, y2_subset, subset_envelope) )
+        envelope = decoding.envelope.build_envelope(y1,y2,alignment_col, sequence_to_signal1, sequence_to_signal2, padding=args.padding)
 
         logger.debug('\t Starting consensus basecalling...')
-        #with Pool(processes=args.threads) as pool:
-        #    basecalls = pool.starmap(decoding_fn, starmap_input)
-        basecalls = starmap(decoding_fn, starmap_input)
-        joined_basecalls = ''.join(basecalls)
+        joined_basecalls = decoding_fn(y1, y2, envelope)
 
     # output final basecalled sequence
     #if not getattr(args, 'unittest', False):
