@@ -58,7 +58,8 @@ parser_decode.add_argument('--beam_width', type=int, default=25, help='Width for
 parser_pair= subparsers.add_parser('pair-decode', help='1d2 consensus decoding of two output probabilities')
 parser_pair.set_defaults(func=pair_decode)
 # general options
-parser_pair.add_argument('in', nargs='+', help='Probabilities to decode (either .npy from PoreOver of HDF5/FAST5 from Flappie or Guppy)')
+parser_pair.add_argument('in', nargs='+', help='Probabilities to decode (either .npy from PoreOver, or HDF5/FAST5 from Flappie or Guppy) or list of read pairs')
+parser_pair.add_argument('--dir', default='.', help='Directory for basecaller probabilities')
 parser_pair.add_argument('--basecaller', choices=['poreover', 'flappie', 'guppy', 'bonito'], help='Basecaller used to generate probabilitiess')
 parser_pair.add_argument('--reverse_complement', default=False, action='store_true', help='Whether to reverse complement the second sequence (default: False)')
 parser_pair.add_argument('--out', default='out',help='Save FASTA sequence to file (default: stdout)')

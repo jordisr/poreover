@@ -140,7 +140,7 @@ def get_sequence_mapping(path, kind):
 class parallel_decoder:
     def __init__(self, args, kind):
         self.args = args
-        self.kind = {'poreover':'ctc','flipflop':'ctc_flipflop','bonito':'ctc_merge_repeats'}[self.args.basecaller]
+        self.kind = {'poreover':'ctc', 'guppy':'ctc_flipflop', 'flappie':'ctc_flipflop', 'bonito':'ctc_merge_repeats'}[self.args.basecaller]
 
     def _beam_search_2d(self, logits1, logits2, b, b_tot, u1, u2, v1, v2):
         size = (u2-u1+1)*(v2-v1+1)
@@ -279,9 +279,8 @@ def pair_decode_helper(args):
         logger.error("ERROR: Exactly two reads are required")
 
     logger.debug('Read1:{} Read2:{}'.format(in_path[0], in_path[1]))
-
-    model1 = decoding.decode.model_from_trace(in_path[0], args.basecaller)
-    model2 = decoding.decode.model_from_trace(in_path[1], args.basecaller)
+    model1 = decoding.decode.model_from_trace(os.path.join(args.dir, in_path[0]), args.basecaller)
+    model2 = decoding.decode.model_from_trace(os.path.join(args.dir, in_path[1]), args.basecaller)
     if args.reverse_complement:
         model2.reverse_complement()
 
