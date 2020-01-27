@@ -68,28 +68,19 @@ class Beam {
 
     void prune() {
         // sort elements, eliminate duplicates, then prune beam to top W
-        std::sort(elements.begin(), elements.end()); // sorting twice to remove duplicate elements
+        // first sort pointers to eliminate duplicates with std::unique
+        std::sort(elements.begin(), elements.end());
         auto last = std::unique(elements.begin(), elements.end());
         //std::cout << "Removing " << elements.end() - last << " duplicates out of " << elements.size() << "\n";
         elements.erase(last, elements.end());
-        /*
-        std::unordered_set<T> s;
-        for (auto i : elements)
-            s.insert(i);
-        elements.assign( s.begin(), s.end() );
-        */
 
-        //std::sort(elements.begin(), elements.end(), node_greater<T>);
+        // next sort nodes using comparator and take top beam width ones
         if (elements.size() > width) {
           std::partial_sort(elements.begin(), elements.begin()+width, elements.end(), F());
           elements.erase(elements.begin()+width, elements.end());
-          /*
-          int element_size = elements.size();
-          for (int i=width; i < element_size; i++) {
-            elements.pop_back();
-          }
-          */
-      }
+        } else {
+          std::sort(elements.begin(), elements.end(), F());
+        }
     }
 
     T top() {
