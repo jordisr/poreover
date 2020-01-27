@@ -14,6 +14,13 @@ class beam_1d_toy(unittest.TestCase):
         result = decoding.decoding_cpp.cpp_beam_search(np.log(y), alphabet_="AB")
         self.assertTrue(result == prof.top_label()[0])
 
+    def test2(self):
+        y = np.array([[0.4,0.5,0.1],[0.4,0.2,0.4],[0.3,0.5,0.2]])
+        prof = poreover_profile(y,('A','B',''))
+        result = decoding.decoding_cpp.cpp_beam_search(np.log(y), alphabet_="AB")
+        print(prof.top_label()[0], "------", result)
+        self.assertTrue(result == prof.top_label()[0])
+
 class beam_2d_toy(unittest.TestCase):
     '''
     2D decoding of toy data

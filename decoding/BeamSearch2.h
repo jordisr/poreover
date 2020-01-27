@@ -23,7 +23,14 @@ std::string new_beam_search(double **y1, double **y2, int U, int V, std::string 
   TTree tree(y1, U, y2, V, alphabet);
 
   TBeam* empty_beam = new TBeam(beam_width);
-  empty_beam->push(tree.root);
+  //empty_beam->push(tree.root);
+  auto children = tree.expand(tree.root);
+  for (int i=0; i<children.size(); i++) {
+      auto n = children[i];
+      tree.update_prob(n, 0, 0);
+      tree.update_prob(n, 1, 0);
+      empty_beam->push(n);
+  }
 
   //SparseMatrix<TBeam> beams(empty_beam);
   std::vector<TBeam*> beams;
@@ -47,10 +54,9 @@ std::string new_beam_search(double **y1, double **y2, int U, int V, std::string 
       //std::cout << "Iterating over previous beam...\n";
 
       for (auto beam_node : prev_beam->elements) {
+            //std::cout << "label:" << tree.get_label(beam_node) << "\n";
 
             // update probabilities
-            //std::cout << "want to set 0 at max t=" << u << "\n";
-            //std::cout << "want to set 1 at max t=" << v << "\n";
             tree.update_prob(beam_node, 0, u);
             tree.update_prob(beam_node, 1, v);
             this_beam->push(beam_node);
