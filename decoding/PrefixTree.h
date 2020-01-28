@@ -488,6 +488,8 @@ public:
       double d = y[i][t][gap_char];
       double stay_state = c+d;
 
+      //std::cout << "label=" << this->get_label(n) << " read=" << i << " time=" << t << " P(emit)=" << emit_state << " P(stay)=" << stay_state << " P(total)=" << logaddexp(emit_state, stay_state)  << "\n";
+
       n->set_probability(i, t, logaddexp(emit_state, stay_state));
   }
 

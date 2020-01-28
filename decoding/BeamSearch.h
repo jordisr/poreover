@@ -12,6 +12,7 @@
 
 #include "Log.h"
 #include "Beam.h"
+#include "BeamSearch2.h"
 #include "PrefixTree.h"
 
 template <class TTree, class TBeam>
@@ -177,7 +178,6 @@ std::string beam_search_2d_by_row(double **y1, double **y2, int U, int V, std::s
     TTree tree(y1, U, y2, V, alphabet);
     TBeam beam_(beam_width);
 
-    // first iteration, check bounds for (0,0)?
     auto children = tree.expand(tree.root);
     for (int i=0; i<children.size(); i++) {
         auto n = children[i];
@@ -188,7 +188,7 @@ std::string beam_search_2d_by_row(double **y1, double **y2, int U, int V, std::s
 
     std::cout << "u" << "\t" << "v_start" << "\t" << "v_end" << "\t" << "top_node" << "\t" << "max_probability" << "\t" << "max_t" << "\t" << "length"<< "\n";
 
-    for (int u=0; u<U; ++u) {
+    for (int u=1; u<U; ++u) {
         //std::cout << "Starting row " << u << "/" << U << "\n";
         for (int b=0; b < beam_width; ++b) {
             auto beam_node = beam_.elements[b];
@@ -203,7 +203,7 @@ std::string beam_search_2d_by_row(double **y1, double **y2, int U, int V, std::s
             }
         }
 
-        for (int v=0; v<std::min(u,V); ++v) {
+        for (int v=0; v<V; ++v) {
             for (int b=0; b < beam_.size(); b++) {
                 auto beam_node = beam_.elements[b];
                 if (v == 0) {
@@ -214,18 +214,29 @@ std::string beam_search_2d_by_row(double **y1, double **y2, int U, int V, std::s
 
         }
 
+        /*
+        std::cout << "Beam before pruning\n";
+        for (int b=0; b < beam_.size(); b++) {
+            std::cout << "u=" << u << ", v=(0," << V << ")" << "----" << tree.get_label(beam_.elements[b]) << " : " << beam_.elements[b]->max_probability() << "\tmax[1] at v=" << beam_.elements[b]->max_t[1] << "\n";
+            std::cout << beam_.elements[b]->probability_at(0,u) << ":" << beam_.elements[b]->probability_at(1,0) << " " << beam_.elements[b]->probability_at(1,1) << " " << beam_.elements[b]->probability_at(1,2)<< "\n";
+        }
+        */
+
         // take top beam_width nodes
         beam_.prune();
 
         // write out beam
-        //for (int b=0; b < beam_.size(); b++) {
-        //std::cout << "u=" << u << ", v=(0," << V << ")" << "----" << tree.get_label(beam_.elements[b]) << " : " << beam_.elements[b]->max_probability() << "\tmax[1] at v=" << beam_.elements[b]->max_t[1] << "\n";
-        //}
+        /*
+        std::cout << "Beam after pruning\n";
+        for (int b=0; b < beam_.size(); b++) {
+            std::cout << "u=" << u << ", v=(0," << V << ")" << "----" << tree.get_label(beam_.elements[b]) << " : " << beam_.elements[b]->max_probability() << "\tmax[1] at v=" << beam_.elements[b]->max_t[1] << "\n";
+        }
+        */
 
         // just output statistics from top node
         auto top_node_ = beam_.top();
-        std::string top_node_label = tree.get_label(top_node_);
-        std::cout << u << "\t" << 0 << "\t" << V << "\t" << top_node_ << "\t" << top_node_->max_probability() << "\t" << top_node_->max_t[1] << "\t" << top_node_->depth << "\n";
+        //std::string top_node_label = tree.get_label(top_node_);
+        //std::cout << u << "\t" << 0 << "\t" << V << "\t" << top_node_ << "\t" << top_node_->max_probability() << "\t" << top_node_->max_t[1] << "\t" << top_node_->depth << "\n";
         //std::cout << "u=" << u << ", v=(0," << V << ")" << "----" << top_node_ << " : " << top_node_->max_probability() << "\tmax[1] at v=" << top_node_->max_t[1] << "\n";
 
 }
@@ -255,24 +266,44 @@ std::string beam_search(double **y, int t_max, std::string alphabet, int beam_wi
 }
 
 // pair beam search with envelope
-std::string beam_search(double **y1, double **y2, int U, int V, std::string alphabet, int **envelope_ranges, int beam_width, std::string model="ctc") {
-    if (model == "ctc") {
-        return beam_search_2d_by_row<PoreOverPrefixTree2D, Beam<PoreOverNode2D*, node_greater_max<PoreOverNode2D*>>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
-    } else if (model == "ctc_merge_repeats") {
-        return beam_search_2d_by_row<BonitoPrefixTree2D, Beam<BonitoNode2D*, node_greater_max<BonitoNode2D*>>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
-    } else if (model == "ctc_flipflop") {
-        return beam_search_2d_by_row<FlipFlopPrefixTree2D, Beam<FlipFlopNode2D*, node_greater_max<FlipFlopNode2D*>>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
+std::string beam_search(double **y1, double **y2, int U, int V, std::string alphabet, int **envelope_ranges, int beam_width, std::string model="ctc", std::string method="row") {
+    if (method == "row") {
+        if (model == "ctc") {
+            return beam_search_2d_by_row<PoreOverPrefixTree2D, Beam<PoreOverNode2D*, node_greater_max<PoreOverNode2D*>>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
+        } else if (model == "ctc_merge_repeats") {
+            return beam_search_2d_by_row<BonitoPrefixTree2D, Beam<BonitoNode2D*, node_greater_max<BonitoNode2D*>>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
+        } else if (model == "ctc_flipflop") {
+            return beam_search_2d_by_row<FlipFlopPrefixTree2D, Beam<FlipFlopNode2D*, node_greater_max<FlipFlopNode2D*>>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
+        }
+    } else {
+        if (model == "ctc") {
+            return beam_search_2d_grid<PoreOverPrefixTree2D, Beam<PoreOverNode2D*, node_greater<PoreOverNode2D*>>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
+        } else if (model == "ctc_merge_repeats") {
+            return beam_search_2d_grid<BonitoPrefixTree2D, Beam<BonitoNode2D*, node_greater<BonitoNode2D*>>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
+        } else if (model == "ctc_flipflop") {
+            return beam_search_2d_grid<FlipFlopPrefixTree2D, Beam<FlipFlopNode2D*, node_greater<FlipFlopNode2D*>>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
+        }
     }
 }
 
 // pair beam search without envelope
-std::string beam_search(double **y1, double **y2, int U, int V, std::string alphabet, int beam_width, std::string model="ctc") {
-    if (model == "ctc") {
-        return beam_search_2d_by_row<PoreOverPrefixTree2D, Beam<PoreOverNode2D*, node_greater_max<PoreOverNode2D*>>>(y1, y2, U, V, alphabet, beam_width);
-    } else if (model == "ctc_merge_repeats") {
-        return beam_search_2d_by_row<BonitoPrefixTree2D, Beam<BonitoNode2D*, node_greater_max<BonitoNode2D*>>>(y1, y2, U, V, alphabet, beam_width);
-    } else if (model == "ctc_flipflop") {
-        return beam_search_2d_by_row<FlipFlopPrefixTree2D, Beam<FlipFlopNode2D*, node_greater_max<FlipFlopNode2D*>>>(y1, y2, U, V, alphabet, beam_width);
+std::string beam_search(double **y1, double **y2, int U, int V, std::string alphabet, int beam_width, std::string model="ctc", std::string method="row") {
+    if (method == "row") {
+        if (model == "ctc") {
+            return beam_search_2d_by_row<PoreOverPrefixTree2D, Beam<PoreOverNode2D*, node_greater_max<PoreOverNode2D*>>>(y1, y2, U, V, alphabet, beam_width);
+        } else if (model == "ctc_merge_repeats") {
+            return beam_search_2d_by_row<BonitoPrefixTree2D, Beam<BonitoNode2D*, node_greater_max<BonitoNode2D*>>>(y1, y2, U, V, alphabet, beam_width);
+        } else if (model == "ctc_flipflop") {
+            return beam_search_2d_by_row<FlipFlopPrefixTree2D, Beam<FlipFlopNode2D*, node_greater_max<FlipFlopNode2D*>>>(y1, y2, U, V, alphabet, beam_width);
+        }
+    } else {
+        if (model == "ctc") {
+            return beam_search_2d_grid<PoreOverPrefixTree2D, Beam<PoreOverNode2D*, node_greater<PoreOverNode2D*>>>(y1, y2, U, V, alphabet, beam_width);
+        } else if (model == "ctc_merge_repeats") {
+            return beam_search_2d_grid<BonitoPrefixTree2D, Beam<BonitoNode2D*, node_greater<BonitoNode2D*>>>(y1, y2, U, V, alphabet, beam_width);
+        } else if (model == "ctc_flipflop") {
+            return beam_search_2d_grid<FlipFlopPrefixTree2D, Beam<FlipFlopNode2D*, node_greater<FlipFlopNode2D*>>>(y1, y2, U, V, alphabet, beam_width);
+        }
     }
 }
 

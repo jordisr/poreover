@@ -5,6 +5,7 @@
 #include <vector>
 #include <unordered_set>
 #include <iterator>
+#include <cmath>
 
 template <class T>
 class node_greater {
@@ -22,6 +23,19 @@ public:
   bool operator()(T x, T y) {
     auto lhs = x->max_probability();
     auto rhs = y->max_probability();
+    return (lhs > rhs);
+  }
+};
+
+template <class T>
+class node_greater_max_lengthnorm {
+// length normalized
+public:
+  bool operator()(T x, T y) {
+    float length_norm_x = std::pow(x->depth, 0.2);
+    float length_norm_y = std::pow(y->depth, 0.2);
+    auto lhs = x->max_probability()/length_norm_x;
+    auto rhs = y->max_probability()/length_norm_y;
     return (lhs > rhs);
   }
 };
