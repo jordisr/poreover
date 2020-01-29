@@ -58,19 +58,19 @@ parser_decode.add_argument('--beam_width', type=int, default=25, help='Width for
 parser_pair= subparsers.add_parser('pair-decode', help='1d2 consensus decoding of two output probabilities')
 parser_pair.set_defaults(func=pair_decode)
 # general options
-parser_pair.add_argument('in', nargs='+', help='Probabilities to decode (either .npy from PoreOver, or HDF5/FAST5 from Flappie or Guppy) or list of read pairs')
+parser_pair.add_argument('in', nargs='+', help='Softmax probabilities to decode (either .npy from PoreOver, or HDF5/FAST5 from Flappie or Guppy) or list of read pairs')
 parser_pair.add_argument('--dir', default='.', help='Directory for basecaller probabilities')
 parser_pair.add_argument('--basecaller', choices=['poreover', 'flappie', 'guppy', 'bonito'], help='Basecaller used to generate probabilitiess')
 parser_pair.add_argument('--reverse_complement', default=False, action='store_true', help='Whether to reverse complement the second sequence (default: False)')
-parser_pair.add_argument('--out', default='out',help='Save FASTA sequence to file (default: stdout)')
+parser_pair.add_argument('--out', default='out',help='Save FASTA sequence to file (default: out.1d.fasta/out.2d.fasta)')
 parser_pair.add_argument('--threads', type=int, default=1, help='Processes to use')
 parser_pair.add_argument('--method', choices=['align', 'split', 'envelope'],default='align',help='Method for dividing up search space (see code)')
-parser_pair.add_argument('--single', choices=['beam', 'viterbi'], default='viterbi', help='')
+parser_pair.add_argument('--single', choices=['beam', 'viterbi'], default='viterbi', help='Algorithm for 1D basecalling (used to build alignment envelope)')
 parser_pair.add_argument('--debug', default=False, action='store_true', help='Pickle objects to file for debugging')
 parser_pair.add_argument('--algorithm', default='beam', choices=['prefix' ,'beam'], help='')
-parser_pair.add_argument('--beam_width', type=int, default=25, help='Width for beam search')
+parser_pair.add_argument('--beam_width', type=int, default=5, help='Width for beam search')
 # --method envelope
-parser_pair.add_argument('--padding', type=int, default=150, help='Padding for building alignment envelope')
+parser_pair.add_argument('--padding', type=int, default=5, help='Padding for building alignment envelope')
 # --method split
 parser_pair.add_argument('--window', type=int, default=200, help='Segment size used for splitting reads')
 # --method align

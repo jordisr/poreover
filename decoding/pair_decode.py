@@ -234,6 +234,12 @@ def pair_decode(args):
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
 
+    # print software message, should incorporate to other subroutines as well
+    coffee_emoji = u'\U00002615'
+    dna_emoji = u'\U0001F9EC'
+    logger.info('{0:2}{1:3}{0:2} {2:^30} {0:2}{1:3}{0:2}'.format(coffee_emoji, dna_emoji,'PoreOver pair-decode (version 0.0)'))
+    #logger.info(('{0:2}{1:3}'*9+'{0:2}').format(coffee_emoji, dna_emoji))
+
     in_path = getattr(args, 'in')
     if len(in_path) == 1:
         args_list = []
@@ -251,13 +257,24 @@ def pair_decode(args):
                 self.pbar = progressbar.ProgressBar(max_value=len(args_list))
                 self.out_1d_f = open(args.out+'.1d.fasta','w')
                 self.out_2d_f = open(args.out+'.2d.fasta','w')
+                self.log_f = open(args.out+'.log','w',1)
+                print('# PoreOver pair-decode', file=self.log_f)
+                print('# '+str(vars(args)), file=self.log_f)
+                print('# '+'\t'.join(map(str,["read1", "read2", "length1", "length2", "sequence_identity"])), file=self.log_f)
             def callback(self, x):
                 self.counter += 1
                 self.pbar.update(self.counter)
-                if len(x) == 2:
+                if len(x) == 3:
                     print(x[0], file=self.out_1d_f)
                     print(x[1], file=self.out_2d_f)
+                    print('\t'.join(map(str,[x[2][k] for k in ["read1", "read2", "length1", "length2", "sequence_identity"]])), file=self.log_f)
         callback_helper_ = callback_helper()
+
+        bullet_point = u'\u25B8'+" "
+        logger.info(bullet_point + "found {} read pairs in {}".format(len(args_list), in_path[0]))
+        logger.info(bullet_point + "writing sequences to {0}.1d.fasta and {0}.2d.fasta".format(args.out))
+        logger.info(bullet_point + "pair alignment statistics saved to {}.log".format(args.out))
+        logger.info(bullet_point + "starting {} decoding processes...".format(args.threads))
 
         with Pool(processes=args.threads) as pool:
             #basecalls = pool.map(pair_decode_helper, args_list) #works but no logging
@@ -288,6 +305,7 @@ def pair_decode_helper(args):
 
     # get appropriate helper function for multiprocessing
     decoding_fn = parallel_decoder(args, model1.kind).get_function()
+    pair_decode_summary = dict()
 
     if args.method == 'split':
         # calculate ranges on which to split read
@@ -343,6 +361,9 @@ def pair_decode_helper(args):
         alignment = np.array([list(s) for s in alignment[:2]])
         sequence_identity = np.sum(alignment[0] == alignment[1]) / len(alignment[0])
         logger.debug('\t Read sequence identity: {}'.format(sequence_identity))
+
+        pair_decode_summary = {'read1':in_path[0], 'read2':in_path[1], 'length1':len(basecall1), 'length2':len(basecall2), 'sequence_identity':sequence_identity}
+
         if sequence_identity < 0.5:
             logger.error("ERROR: Pairwise sequence identity between reads is below 50%. Did you mean to take the --reverse-complement of one of the reads?")
             return ()
@@ -453,5 +474,5 @@ def pair_decode_helper(args):
     #        print(fasta_format('consensus_{};{};{}'.format(args.method,in_path[0],in_path[1]), joined_basecalls), file=f)
 
     # return formatted strings but do output in main pair_decode function
-    return (fasta_format(in_path[0], basecall1)+fasta_format(in_path[1], basecall2), fasta_format('consensus_{};{};{}'.format(args.method,in_path[0],in_path[1]), joined_basecalls))
+    return (fasta_format(in_path[0], basecall1)+fasta_format(in_path[1], basecall2), fasta_format('consensus_{};{};{}'.format(args.method,in_path[0],in_path[1]), joined_basecalls), pair_decode_summary)
     #return((basecall1, basecall2), joined_basecalls)

@@ -122,7 +122,7 @@ std::string beam_search_2d_by_row(double **y1, double **y2, int **envelope_range
         beam_.push(n);
     }
 
-    std::cout << "u" << "\t" << "v_start" << "\t" << "v_end" << "\t" << "top_node" << "\t" << "max_probability" << "\t" << "max_t" << "\t" << "length"<< "\n";
+    //std::cout << "u" << "\t" << "v_start" << "\t" << "v_end" << "\t" << "top_node" << "\t" << "max_probability" << "\t" << "max_t" << "\t" << "length"<< "\n";
 
     for (int u=0; u<U; ++u) {
         // std::cout << "Starting row " << u << "/" << U << "\n";
@@ -162,7 +162,7 @@ std::string beam_search_2d_by_row(double **y1, double **y2, int **envelope_range
         auto top_node_ = beam_.top();
         std::string top_node_label = tree.get_label(top_node_);
         //std::cout << "u=" << u << ", v=(" << row_start << "," << row_end << ")" << "----" << top_node_ << " : " << top_node_->max_probability() << "\tmax[1] at v=" << top_node_->max_t[1] << "\n";
-        std::cout << u << "\t" << row_start << "\t" << row_end << "\t" << top_node_ << "\t" << top_node_->max_probability() << "\t" << top_node_->max_t[1] << "\t" << top_node_->depth << "\n";
+        //std::cout << u << "\t" << row_start << "\t" << row_end << "\t" << top_node_ << "\t" << top_node_->max_probability() << "\t" << top_node_->max_t[1] << "\t" << top_node_->depth << "\n";
 
 }
 
@@ -186,7 +186,7 @@ std::string beam_search_2d_by_row(double **y1, double **y2, int U, int V, std::s
         beam_.push(n);
     }
 
-    std::cout << "u" << "\t" << "v_start" << "\t" << "v_end" << "\t" << "top_node" << "\t" << "max_probability" << "\t" << "max_t" << "\t" << "length"<< "\n";
+    //std::cout << "u" << "\t" << "v_start" << "\t" << "v_end" << "\t" << "top_node" << "\t" << "max_probability" << "\t" << "max_t" << "\t" << "length"<< "\n";
 
     for (int u=1; u<U; ++u) {
         //std::cout << "Starting row " << u << "/" << U << "\n";
@@ -234,7 +234,7 @@ std::string beam_search_2d_by_row(double **y1, double **y2, int U, int V, std::s
         */
 
         // just output statistics from top node
-        auto top_node_ = beam_.top();
+        //auto top_node_ = beam_.top();
         //std::string top_node_label = tree.get_label(top_node_);
         //std::cout << u << "\t" << 0 << "\t" << V << "\t" << top_node_ << "\t" << top_node_->max_probability() << "\t" << top_node_->max_t[1] << "\t" << top_node_->depth << "\n";
         //std::cout << "u=" << u << ", v=(0," << V << ")" << "----" << top_node_ << " : " << top_node_->max_probability() << "\tmax[1] at v=" << top_node_->max_t[1] << "\n";
