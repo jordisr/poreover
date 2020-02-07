@@ -9,28 +9,57 @@ from pathlib import Path
 
 INPUT_DIM=1
 
-def rnn(num_neurons=128, num_labels=4, input_size=1000):
-    return tf.keras.Sequential([tf.keras.layers.Bidirectional(tf.keras.layers.GRU(num_neurons, return_sequences=True), input_shape=(input_size,1)),
-    tf.keras.layers.Bidirectional(tf.keras.layers.GRU(num_neurons, return_sequences=True)),
-    tf.keras.layers.Bidirectional(tf.keras.layers.GRU(num_neurons, return_sequences=True)),
-    tf.keras.layers.Dense(num_labels+1, activation=None)])
+class build_model:
+    def __init__(self, args):
+        self.num_neurons = getattr(args, "num_neurons", 128)
+        self.kernel_size = getattr(args, "kernel_size", 9)
+        self.filters = getattr(args, "filters", 256)
 
-def cnn_rnn(num_neurons=128, num_labels=4, input_size=1000, kernel_size=3, filters=256, strides=1):
-    return tf.keras.Sequential([tf.keras.layers.Conv1D(kernel_size=kernel_size, filters=filters, strides=strides, input_shape=(input_size,1), activation="relu", padding="same"),
-    tf.keras.layers.Bidirectional(tf.keras.layers.GRU(num_neurons, return_sequences=True)),
-    tf.keras.layers.Bidirectional(tf.keras.layers.GRU(num_neurons, return_sequences=True)),
-    tf.keras.layers.Bidirectional(tf.keras.layers.GRU(num_neurons, return_sequences=True)),
-    tf.keras.layers.Dense(num_labels+1, activation=None)])
+    # bigru3: 3 bidirectional GRU layers
+    def bigru3(self, num_labels=4, input_size=1000):
+        return tf.keras.Sequential([tf.keras.layers.Bidirectional(tf.keras.layers.GRU(self.num_neurons, return_sequences=True), input_shape=(input_size,1)),
+        tf.keras.layers.Bidirectional(tf.keras.layers.GRU(self.num_neurons, return_sequences=True)),
+        tf.keras.layers.Bidirectional(tf.keras.layers.GRU(self.num_neurons, return_sequences=True)),
+        tf.keras.layers.Dense(num_labels+1, activation=None)])
 
-def taiyaki_like(input_size=1000, num_labels=4):
-    return tf.keras.Sequential([
-    tf.keras.layers.Conv1D(kernel_size=19, filters=256, strides=2, input_shape=(input_size,1), activation="relu", padding="same"),
-    tf.keras.layers.GRU(256, return_sequences=True, go_backwards=False),
-    tf.keras.layers.GRU(256, return_sequences=True, go_backwards=True),
-    tf.keras.layers.GRU(256, return_sequences=True, go_backwards=False),
-    tf.keras.layers.GRU(256, return_sequences=True, go_backwards=True),
-    tf.keras.layers.GRU(256, return_sequences=True, go_backwards=False),
-    tf.keras.layers.Dense(num_labels+1, activation=None)])
+    # conv1_bigru3: 1 Conv1D layers + 3 bidirectional GRU layers
+    def conv1_bigru3(self, num_labels=4, input_size=1000, strides=1):
+        return tf.keras.Sequential([tf.keras.layers.Conv1D(kernel_size=self.kernel_size, filters=self.filters, strides=strides, input_shape=(input_size,1), activation="relu", padding="same"),
+        tf.keras.layers.Bidirectional(tf.keras.layers.GRU(self.num_neurons, return_sequences=True)),
+        tf.keras.layers.Bidirectional(tf.keras.layers.GRU(self.num_neurons, return_sequences=True)),
+        tf.keras.layers.Bidirectional(tf.keras.layers.GRU(self.num_neurons, return_sequences=True)),
+        tf.keras.layers.Dense(num_labels+1, activation=None)])
+
+    # conv2_bigru3: 2 Conv1D layers + 3 Bidirectional GRU
+    def conv2_bigru3(self, num_labels=4, input_size=1000, strides=1):
+        return tf.keras.Sequential([
+        tf.keras.layers.Conv1D(kernel_size=self.kernel_size, filters=self.filters, strides=strides, input_shape=(input_size,1), activation="relu", padding="same"),
+        tf.keras.layers.Conv1D(kernel_size=self.kernel_size, filters=self.filters, strides=strides, activation="relu", padding="same"),
+        tf.keras.layers.Bidirectional(tf.keras.layers.GRU(self.num_neurons, return_sequences=True)),
+        tf.keras.layers.Bidirectional(tf.keras.layers.GRU(self.num_neurons, return_sequences=True)),
+        tf.keras.layers.Bidirectional(tf.keras.layers.GRU(self.num_neurons, return_sequences=True)),
+        tf.keras.layers.Dense(num_labels+1, activation=None)])
+
+    # conv1_gru5: 1 Conv1D layers + 5 alternating GRU layers
+    def conv1_gru5(self, num_labels=4, input_size=1000, strides=1):
+        return tf.keras.Sequential([
+        tf.keras.layers.Conv1D(kernel_size=self.kernel_size, filters=self.filters, strides=strides, input_shape=(input_size,1), activation="relu", padding="same"),
+        tf.keras.layers.GRU(self.num_neurons, return_sequences=True, go_backwards=False),
+        tf.keras.layers.GRU(self.num_neurons, return_sequences=True, go_backwards=True),
+        tf.keras.layers.GRU(self.num_neurons, return_sequences=True, go_backwards=False),
+        tf.keras.layers.GRU(self.num_neurons, return_sequences=True, go_backwards=True),
+        tf.keras.layers.GRU(self.num_neurons, return_sequences=True, go_backwards=False),
+        tf.keras.layers.Dense(num_labels+1, activation=None)])
+
+    def taiyaki_like(self, input_size=1000, num_labels=4):
+        return tf.keras.Sequential([
+        tf.keras.layers.Conv1D(kernel_size=19, filters=256, strides=2, input_shape=(input_size,1), activation="relu", padding="same"),
+        tf.keras.layers.GRU(256, return_sequences=True, go_backwards=False),
+        tf.keras.layers.GRU(256, return_sequences=True, go_backwards=True),
+        tf.keras.layers.GRU(256, return_sequences=True, go_backwards=False),
+        tf.keras.layers.GRU(256, return_sequences=True, go_backwards=True),
+        tf.keras.layers.GRU(256, return_sequences=True, go_backwards=False),
+        tf.keras.layers.Dense(num_labels+1, activation=None)])
 
 def ragged_from_list_of_lists(l):
     return tf.RaggedTensor.from_row_lengths(np.concatenate(l), np.array([len(i) for i in l]))
@@ -44,14 +73,10 @@ def validation_error(model, dataset):
         edit_distance.append(tf.reduce_mean(tf.edit_distance(hypothesis=tmp3, truth=y, normalize=True)).numpy())
     return(np.mean(edit_distance))
 
-def train_ctc_model(model, dataset, optimizer=tf.keras.optimizers.Adam(), checkpoint_dir="run", save_frequency=10, log_frequency=10, log_file=sys.stderr, ctc_merge_repeated=False, validation_size=0, early_stopping=True):
+def train_ctc_model(model, dataset, optimizer=tf.keras.optimizers.Adam(), out_dir="save", save_frequency=10, log_frequency=10, ctc_merge_repeated=False, validation_size=0, early_stopping=True):
     avg_loss = []
     checkpoint = 0
     t = 0
-
-    out_dir = checkpoint_dir+'_'+datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
 
     training_dataset = dataset.skip(validation_size)
     test_dataset = dataset.take(validation_size)
@@ -102,10 +127,26 @@ def train_ctc_model(model, dataset, optimizer=tf.keras.optimizers.Adam(), checkp
     return avg_loss
 
 def train(args):
-    log_file = sys.stderr
+
+    # print software message, should incorporate to other subroutines as well
+    coffee_emoji = u'\U00002615'
+    dna_emoji = u'\U0001F9EC'
+    print('{0:2}{1:3}{0:2} {2:^30} {0:2}{1:3}{0:2}'.format(coffee_emoji, dna_emoji,'PoreOver train (version 0.0)'), file=sys.stderr)
+
+    # directory for model checkpoints and logging
+    out_dir = args.name+'_'+datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+
+    log_file = open(out_dir+'/train.log','w')
     print('Command-line arguments:',file=log_file)
     for k,v in args.__dict__.items():
         print(k,'=',v, file=log_file)
+
+    # set random seed
+    if args.seed is not None:
+        tf.random.set_seed(args.seed)
+        np.random.seed(args.seed)
 
     # load npz training data
     training = np.load(args.data)
@@ -114,10 +155,13 @@ def train(args):
     dataset = tf.data.Dataset.zip((tf.data.Dataset.from_tensor_slices(signal), tf.data.Dataset.from_tensor_slices(labels)))
     dataset.shuffle(buffer_size=2000000)
 
-    if args.model == 'rnn':
-        model = rnn(num_neurons=args.num_neurons)
-    elif args.model == 'cnn_rnn':
-        model = cnn_rnn(num_neurons=args.num_neurons, kernel_size=args.kernel_size)
+    #if args.model == 'rnn':
+    #    model = rnn(num_neurons=args.num_neurons)
+    #elif args.model == 'cnn_rnn':
+    #    model = cnn_rnn(num_neurons=args.num_neurons, kernel_size=args.kernel_size)
+
+    # get the neural network architecture
+    model = getattr(build_model(args), args.model)()
 
     # restart training from weights in checkpoint
     if args.restart:
@@ -128,14 +172,15 @@ def train(args):
         model.load_weights(model_file)
 
     validation_size = int(int(len(list(dataset))/args.batch_size)*args.holdout)
-    print("Setting aside {}% of data for validation: {} batches".format(args.holdout*100, validation_size), file=sys.stderr)
-    train_ctc_model(model, dataset.shuffle(buffer_size=5000).repeat(args.epochs).batch(args.batch_size, drop_remainder=True), checkpoint_dir=args.name, save_frequency=args.save_every, log_frequency=args.loss_every, log_file=log_file, validation_size=validation_size)
+    print("Setting aside {}% of data for validation: {} batches".format(args.holdout*100, validation_size), file=log_file)
+    log_file.close()
+    train_ctc_model(model, dataset.shuffle(buffer_size=5000).repeat(args.epochs).batch(args.batch_size, drop_remainder=True), out_dir=out_dir, save_frequency=args.save_every, log_frequency=args.loss_every, validation_size=validation_size)
 
 def call(args):
 
     if args.model is None:
         # if no model architecture is specified, use default architecture
-        model = cnn_rnn(kernel_size=9)
+        model = build_model().conv1_bigru3()
     else:
         # otherwise, load architecture from JSON file
         # for some reason, this is much slower than specifying model explicitly

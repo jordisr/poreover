@@ -26,11 +26,14 @@ parser_train.add_argument('--save_every', type=int, default=1000, help='Frequenc
 parser_train.add_argument('--holdout', default=0.05, type=float, help='Fraction of training data to hold out for calculating test error')
 parser_train.add_argument('--loss_every', type=int, default=100, help='Frequency with which to output minibatch loss')
 parser_train.add_argument('--ctc_merge_repeated', action='store_true', default=False, help='boolean option for tf.compat.v1.nn.ctc_loss')
-parser_train.add_argument('--model', default='rnn', choices=['rnn', 'cnn_rnn'], help='Neural network architecture to use')
+parser_train.add_argument('--model', default='conv1_bigru3', choices=['bigru3', 'conv1_bigru3', 'conv2_bigru3', 'conv1_gru5'], help='Neural network architecture')
 parser_train.add_argument('--restart', default=False, help='Trained model to load (if directory, loads latest from checkpoint file)')
 parser_train.add_argument('--batch_size', default=64, type=int, help='Minibatch size for training')
+parser_train.add_argument('--learning_rate', type=float, default=0.001, help='Learning rate for Adam optimizer')
+parser_train.add_argument('--seed', type=int, default=None, help='Explicitly set random seed')
 parser_train.add_argument('--num_neurons', type=int, default=128, help='Number of neurons in RNN layers')
 parser_train.add_argument('--kernel_size', type=int, default=9, help='Kernel size in Conv1D layer')
+parser_train.add_argument('--filters', type=int, default=256, help='Number of filters in Conv1D layer')
 
 # Call
 parser_call = subparsers.add_parser('call', help='Base call one or multiple reads using neural network')
