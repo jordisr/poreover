@@ -1,10 +1,11 @@
 import numpy as np
 import h5py
 import sys
-import decoding
-import network
 import os
 from scipy.special import logsumexp
+
+import poreover.decoding as decoding
+import poreover.network as network
 
 def fasta_format(name, seq, width=60):
     fasta = '>'+name+'\n'

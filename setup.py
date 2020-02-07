@@ -1,4 +1,5 @@
 from distutils.core import setup
+import setuptools
 from Cython.Build import cythonize
 from distutils.extension import Extension
 import numpy as np
@@ -12,11 +13,15 @@ else:
     extra_compile_args = ['-std=c++11']
 
 ext_modules = [
-Extension("decoding.decoding_cpp", sources=["decoding/decoding_cpp.pyx"], include_dirs=[np.get_include()], language='c++',extra_link_args=extra_link_args, extra_compile_args=extra_compile_args),
-Extension("decoding.decoding_cy", sources=["decoding/decoding_cy.pyx"], include_dirs=[np.get_include()], language='c++',extra_link_args=extra_link_args, extra_compile_args=extra_compile_args),
-Extension("align.align", sources=["align/align.pyx"], include_dirs=[np.get_include()])
+Extension("poreover.decoding.decoding_cpp", sources=["poreover/decoding/decoding_cpp.pyx"], include_dirs=[np.get_include()], language='c++',extra_link_args=extra_link_args, extra_compile_args=extra_compile_args),
+Extension("poreover.decoding.decoding_cy", sources=["poreover/decoding/decoding_cy.pyx"], include_dirs=[np.get_include()], language='c++',extra_link_args=extra_link_args, extra_compile_args=extra_compile_args),
+Extension("poreover.align.align", sources=["poreover/align/align.pyx"], include_dirs=[np.get_include()])
 ]
 
 setup(
-    ext_modules = cythonize(ext_modules, annotate=True)
+    name="poreover",
+    version="0.0",
+    packages=setuptools.find_namespace_packages(),
+    ext_modules = cythonize(ext_modules, annotate=True),
+    entry_points={'console_scripts':['poreover = poreover.__main__:main']}
 )

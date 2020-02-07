@@ -6,9 +6,9 @@ import argparse, sys, glob, os, logging, progressbar
 script_dir = os.path.dirname(__file__)
 sys.path.insert(1, script_dir+'/network')
 
-from network.network import call, train
-from decoding.decode import decode
-from decoding.pair_decode import pair_decode
+from poreover.network.network import call, train
+from poreover.decoding.decode import decode
+from poreover.decoding.pair_decode import pair_decode
 
 # Set up argument parser
 parser = argparse.ArgumentParser(description='PoreOver: Consensus Basecalling for Nanopore Sequencing')

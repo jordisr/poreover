@@ -34,8 +34,8 @@ import copy
 import progressbar
 from itertools import starmap
 
-import decoding
-import align
+import poreover.decoding as decoding
+import poreover.align as align
 
 def fasta_format(name, seq, width=60):
     fasta = '>'+name+'\n'
