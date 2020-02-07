@@ -5,8 +5,7 @@ import sys
 import numpy as np
 from collections import OrderedDict
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-import decoding
+import poreover.decoding as decoding
 
 class profile:
     '''

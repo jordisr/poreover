@@ -17,13 +17,13 @@ To install, clone the repository and compile the Cython/C++ extensions:
 ~~~
 git clone https://github.com/jordisr/poreover
 cd poreover
-make
-cd ..
+pip install -r requirements.txt
+pip install -e .
 ~~~
 
 Now the software can be run with:
 
-`python poreover --help`
+`poreover --help`
 
 ## Usage examples
 
@@ -31,17 +31,17 @@ Now the software can be run with:
 
 We can run a few iterations of gradient descent to train a model on a small dataset.
 
-`python poreover train --data poreover/examples/training/toy --training_steps 100`
+`poreover train --data poreover/examples/training/toy --training_steps 100`
 
 Once there is a model to load, we can make a basecall on a sample read (of course, after only a little training on a toy dataset we would not expect it to be very accurate).
 
-`python poreover call --fast5 poreover/examples/read.fast5 --model run-0 --out test.fasta`
+`poreover call --fast5 poreover/examples/read.fast5 --model run-0 --out test.fasta`
 
 ### Basecalling a read with a trained model
 
 We can compare this to the output of a model that has seen more training on a larger dataset. In the `models/` directory there are models for pore versions R9 (trained on E.coli) and R9.5 (trained on human).
 
-`python poreover call --fast5 poreover/examples/read.fast5 --model poreover/models/r9.5 --out read.fasta`
+`poreover call --fast5 poreover/examples/read.fast5 --model poreover/models/r9.5 --out read.fasta`
 
 ### Decoding a flip-flop trace
 
@@ -49,9 +49,9 @@ The newer versions of the ONT basecallers implement a CTC-style "flip-flop" mode
 
 PoreOver can read and decode these probabilities, yielding a basecalled sequence.
 
-`python poreover decode poreover/examples/flappie_trace.hdf5`
+`poreover decode poreover/examples/flappie_trace.hdf5`
 
-`python poreover decode poreover/examples/guppy_flipflop.fast5`
+`poreover decode poreover/examples/guppy_flipflop.fast5`
 
 ### Pair decoding of 1D<sup>2</sup> reads
 
