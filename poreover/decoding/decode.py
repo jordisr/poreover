@@ -1,10 +1,11 @@
 import numpy as np
 import h5py
 import sys
-import decoding
-import network
 import os
 from scipy.special import logsumexp
+
+import poreover.decoding as decoding
+import poreover.network as network
 
 def fasta_format(name, seq, width=60):
     fasta = '>'+name+'\n'
@@ -30,7 +31,7 @@ def logit_to_log_likelihood(logits):
 def load_logits(file_path, flatten=False):
     read_reshape = np.load(file_path)
     if np.isclose(np.sum(read_reshape[0]), 1):
-        print('WARNING: Logits appear to be probabilities. Taking log.',file=sys.stderr)
+        #print('WARNING: Logits appear to be probabilities. Taking log.',file=sys.stderr)
         read_reshape = np.log(read_reshape)
     else:
         read_reshape = logit_to_log_likelihood(read_reshape)

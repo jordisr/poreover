@@ -11,61 +11,9 @@
 #include <cmath>
 
 #include "Log.h"
+#include "Beam.h"
+#include "BeamSearch2.h"
 #include "PrefixTree.h"
-
-template <class T>
-bool node_greater(T n1, T n2) {
-  return (n1->last_probability() > n2->last_probability());
-}
-
-// basic length normalization
-template <class T>
-bool node_greater_normalized(T n1, T n2) {
-  return (n1->last_probability()-(n1->depth+1) > n2->last_probability()-(n2->depth+1));
-}
-
-template <class T>
-class Beam {
-  public:
-    int width;
-    std::vector<T> elements;
-
-    Beam(int w): width{w} {}
-
-    void push(T n) {
-      elements.push_back(n);
-    }
-
-    void push(std::vector<T> n_vector) {
-      for (int i=0; i < n_vector.size(); i++) {
-        elements.push_back(n_vector[i]);
-      }
-    }
-
-    int size() {
-      return elements.size();
-    }
-
-    void prune() {
-        // sort elements, eliminate duplicates, then prune beam to top W
-        std::sort(elements.begin(), elements.end()); // sorting twice to remove duplicate elements
-        auto last = std::unique(elements.begin(), elements.end());
-        elements.erase(last, elements.end());
-        //std::partial_sort(elements.begin(), elements.begin()+width, elements.end(), node_greater);
-        std::sort(elements.begin(), elements.end(), node_greater<T>);
-        if (elements.size() > width) {
-          int element_size = elements.size();
-          for (int i=width; i < element_size; i++) {
-            elements.pop_back();
-          }
-      }
-    }
-
-    T top() {
-      return elements[0];
-    }
-
-};
 
 template <class TTree, class TBeam>
 std::string beam_search_(double **y, int t_max, std::string alphabet, int beam_width) {
@@ -174,6 +122,8 @@ std::string beam_search_2d_by_row(double **y1, double **y2, int **envelope_range
         beam_.push(n);
     }
 
+    //std::cout << "u" << "\t" << "v_start" << "\t" << "v_end" << "\t" << "top_node" << "\t" << "max_probability" << "\t" << "max_t" << "\t" << "length"<< "\n";
+
     for (int u=0; u<U; ++u) {
         // std::cout << "Starting row " << u << "/" << U << "\n";
         int row_start = envelope_ranges[u][0];
@@ -197,6 +147,9 @@ std::string beam_search_2d_by_row(double **y1, double **y2, int **envelope_range
 
             for (int b=0; b < beam_.size(); b++) {
                 auto beam_node = beam_.elements[b];
+                if (v == row_start) {
+                  beam_node->reset_max();
+                }
                 tree.update_prob(beam_node, 1, v);
             }
 
@@ -205,15 +158,13 @@ std::string beam_search_2d_by_row(double **y1, double **y2, int **envelope_range
         // take top beam_width nodes
         beam_.prune();
 
-}
+        // just output statistics from top node
+        auto top_node_ = beam_.top();
+        std::string top_node_label = tree.get_label(top_node_);
+        //std::cout << "u=" << u << ", v=(" << row_start << "," << row_end << ")" << "----" << top_node_ << " : " << top_node_->max_probability() << "\tmax[1] at v=" << top_node_->max_t[1] << "\n";
+        //std::cout << u << "\t" << row_start << "\t" << row_end << "\t" << top_node_ << "\t" << top_node_->max_probability() << "\t" << top_node_->max_t[1] << "\t" << top_node_->depth << "\n";
 
-/*
-// write out final beam
-for (int b=0; b < beam_.size(); b++) {
-std::cout << "----" << tree.get_label(beam_.elements[b]) << " : "
-<< beam_.elements[b]->joint_probability(U-1,V-1) << "\n";
 }
-*/
 
 auto top_node = beam_.top();
 return tree.get_label(top_node);
@@ -227,7 +178,6 @@ std::string beam_search_2d_by_row(double **y1, double **y2, int U, int V, std::s
     TTree tree(y1, U, y2, V, alphabet);
     TBeam beam_(beam_width);
 
-    // first iteration, check bounds for (0,0)?
     auto children = tree.expand(tree.root);
     for (int i=0; i<children.size(); i++) {
         auto n = children[i];
@@ -236,7 +186,9 @@ std::string beam_search_2d_by_row(double **y1, double **y2, int U, int V, std::s
         beam_.push(n);
     }
 
-    for (int u=0; u<U; ++u) {
+    //std::cout << "u" << "\t" << "v_start" << "\t" << "v_end" << "\t" << "top_node" << "\t" << "max_probability" << "\t" << "max_t" << "\t" << "length"<< "\n";
+
+    for (int u=1; u<U; ++u) {
         //std::cout << "Starting row " << u << "/" << U << "\n";
         for (int b=0; b < beam_width; ++b) {
             auto beam_node = beam_.elements[b];
@@ -254,13 +206,39 @@ std::string beam_search_2d_by_row(double **y1, double **y2, int U, int V, std::s
         for (int v=0; v<V; ++v) {
             for (int b=0; b < beam_.size(); b++) {
                 auto beam_node = beam_.elements[b];
+                if (v == 0) {
+                  beam_node->reset_max();
+                }
                 tree.update_prob(beam_node, 1, v);
             }
 
         }
 
+        /*
+        std::cout << "Beam before pruning\n";
+        for (int b=0; b < beam_.size(); b++) {
+            std::cout << "u=" << u << ", v=(0," << V << ")" << "----" << tree.get_label(beam_.elements[b]) << " : " << beam_.elements[b]->max_probability() << "\tmax[1] at v=" << beam_.elements[b]->max_t[1] << "\n";
+            std::cout << beam_.elements[b]->probability_at(0,u) << ":" << beam_.elements[b]->probability_at(1,0) << " " << beam_.elements[b]->probability_at(1,1) << " " << beam_.elements[b]->probability_at(1,2)<< "\n";
+        }
+        */
+
         // take top beam_width nodes
         beam_.prune();
+
+        // write out beam
+        /*
+        std::cout << "Beam after pruning\n";
+        for (int b=0; b < beam_.size(); b++) {
+            std::cout << "u=" << u << ", v=(0," << V << ")" << "----" << tree.get_label(beam_.elements[b]) << " : " << beam_.elements[b]->max_probability() << "\tmax[1] at v=" << beam_.elements[b]->max_t[1] << "\n";
+        }
+        */
+
+        // just output statistics from top node
+        //auto top_node_ = beam_.top();
+        //std::string top_node_label = tree.get_label(top_node_);
+        //std::cout << u << "\t" << 0 << "\t" << V << "\t" << top_node_ << "\t" << top_node_->max_probability() << "\t" << top_node_->max_t[1] << "\t" << top_node_->depth << "\n";
+        //std::cout << "u=" << u << ", v=(0," << V << ")" << "----" << top_node_ << " : " << top_node_->max_probability() << "\tmax[1] at v=" << top_node_->max_t[1] << "\n";
+
 }
 
 /*
@@ -279,33 +257,53 @@ return tree.get_label(top_node);
 // beam search on single read
 std::string beam_search(double **y, int t_max, std::string alphabet, int beam_width, std::string model="ctc") {
     if (model == "ctc") {
-        return beam_search_<PoreOverPrefixTree, Beam<PoreOverNode*>>(y, t_max, alphabet, beam_width);
+        return beam_search_<PoreOverPrefixTree, Beam<PoreOverNode*, node_greater<PoreOverNode*>>>(y, t_max, alphabet, beam_width);
     } else if (model == "ctc_merge_repeats") {
-        return beam_search_<BonitoPrefixTree, Beam<BonitoNode*>>(y, t_max, alphabet, beam_width);
+        return beam_search_<BonitoPrefixTree, Beam<BonitoNode*, node_greater<BonitoNode*>>>(y, t_max, alphabet, beam_width);
     } else if (model == "ctc_flipflop") {
-        return beam_search_<FlipFlopPrefixTree, Beam<FlipFlopNode*>>(y, t_max, alphabet, beam_width);
+        return beam_search_<FlipFlopPrefixTree, Beam<FlipFlopNode*, node_greater<FlipFlopNode*>>>(y, t_max, alphabet, beam_width);
     }
 }
 
 // pair beam search with envelope
-std::string beam_search(double **y1, double **y2, int U, int V, std::string alphabet, int **envelope_ranges, int beam_width, std::string model="ctc") {
-    if (model == "ctc") {
-        return beam_search_2d_by_row<PoreOverPrefixTree2D, Beam<PoreOverNode2D*>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
-    } else if (model == "ctc_merge_repeats") {
-        return beam_search_2d_by_row<BonitoPrefixTree2D, Beam<BonitoNode2D*>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
-    } else if (model == "ctc_flipflop") {
-        return beam_search_2d_by_row<FlipFlopPrefixTree2D, Beam<FlipFlopNode2D*>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
+std::string beam_search(double **y1, double **y2, int U, int V, std::string alphabet, int **envelope_ranges, int beam_width, std::string model="ctc", std::string method="row") {
+    if (method == "row") {
+        if (model == "ctc") {
+            return beam_search_2d_by_row<PoreOverPrefixTree2D, Beam<PoreOverNode2D*, node_greater_max<PoreOverNode2D*>>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
+        } else if (model == "ctc_merge_repeats") {
+            return beam_search_2d_by_row<BonitoPrefixTree2D, Beam<BonitoNode2D*, node_greater_max<BonitoNode2D*>>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
+        } else if (model == "ctc_flipflop") {
+            return beam_search_2d_by_row<FlipFlopPrefixTree2D, Beam<FlipFlopNode2D*, node_greater_max<FlipFlopNode2D*>>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
+        }
+    } else {
+        if (model == "ctc") {
+            return beam_search_2d_grid<PoreOverPrefixTree2D, Beam<PoreOverNode2D*, node_greater<PoreOverNode2D*>>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
+        } else if (model == "ctc_merge_repeats") {
+            return beam_search_2d_grid<BonitoPrefixTree2D, Beam<BonitoNode2D*, node_greater<BonitoNode2D*>>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
+        } else if (model == "ctc_flipflop") {
+            return beam_search_2d_grid<FlipFlopPrefixTree2D, Beam<FlipFlopNode2D*, node_greater<FlipFlopNode2D*>>>(y1, y2, envelope_ranges, U, V, alphabet, beam_width);
+        }
     }
 }
 
 // pair beam search without envelope
-std::string beam_search(double **y1, double **y2, int U, int V, std::string alphabet, int beam_width, std::string model="ctc") {
-    if (model == "ctc") {
-        return beam_search_2d_by_row<PoreOverPrefixTree2D, Beam<PoreOverNode2D*>>(y1, y2, U, V, alphabet, beam_width);
-    } else if (model == "ctc_merge_repeats") {
-        return beam_search_2d_by_row<BonitoPrefixTree2D, Beam<BonitoNode2D*>>(y1, y2, U, V, alphabet, beam_width);
-    } else if (model == "ctc_flipflop") {
-        return beam_search_2d_by_row<FlipFlopPrefixTree2D, Beam<FlipFlopNode2D*>>(y1, y2, U, V, alphabet, beam_width);
+std::string beam_search(double **y1, double **y2, int U, int V, std::string alphabet, int beam_width, std::string model="ctc", std::string method="row") {
+    if (method == "row") {
+        if (model == "ctc") {
+            return beam_search_2d_by_row<PoreOverPrefixTree2D, Beam<PoreOverNode2D*, node_greater_max<PoreOverNode2D*>>>(y1, y2, U, V, alphabet, beam_width);
+        } else if (model == "ctc_merge_repeats") {
+            return beam_search_2d_by_row<BonitoPrefixTree2D, Beam<BonitoNode2D*, node_greater_max<BonitoNode2D*>>>(y1, y2, U, V, alphabet, beam_width);
+        } else if (model == "ctc_flipflop") {
+            return beam_search_2d_by_row<FlipFlopPrefixTree2D, Beam<FlipFlopNode2D*, node_greater_max<FlipFlopNode2D*>>>(y1, y2, U, V, alphabet, beam_width);
+        }
+    } else {
+        if (model == "ctc") {
+            return beam_search_2d_grid<PoreOverPrefixTree2D, Beam<PoreOverNode2D*, node_greater<PoreOverNode2D*>>>(y1, y2, U, V, alphabet, beam_width);
+        } else if (model == "ctc_merge_repeats") {
+            return beam_search_2d_grid<BonitoPrefixTree2D, Beam<BonitoNode2D*, node_greater<BonitoNode2D*>>>(y1, y2, U, V, alphabet, beam_width);
+        } else if (model == "ctc_flipflop") {
+            return beam_search_2d_grid<FlipFlopPrefixTree2D, Beam<FlipFlopNode2D*, node_greater<FlipFlopNode2D*>>>(y1, y2, U, V, alphabet, beam_width);
+        }
     }
 }
 

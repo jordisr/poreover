@@ -2,7 +2,7 @@ import pickle, sys, time
 import numpy as np
 from scipy.special import logsumexp
 
-import decoding
+import poreover.decoding as decoding
 
 def add_block(b,envelope):
     '''

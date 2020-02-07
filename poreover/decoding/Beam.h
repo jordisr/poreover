@@ -1,34 +1,62 @@
+#ifndef BEAM_HPP
+#define BEAM_HPP
+
 #include <set>
 #include <vector>
 #include <unordered_set>
 #include <iterator>
+#include <cmath>
 
 template <class T>
-class compare_mod {
-public:
-    int n;
-
-    compare_mod(int n_) : n{n_} {}
-    compare_mod() : n{1} {}
-
-    bool operator()(T x, T y) {
-      return ((x % n) > (y % n));
-    }
-};
-
-template <class T>
-class node_greater2 {
+class node_greater {
 public:
   bool operator()(T x, T y) {
     auto lhs = x->last_probability();
     auto rhs = y->last_probability();
-    //std::cout << lhs << " < " << rhs << " = " << (lhs < rhs) << "\n";
     return (lhs > rhs);
   }
 };
 
 template <class T>
-class Beam1 {
+class node_greater_max {
+public:
+  bool operator()(T x, T y) {
+    auto lhs = x->max_probability();
+    auto rhs = y->max_probability();
+    return (lhs > rhs);
+  }
+};
+
+template <class T>
+class node_greater_max_lengthnorm {
+// length normalized
+public:
+  bool operator()(T x, T y) {
+    float length_norm_x = std::pow(x->depth, 0.2);
+    float length_norm_y = std::pow(y->depth, 0.2);
+    auto lhs = x->max_probability()/length_norm_x;
+    auto rhs = y->max_probability()/length_norm_y;
+    return (lhs > rhs);
+  }
+};
+
+template <class T>
+bool node_greater_fun(T x, T y) {
+    auto lhs = x->last_probability();
+    auto rhs = y->last_probability();
+    return (lhs > rhs);
+}
+
+template <class T>
+bool node_greater_fun_max(T x, T y) {
+    auto lhs = x->max_probability();
+    auto rhs = y->max_probability();
+    return (lhs > rhs);
+}
+
+// T is node type (e.g. PoreOverNode2D), F is comparator functor for sorting beam (e.g. node_greater)
+template <class T, class F>
+class Beam {
     /*
     Previous Beam implementation using std::vector and explicit sort calls
     */
@@ -36,7 +64,7 @@ class Beam1 {
     int width;
     std::vector<T> elements;
 
-    Beam1(int w): width{w} {}
+    Beam(int w): width{w} {}
 
     void push(T n) {
       elements.push_back(n);
@@ -54,28 +82,19 @@ class Beam1 {
 
     void prune() {
         // sort elements, eliminate duplicates, then prune beam to top W
-        std::sort(elements.begin(), elements.end()); // sorting twice to remove duplicate elements
+        // first sort pointers to eliminate duplicates with std::unique
+        std::sort(elements.begin(), elements.end());
         auto last = std::unique(elements.begin(), elements.end());
-        std::cout << "Removing " << elements.end() - last << " duplicates out of " << elements.size() << "\n";
+        //std::cout << "Removing " << elements.end() - last << " duplicates out of " << elements.size() << "\n";
         elements.erase(last, elements.end());
-        /*
-        std::unordered_set<T> s;
-        for (auto i : elements)
-            s.insert(i);
-        elements.assign( s.begin(), s.end() );
-        */
 
-        //std::sort(elements.begin(), elements.end(), node_greater<T>);
+        // next sort nodes using comparator and take top beam width ones
         if (elements.size() > width) {
-          std::partial_sort(elements.begin(), elements.begin()+width, elements.end(), node_greater<T>);
+          std::partial_sort(elements.begin(), elements.begin()+width, elements.end(), F());
           elements.erase(elements.begin()+width, elements.end());
-          /*
-          int element_size = elements.size();
-          for (int i=width; i < element_size; i++) {
-            elements.pop_back();
-          }
-          */
-      }
+        } else {
+          std::sort(elements.begin(), elements.end(), F());
+        }
     }
 
     T top() {
@@ -84,14 +103,14 @@ class Beam1 {
 
 };
 
-template <class T>
+template <class T, class F>
 class Beam2 {
     /*
     Beam implementation using std::set as backend
     */
   public:
     int width;
-    std::set<T, node_greater2<T>> elements;
+    std::set<T, F> elements;
     //std::set<T> elements;
 
     Beam2(int w): width{w} {}
@@ -168,3 +187,5 @@ class Beam3 {
     }
 
 };
+
+#endif

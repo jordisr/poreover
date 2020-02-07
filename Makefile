@@ -1,4 +1,4 @@
-decoding/decoding_cy.c: decoding/decoding_cy.pyx
+poreover/decoding/decoding_cy.c: decoding/decoding_cy.pyx
 	python setup.py build_ext --inplace
 
 clean:

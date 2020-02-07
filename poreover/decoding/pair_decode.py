@@ -25,15 +25,17 @@ The method of segentation is determined by the --method flag.
     the --window parameter.
 '''
 import numpy as np
-from multiprocessing import Pool
+from multiprocessing import Pool, get_logger
 import argparse, random, sys, glob, os, re
 from scipy.special import logsumexp
 #from Bio import pairwise2
+import logging
 import copy
+import progressbar
 from itertools import starmap
 
-import decoding
-import align
+import poreover.decoding as decoding
+import poreover.align as align
 
 def fasta_format(name, seq, width=60):
     fasta = '>'+name+'\n'
@@ -138,7 +140,7 @@ def get_sequence_mapping(path, kind):
 class parallel_decoder:
     def __init__(self, args, kind):
         self.args = args
-        self.kind = {'poreover':'ctc','flipflop':'ctc_flipflop','bonito':'ctc_merge_repeats'}[self.args.basecaller]
+        self.kind = {'poreover':'ctc', 'guppy':'ctc_flipflop', 'flappie':'ctc_flipflop', 'bonito':'ctc_merge_repeats'}[self.args.basecaller]
 
     def _beam_search_2d(self, logits1, logits2, b, b_tot, u1, u2, v1, v2):
         size = (u2-u1+1)*(v2-v1+1)
@@ -171,7 +173,7 @@ class parallel_decoder:
         try:
             forward_indices = viterbi_path(forward)
         except:
-            print('WARNING! Best label is blank! y.shape:{} forward.shape:{} prefix:{}'.format(y.shape, forward.shape, prefix))
+            logger.warning('WARNING! Best label is blank! y.shape:{} forward.shape:{} prefix:{}'.format(y.shape, forward.shape, prefix))
             return('',[]) # in case of gap being most probable
 
         assert(len(prefix) == len(forward_indices))
@@ -191,13 +193,13 @@ class parallel_decoder:
         elif (v2-v1) < 1:
             return((u1, decoding.prefix_search_log_cy(logits1[u1:u2])[0]))
         elif size*8 > MEM_LIMIT:
-            print('ERROR: Box too large to basecall {}-{}:{}-{} (size: {} elements)'.format(u1,u2,v1,v2,size))
+            logger.error('ERROR: Box too large to basecall {}-{}:{}-{} (size: {} elements)'.format(u1,u2,v1,v2,size))
             return(u1,'')
         else:
             try:
                 return((u1, decoding.pair_prefix_search_log_cy(logits1[u1:u2],logits2[v1:v2])[0]))
             except:
-                print('WARNING: Error while basecalling box {}-{}:{}-{}'.format(u1,u2,v1,v2))
+                logger.warning('WARNING: Error while basecalling box {}-{}:{}-{}'.format(u1,u2,v1,v2))
                 return(u1,'')
 
     def _prefix_search_2d_envelope(self, y1_subset, y2_subset, subset_envelope):
@@ -221,6 +223,23 @@ class parallel_decoder:
                 return(self._prefix_search_2d)
 
 def pair_decode(args):
+
+    # set up logger - should make it global
+    progressbar.streams.wrap_stderr()
+    #logging.basicConfig()
+    logger = get_logger()
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter('%(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+    # print software message, should incorporate to other subroutines as well
+    coffee_emoji = u'\U00002615'
+    dna_emoji = u'\U0001F9EC'
+    logger.info('{0:2}{1:3}{0:2} {2:^30} {0:2}{1:3}{0:2}'.format(coffee_emoji, dna_emoji,'PoreOver pair-decode (version 0.0)'))
+    #logger.info(('{0:2}{1:3}'*9+'{0:2}').format(coffee_emoji, dna_emoji))
+
     in_path = getattr(args, 'in')
     if len(in_path) == 1:
         args_list = []
@@ -228,24 +247,57 @@ def pair_decode(args):
             for n, line in enumerate(read_pairs):
                 args_copy = copy.deepcopy(args)
                 setattr(args_copy, 'in', line.split())
-                args_copy.out = "pair{}".format(n)
+                #args_copy.out = "pair{}".format(n)
                 args_list.append(args_copy)
 
+        # set up progressbar and manage output
+        class callback_helper:
+            def __init__(self):
+                self.counter = 0
+                self.pbar = progressbar.ProgressBar(max_value=len(args_list))
+                self.out_1d_f = open(args.out+'.1d.fasta','w')
+                self.out_2d_f = open(args.out+'.2d.fasta','w')
+                self.log_f = open(args.out+'.log','w',1)
+                print('# PoreOver pair-decode', file=self.log_f)
+                print('# '+str(vars(args)), file=self.log_f)
+                print('# '+'\t'.join(map(str,["read1", "read2", "length1", "length2", "sequence_identity"])), file=self.log_f)
+            def callback(self, x):
+                self.counter += 1
+                self.pbar.update(self.counter)
+                if len(x) == 3:
+                    print(x[0], file=self.out_1d_f)
+                    print(x[1], file=self.out_2d_f)
+                    print('\t'.join(map(str,[x[2][k] for k in ["read1", "read2", "length1", "length2", "sequence_identity"]])), file=self.log_f)
+        callback_helper_ = callback_helper()
+
+        bullet_point = u'\u25B8'+" "
+        logger.info(bullet_point + "found {} read pairs in {}".format(len(args_list), in_path[0]))
+        logger.info(bullet_point + "writing sequences to {0}.1d.fasta and {0}.2d.fasta".format(args.out))
+        logger.info(bullet_point + "pair alignment statistics saved to {}.log".format(args.out))
+        logger.info(bullet_point + "starting {} decoding processes...".format(args.threads))
+
         with Pool(processes=args.threads) as pool:
-            basecalls = pool.map(pair_decode_helper, args_list)
+            #basecalls = pool.map(pair_decode_helper, args_list) #works but no logging
+            for i, arg in enumerate(args_list):
+                pool.apply_async(pair_decode_helper, (args_list[i],), callback=callback_helper_.callback)
+            pool.close()
+            pool.join()
+
     else:
-        pair_decode_helper(args)
+        seqs_1d, seq_2d = pair_decode_helper(args)
+        with open(args.out+'.fasta', 'w') as out_fasta:
+            print(seq_2d, file=out_fasta)
 
 def pair_decode_helper(args):
-    print(args)
+    #logger = getattr(args, 'logger') # should set it globally but just testing for now
+    logger = get_logger() # get multiprocessing logger
     in_path = getattr(args, 'in')
     if len(in_path) != 2:
-        raise "Exactly two reads are required"
+        logger.error("ERROR: Exactly two reads are required")
 
-    print('Read1:{} Read2:{}'.format(in_path[0], in_path[1]),file=sys.stderr)
-
-    model1 = decoding.decode.model_from_trace(in_path[0], args.basecaller)
-    model2 = decoding.decode.model_from_trace(in_path[1], args.basecaller)
+    logger.debug('Read1:{} Read2:{}'.format(in_path[0], in_path[1]))
+    model1 = decoding.decode.model_from_trace(os.path.join(args.dir, in_path[0]), args.basecaller)
+    model2 = decoding.decode.model_from_trace(os.path.join(args.dir, in_path[1]), args.basecaller)
     if args.reverse_complement:
         model2.reverse_complement()
 
@@ -253,6 +305,7 @@ def pair_decode_helper(args):
 
     # get appropriate helper function for multiprocessing
     decoding_fn = parallel_decoder(args, model1.kind).get_function()
+    pair_decode_summary = dict()
 
     if args.method == 'split':
         # calculate ranges on which to split read
@@ -265,7 +318,7 @@ def pair_decode_helper(args):
             box_ranges.append((u-u_step,u,int(V/U*(u-u_step)),int(V/U*u)))
         box_ranges.append((box_ranges[-1][1],U,box_ranges[-1][3],V)) # add in last box with uneven
 
-        print('\t Starting consensus basecalling...',file=sys.stderr)
+        logger.debug('\t Starting consensus basecalling...')
         starmap_input = []
         for i, b in enumerate(box_ranges):
             starmap_input.append((model1, model2, i,len(box_ranges)-1,b[0],b[1],b[2],b[3]))
@@ -277,7 +330,7 @@ def pair_decode_helper(args):
         joined_basecalls = ''.join([b[1] for b in basecalls])
 
     else:
-        print('\t Performing 1D basecalling...',file=sys.stderr)
+        logger.debug('\t Performing 1D basecalling...')
 
         if args.single == 'viterbi':
             basecall1, viterbi_path1 = model1.viterbi_decode(return_path=True)
@@ -292,25 +345,28 @@ def pair_decode_helper(args):
             viterbi_path2 = decoding.decoding_cpp.cpp_viterbi_acceptor(model2.log_prob, basecall2, band_size=1000)
 
         sequence_to_signal1, _ = get_sequence_mapping(viterbi_path1, model1.kind)
-        print(len(sequence_to_signal1), len(basecall1))
         assert(len(sequence_to_signal1) == len(basecall1))
 
         sequence_to_signal2, _ = get_sequence_mapping(viterbi_path2, model2.kind)
         assert(len(sequence_to_signal2) == len(basecall2))
 
-        if not getattr(args, 'unittest', False):
-            with open(args.out+'.1d.fasta','a') as f:
-                print(fasta_format(in_path[0], basecall1),file=f)
-                print(fasta_format(in_path[1], basecall2),file=f)
+        #if not getattr(args, 'unittest', False):
+        #    with open(args.out+'.1d.fasta','a') as f:
+        #        print(fasta_format(in_path[0], basecall1),file=f)
+        #        print(fasta_format(in_path[1], basecall2),file=f)
 
-        print('\t Aligning basecalled sequences (Read1 is {} bp and Read2 is {} bp)...'.format(len(basecall1),len(basecall2)),file=sys.stderr)
+        logger.debug('\t Aligning basecalled sequences (Read1 is {} bp and Read2 is {} bp)...'.format(len(basecall1),len(basecall2)))
         #alignment = pairwise2.align.globalms(, , 2, -1, -.5, -.1)
         alignment = align.global_pair(basecall1, basecall2)
         alignment = np.array([list(s) for s in alignment[:2]])
         sequence_identity = np.sum(alignment[0] == alignment[1]) / len(alignment[0])
-        print('\t Read sequence identity: {}'.format(sequence_identity), file=sys.stderr)
+        logger.debug('\t Read sequence identity: {}'.format(sequence_identity))
+
+        pair_decode_summary = {'read1':in_path[0], 'read2':in_path[1], 'length1':len(basecall1), 'length2':len(basecall2), 'sequence_identity':sequence_identity}
+
         if sequence_identity < 0.5:
-            sys.exit("Pairwise sequence identity between reads is below 50%. Did you mean to take the --reverse-complement of one of the reads?")
+            logger.error("ERROR: Pairwise sequence identity between reads is below 50%. Did you mean to take the --reverse-complement of one of the reads?")
+            return ()
 
         # get alignment_to_sequence mapping
         alignment_to_sequence = np.zeros(shape=alignment.shape,dtype=int)
@@ -377,7 +433,7 @@ def pair_decode_helper(args):
                 'anchor_ranges':anchor_ranges
                 },pfile)
 
-        print('\t Starting consensus basecalling...',file=sys.stderr)
+        logger.debug('\t Starting consensus basecalling...')
         starmap_input = []
         for i, b in enumerate(basecall_boxes):
             starmap_input.append((model1, model2, i,len(basecall_boxes)-1,b[0],b[1],b[2],b[3]))
@@ -407,41 +463,16 @@ def pair_decode_helper(args):
 
         # Build envelope
         alignment_col = decoding.envelope.get_alignment_columns(alignment)
-        full_envelope = decoding.envelope.build_envelope(y1,y2,alignment_col, sequence_to_signal1, sequence_to_signal2, padding=args.padding)
+        envelope = decoding.envelope.build_envelope(y1,y2,alignment_col, sequence_to_signal1, sequence_to_signal2, padding=args.padding)
 
-        # split envelope into subsets
-        number_subsets = args.segments
-        window = int(len(y1)/number_subsets)
-        subsets = np.zeros(shape=(number_subsets, 4)).astype(int)
-        s = 0
-        u = 0
-        while s < number_subsets:
-            start = u
-            end = u+window
-            subsets[s,0] = start
-            subsets[s,1] = end
-            subsets[s,2] = np.min(full_envelope[start:end,0])
-            subsets[s,3] = np.max(full_envelope[start:end,1])
-            s += 1
-            u = end
-
-        starmap_input = []
-        for subset in subsets:
-            y1_subset = y1[subset[0]:subset[1]]
-            y2_subset = y2[subset[2]:subset[3]]
-            subset_envelope = decoding.envelope.offset_envelope(full_envelope, subset)
-            subset_envelope = decoding.envelope.pad_envelope(subset_envelope, len(y1_subset), len(y2_subset))
-            starmap_input.append( (y1_subset, y2_subset, subset_envelope) )
-
-        print('\t Starting consensus basecalling...',file=sys.stderr)
-        #with Pool(processes=args.threads) as pool:
-        #    basecalls = pool.starmap(decoding_fn, starmap_input)
-        basecalls = starmap(decoding_fn, starmap_input)
-        joined_basecalls = ''.join(basecalls)
+        logger.debug('\t Starting consensus basecalling...')
+        joined_basecalls = decoding_fn(y1, y2, envelope)
 
     # output final basecalled sequence
-    if not getattr(args, 'unittest', False):
-        with open(args.out+'.2d.fasta','a') as f:
-            print(fasta_format('consensus_{};{};{}'.format(args.method,in_path[0],in_path[1]), joined_basecalls), file=f)
+    #if not getattr(args, 'unittest', False):
+    #    with open(args.out+'.2d.fasta','a') as f:
+    #        print(fasta_format('consensus_{};{};{}'.format(args.method,in_path[0],in_path[1]), joined_basecalls), file=f)
 
-    return((basecall1, basecall2), joined_basecalls)
+    # return formatted strings but do output in main pair_decode function
+    return (fasta_format(in_path[0], basecall1)+fasta_format(in_path[1], basecall2), fasta_format('consensus_{};{};{}'.format(args.method,in_path[0],in_path[1]), joined_basecalls), pair_decode_summary)
+    #return((basecall1, basecall2), joined_basecalls)
