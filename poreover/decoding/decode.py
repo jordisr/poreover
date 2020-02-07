@@ -4,7 +4,9 @@ import sys
 import os
 from scipy.special import logsumexp
 
-import poreover.decoding as decoding
+from . import decoding
+from . import decoding_cpp
+from . import transducer
 import poreover.network as network
 
 def fasta_format(name, seq, width=60):
@@ -60,28 +62,28 @@ def model_from_trace(f, basecaller=""):
     if file_extension == '.npy' and basecaller == 'poreover':
         try:
             trace = load_logits(f, flatten=True)
-            model = decoding.transducer.poreover(trace)
+            model = transducer.poreover(trace)
         except:
             raise
     elif file_extension == '.npy' and basecaller == 'bonito':
             try:
                 trace = load_logits(f, flatten=True)
                 trace = trace[::,[1,2,3,4,0]]
-                model = decoding.transducer.bonito(trace)
+                model = transducer.bonito(trace)
             except:
                 raise
     elif file_extension == '.csv':
         trace = np.log(np.loadtxt(f, delimiter=',', skiprows=1))
         if trace.shape[1] == 5:
-            model = decoding.transducer.poreover(trace)
+            model = transducer.poreover(trace)
         elif trace.shape[1] == 8:
-            model = decoding.transducer.flipflop(trace)
+            model = transducer.flipflop(trace)
     elif file_extension == '.hdf5' or basecaller == 'flappie':
         try:
             trace = trace_from_flappie(f)
             eps = 0.0000001
             trace = np.log((trace + eps)/(255 + eps))
-            model = decoding.transducer.flipflop(trace)
+            model = transducer.flipflop(trace)
         except:
             raise
     elif file_extension == '.fast5' or basecaller == 'guppy':
@@ -89,7 +91,7 @@ def model_from_trace(f, basecaller=""):
             trace = trace_from_guppy(f)
             eps = 0.0000001
             trace = np.log((trace + eps)/(255 + eps))
-            model = decoding.transducer.flipflop(trace)
+            model = transducer.flipflop(trace)
         except:
             raise
     else:
@@ -111,7 +113,7 @@ def decode(args):
     if args.algorithm == 'viterbi':
         sequence = model.viterbi_decode()
     elif args.algorithm == 'beam':
-        sequence = decoding.decoding_cpp.cpp_beam_search(model.log_prob, args.beam_width, "ACGT", model_type[model.kind])
+        sequence = decoding_cpp.cpp_beam_search(model.log_prob, args.beam_width, "ACGT", model_type[model.kind])
     elif args.algorithm == 'prefix':
         assert(model.kind == "poreover")
         # for comparing with previous results

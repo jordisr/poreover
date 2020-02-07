@@ -2,8 +2,6 @@ import pickle, sys, time
 import numpy as np
 from scipy.special import logsumexp
 
-import poreover.decoding as decoding
-
 def add_block(b,envelope):
     '''
     Add single block to row-based envelope

@@ -34,7 +34,9 @@ import copy
 import progressbar
 from itertools import starmap
 
-import poreover.decoding as decoding
+from . import decode
+from . import decoding_cpp
+from . import envelope
 import poreover.align as align
 
 def fasta_format(name, seq, width=60):
@@ -152,7 +154,7 @@ class parallel_decoder:
         elif (v2-v1) < 1:
             return((u1, decoding.prefix_search_log_cy(logits1[u1:u2])[0]))
         else:
-            seq = decoding.decoding_cpp.cpp_beam_search_2d(
+            seq = decoding_cpp.cpp_beam_search_2d(
             logits1[u1:u2],
             logits2[v1:v2],
             beam_width_=self.args.beam_width,
@@ -160,7 +162,7 @@ class parallel_decoder:
             return((u1, seq))
 
     def _beam_search_2d_envelope(self, y1_subset, y2_subset, subset_envelope):
-        return(decoding.decoding_cpp.cpp_beam_search_2d(
+        return(decoding_cpp.cpp_beam_search_2d(
         y1_subset,
         y2_subset,
         subset_envelope.tolist(),
@@ -203,7 +205,7 @@ class parallel_decoder:
                 return(u1,'')
 
     def _prefix_search_2d_envelope(self, y1_subset, y2_subset, subset_envelope):
-        return(decoding.decoding_cpp.cpp_pair_prefix_search_log(
+        return(decoding_cpp.cpp_pair_prefix_search_log(
         y1_subset,
         y2_subset,
         subset_envelope.tolist(),
@@ -284,7 +286,8 @@ def pair_decode(args):
             pool.join()
 
     else:
-        seqs_1d, seq_2d = pair_decode_helper(args)
+        seqs_1d, seq_2d, summary = pair_decode_helper(args)
+        print(summary, file=sys.stderr)
         with open(args.out+'.fasta', 'w') as out_fasta:
             print(seq_2d, file=out_fasta)
 
@@ -296,8 +299,8 @@ def pair_decode_helper(args):
         logger.error("ERROR: Exactly two reads are required")
 
     logger.debug('Read1:{} Read2:{}'.format(in_path[0], in_path[1]))
-    model1 = decoding.decode.model_from_trace(os.path.join(args.dir, in_path[0]), args.basecaller)
-    model2 = decoding.decode.model_from_trace(os.path.join(args.dir, in_path[1]), args.basecaller)
+    model1 = decode.model_from_trace(os.path.join(args.dir, in_path[0]), args.basecaller)
+    model2 = decode.model_from_trace(os.path.join(args.dir, in_path[1]), args.basecaller)
     if args.reverse_complement:
         model2.reverse_complement()
 
@@ -337,12 +340,12 @@ def pair_decode_helper(args):
             basecall2, viterbi_path2 = model2.viterbi_decode(return_path=True)
         elif args.single == 'beam':
             print("Basecalling 1")
-            basecall1 = decoding.decoding_cpp.cpp_beam_search(model1.log_prob)
+            basecall1 = decoding_cpp.cpp_beam_search(model1.log_prob)
             print("Resquiggling 1")
-            viterbi_path1 = decoding.decoding_cpp.cpp_viterbi_acceptor(model1.log_prob, basecall1, band_size=1000)
+            viterbi_path1 = decoding_cpp.cpp_viterbi_acceptor(model1.log_prob, basecall1, band_size=1000)
             print("Basecalling 2")
-            basecall2 = decoding.decoding_cpp.cpp_beam_search(model2.log_prob)
-            viterbi_path2 = decoding.decoding_cpp.cpp_viterbi_acceptor(model2.log_prob, basecall2, band_size=1000)
+            basecall2 = decoding_cpp.cpp_beam_search(model2.log_prob)
+            viterbi_path2 = decoding_cpp.cpp_viterbi_acceptor(model2.log_prob, basecall2, band_size=1000)
 
         sequence_to_signal1, _ = get_sequence_mapping(viterbi_path1, model1.kind)
         assert(len(sequence_to_signal1) == len(basecall1))
@@ -462,11 +465,11 @@ def pair_decode_helper(args):
         y2 = model2.log_prob
 
         # Build envelope
-        alignment_col = decoding.envelope.get_alignment_columns(alignment)
-        envelope = decoding.envelope.build_envelope(y1,y2,alignment_col, sequence_to_signal1, sequence_to_signal2, padding=args.padding)
+        alignment_col = envelope.get_alignment_columns(alignment)
+        alignment_envelope = envelope.build_envelope(y1,y2,alignment_col, sequence_to_signal1, sequence_to_signal2, padding=args.padding)
 
         logger.debug('\t Starting consensus basecalling...')
-        joined_basecalls = decoding_fn(y1, y2, envelope)
+        joined_basecalls = decoding_fn(y1, y2, alignment_envelope)
 
     # output final basecalled sequence
     #if not getattr(args, 'unittest', False):
