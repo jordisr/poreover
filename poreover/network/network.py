@@ -134,7 +134,7 @@ def train(args):
     print('{0:2}{1:3}{0:2} {2:^30} {0:2}{1:3}{0:2}'.format(coffee_emoji, dna_emoji,'PoreOver train (version 0.0)'), file=sys.stderr)
 
     # directory for model checkpoints and logging
-    out_dir = args.name+'_'+datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
+    out_dir = "{}_{}_{}".format(args.model, args.name, datetime.datetime.now().strftime("%Y-%m-%d_%H-%M"))
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
