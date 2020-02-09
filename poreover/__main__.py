@@ -37,7 +37,7 @@ def main():
     parser_train.add_argument('--filters', type=int, default=256, help='Number of filters in Conv1D layer')
 
     # Call
-    parser_call = subparsers.add_parser('call', help='Base call one or multiple reads using neural network')
+    parser_call = subparsers.add_parser('call', help='Run basecalling forward pass on set of FAST5 reads')
     parser_call.set_defaults(func=call)
     parser_call.add_argument('--weights', help='Trained weights to load into model (if directory, loads latest from checkpoint file)', required=True)
     parser_call.add_argument('--model', help='Model config JSON file', default=None)
@@ -49,17 +49,18 @@ def main():
     parser_call.add_argument('--no_stack', default=False, action='store_true', help='Basecall [1xSIGNAL_LENGTH] tensor instead of splitting it into windows (slower)')
 
     # Decode
-    parser_decode = subparsers.add_parser('decode', help='Decode probabilities from another basecaller')
+    parser_decode = subparsers.add_parser('decode', help='Decode basecaller probabilities to a FASTA file')
     parser_decode.set_defaults(func=decode)
-    parser_decode.add_argument('in', help='Probabilities to decode (either .npy from PoreOver of HDF5/FAST5 from Flappie or Guppy)')
+    parser_decode.add_argument('in', nargs='+', help='Probabilities to decode (either .npy from PoreOver/Bonito or HDF5/FAST5 from Flappie or Guppy)')
     parser_decode.add_argument('--out', help='Save FASTA sequence to file (default: stdout)')
     parser_decode.add_argument('--basecaller', choices=['poreover', 'flappie', 'guppy', 'bonito'], help='Basecaller used to generate probabilitiess')
     parser_decode.add_argument('--algorithm', default='viterbi', choices=['viterbi' ,'beam', 'prefix'], help='')
     parser_decode.add_argument('--window', type=int, default=400, help='Use chunks of this size for prefix search')
     parser_decode.add_argument('--beam_width', type=int, default=25, help='Width for beam search')
+    parser_decode.add_argument('--threads', type=int, default=1, help='Processes to use')
 
     # Pair decode
-    parser_pair= subparsers.add_parser('pair-decode', help='1d2 consensus decoding of two output probabilities')
+    parser_pair= subparsers.add_parser('pair-decode', help='1D2 consensus decoding of two output probabilities')
     parser_pair.set_defaults(func=pair_decode)
     # general options
     parser_pair.add_argument('in', nargs='+', help='Softmax probabilities to decode (either .npy from PoreOver, or HDF5/FAST5 from Flappie or Guppy) or list of read pairs')

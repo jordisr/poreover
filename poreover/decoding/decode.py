@@ -4,6 +4,12 @@ import sys
 import os
 from scipy.special import logsumexp
 
+from multiprocessing import Pool, get_logger
+import logging
+import copy
+import progressbar
+from itertools import starmap
+
 from . import decoding
 from . import decoding_cpp
 from . import transducer
@@ -104,10 +110,64 @@ def model_from_trace(f, basecaller=""):
     return(model)
 
 def decode(args):
-    # load probabilities from running basecaller
+
+    # set up logger - should make it global
+    progressbar.streams.wrap_stderr()
+    #logging.basicConfig()
+    logger = get_logger()
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter('%(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+    # print software message, should incorporate to other subroutines as well
+    coffee_emoji = u'\U00002615'
+    dna_emoji = u'\U0001F9EC'
+    logger.info('{0:2}{1:3}{0:2} {2:^30} {0:2}{1:3}{0:2}'.format(coffee_emoji, dna_emoji,'PoreOver decode (version 0.0)'))
+
+    # collect files for decoding
     in_path = getattr(args, 'in')
+    in_files = in_path
+    if not isinstance(in_path, list):
+        if os.path.isdir(in_path):
+            file_ext = {'guppy':'.fast5','flappie':'.hdf5','bonito':'.npy','poreover':'.npy'}[args.basecaller]
+            in_files = glob.glob("{}/*{}".format(path,file_ext))
+
+    if len(in_files) > 1:
+        # set up progressbar and manage output
+        class callback_helper:
+            def __init__(self):
+                self.counter = 0
+                self.pbar = progressbar.ProgressBar(max_value=len(in_files))
+                self.out_f = open(args.out+'.fasta','w')
+            def callback(self, x):
+                self.counter += 1
+                self.pbar.update(self.counter)
+                print(x, file=self.out_f)
+        callback_helper_ = callback_helper()
+
+        bullet_point = u'\u25B8'+" "
+        logger.info(bullet_point + "found {} reads to decode".format(len(in_files)))
+        logger.info(bullet_point + "writing sequences to {0}.fasta".format(args.out))
+        logger.info(bullet_point + "starting {} decoding processes...".format(args.threads))
+
+        with Pool(processes=args.threads) as pool:
+            for p in in_files:
+                pool.apply_async(decode_helper, (p, args,), callback=callback_helper_.callback)
+            pool.close()
+            pool.join()
+
+    else:
+        seqs = decode_helper(in_path, args)
+        print(summary, file=sys.stderr)
+        with open(args.out+'.fasta', 'w') as out_fasta:
+            print(seqs, file=out_fasta)
+
+def decode_helper(in_path, args):
+    # load probabilities from running basecaller
     model = model_from_trace(in_path, args.basecaller)
-    model_type = {'poreover':'ctc','flipflop':'ctc_flipflop','bonito':'ctc_merge_repeats'}
+    model_type = {'poreover':'ctc','bonito':'ctc_merge_repeats','guppy':'ctc_flipflop','flappie':'ctc_flipflop','flipflop':'ctc_flipflop'}
 
     # call appropriate decoding function
     if args.algorithm == 'viterbi':
@@ -127,8 +187,4 @@ def decode(args):
 
     # output decoded sequence
     fasta_header = os.path.basename(in_path)
-    if args.out is None:
-        fasta_file = sys.stdout
-    else:
-        fasta_file = open(args.out+'.fasta','a')
-    print(fasta_format(fasta_header, sequence), file=fasta_file)
+    return fasta_format(fasta_header, sequence)
