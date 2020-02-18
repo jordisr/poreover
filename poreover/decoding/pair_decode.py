@@ -175,7 +175,7 @@ class parallel_decoder:
         try:
             forward_indices = viterbi_path(forward)
         except:
-            logger.warning('WARNING! Best label is blank! y.shape:{} forward.shape:{} prefix:{}'.format(y.shape, forward.shape, prefix))
+            logger.warning('WARNING: Best label is blank! y.shape:{} forward.shape:{} prefix:{}'.format(y.shape, forward.shape, prefix))
             return('',[]) # in case of gap being most probable
 
         assert(len(prefix) == len(forward_indices))
@@ -368,8 +368,7 @@ def pair_decode_helper(args):
         pair_decode_summary = {'read1':in_path[0], 'read2':in_path[1], 'length1':len(basecall1), 'length2':len(basecall2), 'sequence_identity':sequence_identity}
 
         if sequence_identity < 0.5:
-            logger.error("ERROR: Pairwise sequence identity between reads is below 50%. Did you mean to take the --reverse-complement of one of the reads?")
-            return ()
+            logger.warning("WARNING: Pairwise sequence identity between reads is below 50%. Did you mean to take the --reverse-complement of one of the reads?")
 
         # get alignment_to_sequence mapping
         alignment_to_sequence = np.zeros(shape=alignment.shape,dtype=int)
