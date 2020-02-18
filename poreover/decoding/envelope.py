@@ -63,6 +63,8 @@ def build_envelope(y1, y2, alignment_col, sequence_to_signal1, sequence_to_signa
 
     for (i,tup) in enumerate(alignment_col):
         (label, seq1, seq2) = tup
+        seq1 = max(seq1, 0)
+        seq2 = max(seq2, 0)
         block = (int(sequence_to_signal_range1[seq1][0]), int(sequence_to_signal_range2[seq2][0]),
                  int(sequence_to_signal_range1[seq1][1]), int(sequence_to_signal_range2[seq2][1])
                 )
