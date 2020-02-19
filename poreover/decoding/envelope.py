@@ -74,11 +74,14 @@ def build_envelope(y1, y2, alignment_col, sequence_to_signal1, sequence_to_signa
         alignment_envelope[i,1] = min(V,alignment_envelope[i,1]+padding)
 
     # try and fix any problems
+    prev_end = 0
     for i in range(len(alignment_envelope)):
         if alignment_envelope[i,0] > alignment_envelope[i,1]:
             alignment_envelope[i,0] = 0
-    if alignment_envelope[0,0] > 0:
-        alignment_envelope[0,0] = 0
+        # ensure some overlap
+        if alignment_envelope[i,0] > prev_end:
+            alignment_envelope[i,0] = prev_end
+            prev_end = alignment_envelope[i,1]
 
     return(alignment_envelope)
 

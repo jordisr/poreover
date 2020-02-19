@@ -69,10 +69,10 @@ def main():
     parser_pair.add_argument('--reverse_complement', default=False, action='store_true', help='Whether to reverse complement the second sequence (default: False)')
     parser_pair.add_argument('--out', default='out',help='Save FASTA sequence to file (default: out.1d.fasta/out.2d.fasta)')
     parser_pair.add_argument('--threads', type=int, default=1, help='Processes to use')
-    parser_pair.add_argument('--method', choices=['align', 'split', 'envelope'],default='align',help='Method for dividing up search space (see code)')
+    parser_pair.add_argument('--method', choices=['align', 'split', 'envelope'],default='envelope',help='Method for dividing up search space (see code)')
     parser_pair.add_argument('--single', choices=['beam', 'viterbi'], default='viterbi', help='Algorithm for 1D basecalling (used to build alignment envelope)')
-    parser_pair.add_argument('--debug', default=False, action='store_true', help='Pickle objects to file for debugging')
-    parser_pair.add_argument('--algorithm', default='beam', choices=['prefix' ,'beam'], help='')
+    parser_pair.add_argument('--debug', default=False, action='store_true', help='Save intermediate objects to pickled file for debugging')
+    parser_pair.add_argument('--algorithm', default='beam', choices=['prefix' ,'beam'], help='Search algorithm for pair decoding')
     parser_pair.add_argument('--beam_width', type=int, default=5, help='Width for beam search')
     # --method envelope
     parser_pair.add_argument('--padding', type=int, default=5, help='Padding for building alignment envelope')
