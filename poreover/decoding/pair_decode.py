@@ -270,6 +270,9 @@ def pair_decode(args):
                     print(x[0], file=self.out_1d_f)
                     print(x[1], file=self.out_2d_f)
                     print('\t'.join(map(str,[x[2][k] for k in ["read1", "read2", "length1", "length2", "sequence_identity"]])), file=self.log_f)
+                elif len(x) == 2:
+                    print(x[0], file=self.out_2d_f)
+                    print('\t'.join(map(str,[x[1][k] for k in ["read1", "read2"]])), file=self.log_f)
         callback_helper_ = callback_helper()
 
         bullet_point = u'\u25B8'+" "
@@ -301,6 +304,9 @@ def pair_decode_helper(args):
     logger.debug('Read1:{} Read2:{}'.format(in_path[0], in_path[1]))
     model1 = decode.model_from_trace(os.path.join(args.dir, in_path[0]), args.basecaller)
     model2 = decode.model_from_trace(os.path.join(args.dir, in_path[1]), args.basecaller)
+    U = model1.t_max
+    V = model2.t_max
+
     if args.reverse_complement:
         model2.reverse_complement()
 
@@ -308,13 +314,12 @@ def pair_decode_helper(args):
 
     # get appropriate helper function for multiprocessing
     decoding_fn = parallel_decoder(args, model1.kind).get_function()
-    pair_decode_summary = dict()
+    pair_decode_summary = {'read1':in_path[0], 'read2':in_path[1]}
 
     if args.method == 'split':
         # calculate ranges on which to split read
         # currently just splitting in boxes that follow the main diagonal
-        U = model1.t_max
-        V = model2.t_max
+
         box_ranges = []
         u_step = args.window
         for u in range(u_step,U,u_step):
@@ -333,52 +338,53 @@ def pair_decode_helper(args):
         joined_basecalls = ''.join([b[1] for b in basecalls])
 
     else:
-        logger.debug('\t Performing 1D basecalling...')
+        if not args.diagonal_envelope:
+            logger.debug('\t Performing 1D basecalling...')
 
-        if args.single == 'viterbi':
-            basecall1, viterbi_path1 = model1.viterbi_decode(return_path=True)
-            basecall2, viterbi_path2 = model2.viterbi_decode(return_path=True)
-        elif args.single == 'beam':
-            print("Basecalling 1")
-            basecall1 = decoding_cpp.cpp_beam_search(model1.log_prob)
-            print("Resquiggling 1")
-            viterbi_path1 = decoding_cpp.cpp_viterbi_acceptor(model1.log_prob, basecall1, band_size=1000)
-            print("Basecalling 2")
-            basecall2 = decoding_cpp.cpp_beam_search(model2.log_prob)
-            viterbi_path2 = decoding_cpp.cpp_viterbi_acceptor(model2.log_prob, basecall2, band_size=1000)
+            if args.single == 'viterbi':
+                basecall1, viterbi_path1 = model1.viterbi_decode(return_path=True)
+                basecall2, viterbi_path2 = model2.viterbi_decode(return_path=True)
+            elif args.single == 'beam':
+                print("Basecalling 1")
+                basecall1 = decoding_cpp.cpp_beam_search(model1.log_prob)
+                print("Resquiggling 1")
+                viterbi_path1 = decoding_cpp.cpp_viterbi_acceptor(model1.log_prob, basecall1, band_size=1000)
+                print("Basecalling 2")
+                basecall2 = decoding_cpp.cpp_beam_search(model2.log_prob)
+                viterbi_path2 = decoding_cpp.cpp_viterbi_acceptor(model2.log_prob, basecall2, band_size=1000)
 
-        sequence_to_signal1, _ = get_sequence_mapping(viterbi_path1, model1.kind)
-        assert(len(sequence_to_signal1) == len(basecall1))
+            sequence_to_signal1, _ = get_sequence_mapping(viterbi_path1, model1.kind)
+            assert(len(sequence_to_signal1) == len(basecall1))
 
-        sequence_to_signal2, _ = get_sequence_mapping(viterbi_path2, model2.kind)
-        assert(len(sequence_to_signal2) == len(basecall2))
+            sequence_to_signal2, _ = get_sequence_mapping(viterbi_path2, model2.kind)
+            assert(len(sequence_to_signal2) == len(basecall2))
 
-        #if not getattr(args, 'unittest', False):
-        #    with open(args.out+'.1d.fasta','a') as f:
-        #        print(fasta_format(in_path[0], basecall1),file=f)
-        #        print(fasta_format(in_path[1], basecall2),file=f)
+            #if not getattr(args, 'unittest', False):
+            #    with open(args.out+'.1d.fasta','a') as f:
+            #        print(fasta_format(in_path[0], basecall1),file=f)
+            #        print(fasta_format(in_path[1], basecall2),file=f)
 
-        logger.debug('\t Aligning basecalled sequences (Read1 is {} bp and Read2 is {} bp)...'.format(len(basecall1),len(basecall2)))
-        #alignment = pairwise2.align.globalms(, , 2, -1, -.5, -.1)
-        alignment = align.global_pair(basecall1, basecall2)
-        alignment = np.array([list(s) for s in alignment[:2]])
-        sequence_identity = np.sum(alignment[0] == alignment[1]) / len(alignment[0])
-        logger.debug('\t Read sequence identity: {}'.format(sequence_identity))
+            logger.debug('\t Aligning basecalled sequences (Read1 is {} bp and Read2 is {} bp)...'.format(len(basecall1),len(basecall2)))
+            #alignment = pairwise2.align.globalms(, , 2, -1, -.5, -.1)
+            alignment = align.global_pair(basecall1, basecall2)
+            alignment = np.array([list(s) for s in alignment[:2]])
+            sequence_identity = np.sum(alignment[0] == alignment[1]) / len(alignment[0])
+            logger.debug('\t Read sequence identity: {}'.format(sequence_identity))
 
-        pair_decode_summary = {'read1':in_path[0], 'read2':in_path[1], 'length1':len(basecall1), 'length2':len(basecall2), 'sequence_identity':sequence_identity}
+            pair_decode_summary = {'read1':in_path[0], 'read2':in_path[1], 'length1':len(basecall1), 'length2':len(basecall2), 'sequence_identity':sequence_identity}
 
-        if sequence_identity < 0.5:
-            logger.warning("WARNING: Pairwise sequence identity between reads is below 50%. Did you mean to take the --reverse-complement of one of the reads?")
+            if sequence_identity < 0.5:
+                logger.warning("WARNING: Pairwise sequence identity between reads is below 50%. Did you mean to take the --reverse-complement of one of the reads?")
 
-        # get alignment_to_sequence mapping
-        alignment_to_sequence = np.zeros(shape=alignment.shape,dtype=int)
-        for i,col in enumerate(alignment.T):
-            # no boundary case for first element but it will wrap around to the last (which is zero)
-            for s in range(2):
-                if col[s] == '-':
-                    alignment_to_sequence[s,i] = alignment_to_sequence[s,i-1]
-                else:
-                    alignment_to_sequence[s,i] = alignment_to_sequence[s,i-1] + 1
+            # get alignment_to_sequence mapping
+            alignment_to_sequence = np.zeros(shape=alignment.shape,dtype=int)
+            for i,col in enumerate(alignment.T):
+                # no boundary case for first element but it will wrap around to the last (which is zero)
+                for s in range(2):
+                    if col[s] == '-':
+                        alignment_to_sequence[s,i] = alignment_to_sequence[s,i-1]
+                    else:
+                        alignment_to_sequence[s,i] = alignment_to_sequence[s,i-1] + 1
 
     if args.method == 'align':
 
@@ -464,8 +470,11 @@ def pair_decode_helper(args):
         y2 = model2.log_prob
 
         # Build envelope
-        alignment_col = envelope.get_alignment_columns(alignment)
-        alignment_envelope = envelope.build_envelope(y1,y2,alignment_col, sequence_to_signal1, sequence_to_signal2, padding=args.padding)
+        if args.diagonal_envelope:
+            alignment_envelope = np.array([(max(int(u/U*V)-args.diagonal_width,0),min(int(u/U*V)+args.diagonal_width,V)) for u in range(U)])
+        else:
+            alignment_col = envelope.get_alignment_columns(alignment)
+            alignment_envelope = envelope.build_envelope(y1,y2,alignment_col, sequence_to_signal1, sequence_to_signal2, padding=args.padding)
 
         logger.debug('\t Starting consensus basecalling...')
         joined_basecalls = decoding_fn(y1, y2, alignment_envelope)
@@ -476,5 +485,8 @@ def pair_decode_helper(args):
     #        print(fasta_format('consensus_{};{};{}'.format(args.method,in_path[0],in_path[1]), joined_basecalls), file=f)
 
     # return formatted strings but do output in main pair_decode function
-    return (fasta_format(in_path[0], basecall1)+fasta_format(in_path[1], basecall2), fasta_format('consensus_{};{};{}'.format(args.method,in_path[0],in_path[1]), joined_basecalls), pair_decode_summary)
+    if not args.diagonal_envelope:
+        return (fasta_format(in_path[0], basecall1)+fasta_format(in_path[1], basecall2), fasta_format('consensus_{};{};{}'.format(args.method,in_path[0],in_path[1]), joined_basecalls), pair_decode_summary)
+    else:
+        return (fasta_format('consensus_{};{};{}'.format(args.method,in_path[0],in_path[1]), joined_basecalls), pair_decode_summary)
     #return((basecall1, basecall2), joined_basecalls)
