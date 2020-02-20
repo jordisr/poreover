@@ -2,7 +2,8 @@ import unittest
 import numpy as np
 import os
 from collections import OrderedDict
-from testing import decoding, poreover_profile, flipflop_profile, joint_profile
+from testing import poreover, poreover_profile, flipflop_profile, joint_profile
+import poreover.decoding as decoding
 
 class beam_1d_toy(unittest.TestCase):
     '''

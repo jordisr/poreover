@@ -37,6 +37,7 @@ from itertools import starmap
 from . import decode
 from . import decoding_cpp
 from . import envelope
+from . import prefix_search
 import poreover.align as align
 
 def fasta_format(name, seq, width=60):
@@ -150,9 +151,9 @@ class parallel_decoder:
         if size <= 1:
             return(u1,'')
         elif (u2-u1) < 1:
-            return((u1, decoding.prefix_search_log_cy(logits2[v1:v2])[0]))
+            return((u1, prefix_search.prefix_search_log_cy(logits2[v1:v2])[0]))
         elif (v2-v1) < 1:
-            return((u1, decoding.prefix_search_log_cy(logits1[u1:u2])[0]))
+            return((u1, prefix_search.prefix_search_log_cy(logits1[u1:u2])[0]))
         else:
             seq = decoding_cpp.cpp_beam_search_2d(
             logits1[u1:u2],
@@ -171,7 +172,7 @@ class parallel_decoder:
 
     def _prefix_search_1d(self, y):
         # Perform 1d basecalling and get signal-sequence mapping
-        (prefix, forward) = decoding.prefix_search_log_cy(y, return_forward=True)
+        (prefix, forward) = prefix_search.prefix_search_log_cy(y, return_forward=True)
         try:
             forward_indices = viterbi_path(forward)
         except:
@@ -191,15 +192,15 @@ class parallel_decoder:
         if size <= 1:
             return(u1,'')
         elif (u2-u1) < 1:
-            return((u1, decoding.prefix_search_log_cy(logits2[v1:v2])[0]))
+            return((u1, prefix_search.prefix_search_log_cy(logits2[v1:v2])[0]))
         elif (v2-v1) < 1:
-            return((u1, decoding.prefix_search_log_cy(logits1[u1:u2])[0]))
+            return((u1, prefix_search.prefix_search_log_cy(logits1[u1:u2])[0]))
         elif size*8 > MEM_LIMIT:
             logger.error('ERROR: Box too large to basecall {}-{}:{}-{} (size: {} elements)'.format(u1,u2,v1,v2,size))
             return(u1,'')
         else:
             try:
-                return((u1, decoding.pair_prefix_search_log_cy(logits1[u1:u2],logits2[v1:v2])[0]))
+                return((u1, prefix_search.pair_prefix_search_log_cy(logits1[u1:u2],logits2[v1:v2])[0]))
             except:
                 logger.warning('WARNING: Error while basecalling box {}-{}:{}-{}'.format(u1,u2,v1,v2))
                 return(u1,'')

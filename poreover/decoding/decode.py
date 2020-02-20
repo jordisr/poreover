@@ -10,7 +10,7 @@ import copy
 import progressbar
 from itertools import starmap
 
-from . import decoding
+from . import prefix_search
 from . import decoding_cpp
 from . import transducer
 import poreover.network as network
@@ -181,9 +181,9 @@ def decode_helper(in_path, args):
         i = 0
         sequence = ""
         while i+window < model.t_max:
-            sequence += decoding.prefix_search_log_cy(model.log_prob[i:i+window])[0]
+            sequence += prefix_search.prefix_search_log_cy(model.log_prob[i:i+window])[0]
             i += window
-        sequence += decoding.prefix_search_log_cy(model.log_prob[i:])[0]
+        sequence += prefix_search.prefix_search_log_cy(model.log_prob[i:])[0]
 
     # output decoded sequence
     fasta_header = os.path.basename(in_path)
