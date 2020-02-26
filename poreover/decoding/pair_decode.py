@@ -240,7 +240,7 @@ def pair_decode(args):
     # print software message, should incorporate to other subroutines as well
     coffee_emoji = u'\U00002615'
     dna_emoji = u'\U0001F9EC'
-    logger.info('{0:2}{1:3}{0:2} {2:^30} {0:2}{1:3}{0:2}'.format(coffee_emoji, dna_emoji,'PoreOver pair-decode (version 0.0)'))
+    logger.info('{0:2}{1:3}{0:2} {2:^30} {0:2}{1:3}{0:2}'.format(coffee_emoji, dna_emoji,'PoreOver pair-decode'))
     #logger.info(('{0:2}{1:3}'*9+'{0:2}').format(coffee_emoji, dna_emoji))
 
     in_path = getattr(args, 'in')

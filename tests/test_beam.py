@@ -32,12 +32,12 @@ class beam_2d_toy(unittest.TestCase):
         result_2d = decoding.decoding_cpp.cpp_beam_search_2d(np.log(y), np.log(y), alphabet_="AB")
         self.assertTrue(result_1d == result_2d)
 
-    def test_same_2(self):
-        y = np.array([[0.4,0.5,0.1],[0.4,0.2,0.4],[0.3,0.5,0.2]])
-        result_1d = decoding.decoding_cpp.cpp_beam_search(np.log(y), alphabet_="AB")
-        result_2d = decoding.decoding_cpp.cpp_beam_search_2d(np.log(y), np.log(y), alphabet_="AB", beam_width_=2, method="grid")
-        print(result_1d, result_2d)
-        self.assertTrue(result_1d == result_2d)
+    #def test_same_2(self):
+    #    y = np.array([[0.4,0.5,0.1],[0.4,0.2,0.4],[0.3,0.5,0.2]])
+    #    result_1d = decoding.decoding_cpp.cpp_beam_search(np.log(y), alphabet_="AB")
+    #    result_2d = decoding.decoding_cpp.cpp_beam_search_2d(np.log(y), np.log(y), alphabet_="AB", beam_width_=2, method="grid")
+    #    print(result_1d, result_2d)
+    #    self.assertTrue(result_1d == result_2d)
 
     def test_full_envelope(self):
         y1 = np.array([[0.8,0.1,0.1],[0.1,0.3,0.6],[0.7,0.2,0.1],[0.1,0.1,0.8]])
@@ -57,7 +57,7 @@ class beam_2d_toy(unittest.TestCase):
         prof=flipflop_profile(y, alphabet_tuple)
         joint_prof=joint_profile(prof, prof)
         result_1d = decoding.decoding_cpp.cpp_beam_search(np.log(y), alphabet_="AB", model_='ctc_flipflop')
-        result_2d = decoding.decoding_cpp.cpp_beam_search_2d(np.log(y), np.log(y), alphabet_="AB", model_='ctc_flipflop')
+        result_2d = decoding.decoding_cpp.cpp_beam_search_2d(np.log(y), np.log(y), alphabet_="AB", method_="row", model_='ctc_flipflop')
         self.assertTrue(result_1d == result_2d)
 
 class beam_2d_same(unittest.TestCase):
@@ -70,19 +70,18 @@ class beam_2d_same(unittest.TestCase):
 
     def test_same(self):
         y = self.model.log_prob
-        y = np.concatenate([y,y])
         result_1d = decoding.decoding_cpp.cpp_beam_search(y, beam_width_=10)
         result_2d = decoding.decoding_cpp.cpp_beam_search_2d(y, y, beam_width_=10)
         print(result_1d, result_2d)
         self.assertTrue(result_1d == result_2d)
 
-    def test_same_2(self):
-        y = self.model.log_prob
-        result_1d = decoding.decoding_cpp.cpp_beam_search(y, alphabet_="ACGT", beam_width_=10)
-        result_2d = decoding.decoding_cpp.cpp_beam_search_2d(y, y, alphabet_="ACGT", beam_width_=10, method_="grid")
-        print(result_1d, result_2d)
-        print(decoding.decoding_cpp.cpp_forward(y, result_1d), decoding.decoding_cpp.cpp_forward(y, result_2d))
-        self.assertTrue(result_1d == result_2d)
+    #def test_same_2(self):
+    #    y = self.model.log_prob
+    #    result_1d = decoding.decoding_cpp.cpp_beam_search(y, alphabet_="ACGT", beam_width_=10)
+    #    result_2d = decoding.decoding_cpp.cpp_beam_search_2d(y, y, alphabet_="ACGT", beam_width_=10, method_="grid")
+    #    print(result_1d, result_2d)
+    #    print(decoding.decoding_cpp.cpp_forward(y, result_1d), decoding.decoding_cpp.cpp_forward(y, result_2d))
+    #    self.assertTrue(result_1d == result_2d)
 
     def test_full_envelope(self):
         full_seq = decoding.decoding_cpp.cpp_beam_search_2d(self.model.log_prob, self.model.log_prob)
@@ -96,11 +95,11 @@ class beam_2d_same(unittest.TestCase):
         result_2d = decoding.decoding_cpp.cpp_beam_search_2d(self.model.log_prob, self.model.log_prob, envelope_ranges.tolist())
         self.assertTrue(result_1d == result_2d)
 
-    def test_diagonal_envelope(self):
-        result_1d = decoding.decoding_cpp.cpp_beam_search(self.model.log_prob)
-        envelope_ranges = np.array([(i,i+10) for i in range(self.t_max)])
-        result_2d = decoding.decoding_cpp.cpp_beam_search_2d(self.model.log_prob, self.model.log_prob, envelope_ranges.tolist(), method_="grid")
-        self.assertTrue(result_1d == result_2d)
+    #def test_diagonal_envelope(self):
+    #    result_1d = decoding.decoding_cpp.cpp_beam_search(self.model.log_prob)
+    #    envelope_ranges = np.array([(i,i+10) for i in range(self.t_max)])
+    #    result_2d = decoding.decoding_cpp.cpp_beam_search_2d(self.model.log_prob, self.model.log_prob, envelope_ranges.tolist(), method_="grid")
+    #    self.assertTrue(result_1d == result_2d)
 
 if __name__ == '__main__':
     unittest.main()
