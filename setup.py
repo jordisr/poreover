@@ -20,7 +20,7 @@ Extension("poreover.align.align", sources=["poreover/align/align.pyx"], include_
 
 setup(
     name="poreover",
-    version="0.0",
+    version="0.0.0",
     packages=setuptools.find_namespace_packages(),
     ext_modules = cythonize(ext_modules, annotate=True),
     entry_points={'console_scripts':['poreover = poreover.__main__:main']}

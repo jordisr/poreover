@@ -2,6 +2,7 @@ import numpy as np
 import h5py
 import sys
 import os
+import glob
 from scipy.special import logsumexp
 
 from multiprocessing import Pool, get_logger
@@ -129,10 +130,11 @@ def decode(args):
     # collect files for decoding
     in_path = getattr(args, 'in')
     in_files = in_path
-    if not isinstance(in_path, list):
-        if os.path.isdir(in_path):
+
+    if len(in_path) == 1:
+        if os.path.isdir(in_path[0]):
             file_ext = {'guppy':'.fast5','flappie':'.hdf5','bonito':'.npy','poreover':'.npy'}[args.basecaller]
-            in_files = glob.glob("{}/*{}".format(path,file_ext))
+            in_files = glob.glob("{}/*{}".format(in_path[0], file_ext))
 
     if len(in_files) > 1:
         # set up progressbar and manage output
@@ -159,8 +161,7 @@ def decode(args):
             pool.join()
 
     else:
-        seqs = decode_helper(in_path, args)
-        print(summary, file=sys.stderr)
+        seqs = decode_helper(in_path[0], args)
         with open(args.out+'.fasta', 'w') as out_fasta:
             print(seqs, file=out_fasta)
 

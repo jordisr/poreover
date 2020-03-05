@@ -49,7 +49,7 @@ def main():
     parser_decode = subparsers.add_parser('decode', help='Decode basecaller probabilities to a FASTA file')
     parser_decode.set_defaults(func=decode)
     parser_decode.add_argument('in', nargs='+', help='Probabilities to decode (either .npy from PoreOver/Bonito or HDF5/FAST5 from Flappie or Guppy)')
-    parser_decode.add_argument('--out', help='Save FASTA sequence to file instead of stdout')
+    parser_decode.add_argument('--out', default='out',help='Prefix for FASTA sequence output')
     parser_decode.add_argument('--basecaller', choices=['poreover', 'flappie', 'guppy', 'bonito'], help='Basecaller used to generate probabilitiess')
     parser_decode.add_argument('--algorithm', default='viterbi', choices=['viterbi' ,'beam', 'prefix'], help='')
     parser_decode.add_argument('--window', type=int, default=400, help='Use chunks of this size for prefix search')
