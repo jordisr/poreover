@@ -5,7 +5,18 @@ import sys
 import numpy as np
 from collections import OrderedDict
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+import poreover
 import poreover.decoding as decoding
+
+def remove_gaps(a):
+    # only needed for greedy decoding
+    # unlike standard CTC, does not remove repeated characters
+    label = ''
+    for i in a:
+        if i != '-':
+            label += i
+    return(label)
 
 class profile:
     '''
@@ -68,7 +79,7 @@ class profile:
 
 class poreover_profile(profile):
     def __init__(self, prob, alphabet):
-        super().__init__(prob, alphabet, decoding.remove_gaps)
+        super().__init__(prob, alphabet, remove_gaps)
 
         for path in itertools.product(range(len(alphabet)),repeat=len(self.softmax)):
             path_prob_ = np.product(self.softmax[np.arange(len(self.softmax)),np.array(path)])

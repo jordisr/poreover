@@ -3,9 +3,6 @@ PoreOver
 '''
 import argparse, sys, glob, os, logging, progressbar
 
-script_dir = os.path.dirname(__file__)
-sys.path.insert(1, script_dir+'/network')
-
 from poreover.network.network import call, train
 from poreover.decoding.decode import decode
 from poreover.decoding.pair_decode import pair_decode
@@ -17,13 +14,13 @@ def main():
     subparsers.required=True
 
     # Train
-    parser_train = subparsers.add_parser('train', help='Train a neural network base calling model')
+    parser_train = subparsers.add_parser('train', help='Train a neural network base calling model', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser_train.set_defaults(func=train)
     parser_train.add_argument('--data', help='Location of training data in compressed npz format', required=True)
     parser_train.add_argument('--save_dir', default='.',help='Directory to save checkpoints')
     parser_train.add_argument('--name', default='run', help='Name of run')
-    parser_train.add_argument('--epochs', type=int, default=1, help='Number of epochs to train on (default: 1)')
-    parser_train.add_argument('--save_every', type=int, default=1000, help='Frequency with which to save checkpoint files (default: 1000)')
+    parser_train.add_argument('--epochs', type=int, default=1, help='Number of epochs to train on')
+    parser_train.add_argument('--save_every', type=int, default=1000, help='Frequency with which to save checkpoint files')
     parser_train.add_argument('--holdout', default=0.05, type=float, help='Fraction of training data to hold out for calculating test error')
     parser_train.add_argument('--loss_every', type=int, default=100, help='Frequency with which to output minibatch loss')
     parser_train.add_argument('--ctc_merge_repeated', action='store_true', default=False, help='boolean option for tf.compat.v1.nn.ctc_loss')
@@ -37,7 +34,7 @@ def main():
     parser_train.add_argument('--filters', type=int, default=256, help='Number of filters in Conv1D layer')
 
     # Call
-    parser_call = subparsers.add_parser('call', help='Run basecalling forward pass on set of FAST5 reads')
+    parser_call = subparsers.add_parser('call', help='Run basecalling forward pass on set of FAST5 reads', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser_call.set_defaults(func=call)
     parser_call.add_argument('--weights', help='Trained weights to load into model (if directory, loads latest from checkpoint file)', required=True)
     parser_call.add_argument('--model', help='Model config JSON file', default=None)
@@ -52,7 +49,7 @@ def main():
     parser_decode = subparsers.add_parser('decode', help='Decode basecaller probabilities to a FASTA file')
     parser_decode.set_defaults(func=decode)
     parser_decode.add_argument('in', nargs='+', help='Probabilities to decode (either .npy from PoreOver/Bonito or HDF5/FAST5 from Flappie or Guppy)')
-    parser_decode.add_argument('--out', help='Save FASTA sequence to file (default: stdout)')
+    parser_decode.add_argument('--out', default='out',help='Prefix for FASTA sequence output')
     parser_decode.add_argument('--basecaller', choices=['poreover', 'flappie', 'guppy', 'bonito'], help='Basecaller used to generate probabilitiess')
     parser_decode.add_argument('--algorithm', default='viterbi', choices=['viterbi' ,'beam', 'prefix'], help='')
     parser_decode.add_argument('--window', type=int, default=400, help='Use chunks of this size for prefix search')
@@ -60,29 +57,29 @@ def main():
     parser_decode.add_argument('--threads', type=int, default=1, help='Processes to use')
 
     # Pair decode
-    parser_pair= subparsers.add_parser('pair-decode', help='1D2 consensus decoding of two output probabilities')
+    parser_pair= subparsers.add_parser('pair-decode', help='1D2 consensus decoding of two output probabilities', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser_pair.set_defaults(func=pair_decode)
     # general options
     parser_pair.add_argument('in', nargs='+', help='Softmax probabilities to decode (either .npy from PoreOver, or HDF5/FAST5 from Flappie or Guppy) or list of read pairs')
     parser_pair.add_argument('--dir', default='.', help='Directory for basecaller probabilities')
     parser_pair.add_argument('--basecaller', choices=['poreover', 'flappie', 'guppy', 'bonito'], help='Basecaller used to generate probabilitiess')
-    parser_pair.add_argument('--reverse_complement', default=False, action='store_true', help='Whether to reverse complement the second sequence (default: False)')
-    parser_pair.add_argument('--out', default='out',help='Save FASTA sequence to file (default: out.1d.fasta/out.2d.fasta)')
+    parser_pair.add_argument('--reverse_complement', default=False, action='store_true', help='Whether to reverse complement the second sequence')
+    parser_pair.add_argument('--out', default='out',help='Prefix for FASTA sequence output')
     parser_pair.add_argument('--threads', type=int, default=1, help='Processes to use')
-    parser_pair.add_argument('--method', choices=['align', 'split', 'envelope'], default='envelope', help='Method for dividing up search space (see code)')
+    parser_pair.add_argument('--method', choices=['align', 'split', 'envelope'], default='envelope', help=argparse.SUPPRESS) # Method for dividing up search space (see code)
     parser_pair.add_argument('--single', choices=['beam', 'viterbi'], default='viterbi', help='Algorithm for 1D basecalling (used to build alignment envelope)')
     parser_pair.add_argument('--debug', default=False, action='store_true', help='Save intermediate objects to pickled file for debugging')
-    parser_pair.add_argument('--algorithm', default='beam', choices=['prefix' ,'beam'], help='Search algorithm for pair decoding')
+    parser_pair.add_argument('--algorithm', default='beam', choices=['prefix' ,'beam'], help=argparse.SUPPRESS) # Search algorithm for pair decoding
     parser_pair.add_argument('--beam_width', type=int, default=5, help='Width for beam search')
     # --method envelope
-    parser_pair.add_argument('--diagonal_envelope', action='store_true', help='Use a simple diagonal band for the signal alignment envelope (default: use sequence alignment)')
+    parser_pair.add_argument('--diagonal_envelope', action='store_true', help='Use a simple diagonal band for the signal alignment envelope')
     parser_pair.add_argument('--diagonal_width', type=int, default=50, help='Width of diagonal band envelope')
     parser_pair.add_argument('--padding', type=int, default=5, help='Padding for building alignment envelope')
     # --method split
-    parser_pair.add_argument('--window', type=int, default=200, help='Segment size used for splitting reads')
+    parser_pair.add_argument('--window', type=int, default=200, help=argparse.SUPPRESS) # Segment size used for splitting reads
     # --method align
-    parser_pair.add_argument('--matches', type=int, default=8, help='Match size for building anchors')
-    parser_pair.add_argument('--indels', type=int, default=10, help='Indel size for building anchors')
+    parser_pair.add_argument('--matches', type=int, default=8, help=argparse.SUPPRESS) # Match size for building anchors
+    parser_pair.add_argument('--indels', type=int, default=10, help=argparse.SUPPRESS) # Indel size for building anchors
 
     # Parse arguments and call corresponding command
     args = parser.parse_args()

@@ -2,6 +2,7 @@ import numpy as np
 import h5py
 import sys
 import os
+import glob
 from scipy.special import logsumexp
 
 from multiprocessing import Pool, get_logger
@@ -10,7 +11,7 @@ import copy
 import progressbar
 from itertools import starmap
 
-from . import decoding
+from . import prefix_search
 from . import decoding_cpp
 from . import transducer
 import poreover.network as network
@@ -124,15 +125,16 @@ def decode(args):
     # print software message, should incorporate to other subroutines as well
     coffee_emoji = u'\U00002615'
     dna_emoji = u'\U0001F9EC'
-    logger.info('{0:2}{1:3}{0:2} {2:^30} {0:2}{1:3}{0:2}'.format(coffee_emoji, dna_emoji,'PoreOver decode (version 0.0)'))
+    logger.info('{0:2}{1:3}{0:2} {2:^30} {0:2}{1:3}{0:2}'.format(coffee_emoji, dna_emoji,'PoreOver decode'))
 
     # collect files for decoding
     in_path = getattr(args, 'in')
     in_files = in_path
-    if not isinstance(in_path, list):
-        if os.path.isdir(in_path):
+
+    if len(in_path) == 1:
+        if os.path.isdir(in_path[0]):
             file_ext = {'guppy':'.fast5','flappie':'.hdf5','bonito':'.npy','poreover':'.npy'}[args.basecaller]
-            in_files = glob.glob("{}/*{}".format(path,file_ext))
+            in_files = glob.glob("{}/*{}".format(in_path[0], file_ext))
 
     if len(in_files) > 1:
         # set up progressbar and manage output
@@ -159,8 +161,7 @@ def decode(args):
             pool.join()
 
     else:
-        seqs = decode_helper(in_path, args)
-        print(summary, file=sys.stderr)
+        seqs = decode_helper(in_path[0], args)
         with open(args.out+'.fasta', 'w') as out_fasta:
             print(seqs, file=out_fasta)
 
@@ -181,9 +182,9 @@ def decode_helper(in_path, args):
         i = 0
         sequence = ""
         while i+window < model.t_max:
-            sequence += decoding.prefix_search_log_cy(model.log_prob[i:i+window])[0]
+            sequence += prefix_search.prefix_search_log_cy(model.log_prob[i:i+window])[0]
             i += window
-        sequence += decoding.prefix_search_log_cy(model.log_prob[i:])[0]
+        sequence += prefix_search.prefix_search_log_cy(model.log_prob[i:])[0]
 
     # output decoded sequence
     fasta_header = os.path.basename(in_path)
