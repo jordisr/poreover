@@ -235,7 +235,10 @@ def pair_decode(args):
     formatter = logging.Formatter('%(message)s')
     handler.setFormatter(formatter)
     logger.addHandler(handler)
-    logger.setLevel(logging.INFO)
+    if args.logging == "debug":
+        logger.setLevel(logging.DEBUG)
+    else:
+        logger.setLevel(logging.INFO)
 
     # print software message, should incorporate to other subroutines as well
     coffee_emoji = u'\U00002615'
@@ -332,8 +335,6 @@ def pair_decode_helper(args):
         for i, b in enumerate(box_ranges):
             starmap_input.append((model1, model2, i,len(box_ranges)-1,b[0],b[1],b[2],b[3]))
 
-        #with Pool(processes=args.threads) as pool:
-        #    basecalls = pool.starmap(decoding_fn, starmap_input)
         basecalls = starmap(decoding_fn, starmap_input)
 
         joined_basecalls = ''.join([b[1] for b in basecalls])
@@ -360,11 +361,6 @@ def pair_decode_helper(args):
             sequence_to_signal2, _ = get_sequence_mapping(viterbi_path2, model2.kind)
             assert(len(sequence_to_signal2) == len(basecall2))
 
-            #if not getattr(args, 'unittest', False):
-            #    with open(args.out+'.1d.fasta','a') as f:
-            #        print(fasta_format(in_path[0], basecall1),file=f)
-            #        print(fasta_format(in_path[1], basecall2),file=f)
-
             logger.debug('\t Aligning basecalled sequences (Read1 is {} bp and Read2 is {} bp)...'.format(len(basecall1),len(basecall2)))
             #alignment = pairwise2.align.globalms(, , 2, -1, -.5, -.1)
             alignment = align.global_pair(basecall1, basecall2)
@@ -375,7 +371,7 @@ def pair_decode_helper(args):
             pair_decode_summary = {'read1':in_path[0], 'read2':in_path[1], 'length1':len(basecall1), 'length2':len(basecall2), 'sequence_identity':sequence_identity}
 
             if sequence_identity < 0.5:
-                logger.warning("WARNING: Pairwise sequence identity between reads is below 50%. Did you mean to take the --reverse-complement of one of the reads?")
+                logger.warning("WARNING: Pairwise sequence identity is very low ({}%). Did you mean to take the --reverse-complement of one of the reads?".format(sequence_identity))
 
             # get alignment_to_sequence mapping
             alignment_to_sequence = np.zeros(shape=alignment.shape,dtype=int)
@@ -387,9 +383,9 @@ def pair_decode_helper(args):
                     else:
                         alignment_to_sequence[s,i] = alignment_to_sequence[s,i-1] + 1
 
-    if args.method == 'align':
+    if args.skip_matches or args.method == 'align':
 
-        anchor_ranges, anchor_type = get_anchors(alignment, matches=args.matches, indels=args.indels)
+        anchor_ranges, anchor_type = get_anchors(alignment, matches=args.skip_threshold, indels=100)
 
         basecall_boxes = []
         basecall_anchors = []
@@ -442,19 +438,20 @@ def pair_decode_helper(args):
                 'anchor_ranges':anchor_ranges
                 },pfile)
 
-        logger.debug('\t Starting consensus basecalling...')
-        starmap_input = []
-        for i, b in enumerate(basecall_boxes):
-            starmap_input.append((model1, model2, i,len(basecall_boxes)-1,b[0],b[1],b[2],b[3]))
+        logger.debug('Splitting into {} segments to basecall, reduced to ~{:.2f} of total'.format(len(basecall_boxes), np.sum([b[1]-b[0] for b in basecall_boxes])/U))
 
-        #with Pool(processes=args.threads) as pool:
-        #    basecalls = pool.starmap(decoding_fn, starmap_input)
-        basecalls = starmap(decoding_fn, starmap_input)
+        if args.method == 'align': # args.method is deprecated
+            logger.debug('\t Starting consensus basecalling...')
+            starmap_input = []
+            for i, b in enumerate(basecall_boxes):
+                starmap_input.append((model1, model2, i,len(basecall_boxes)-1,b[0],b[1],b[2],b[3]))
 
-        # sort each segment by its first signal index
-        joined_basecalls = ''.join([i[1] for i in sorted(basecalls + basecall_anchors)])
+            basecalls = starmap(decoding_fn, starmap_input)
 
-    elif args.method == 'envelope':
+            # sort each segment by its first signal index
+            joined_basecalls = ''.join([i[1] for i in sorted(basecalls + basecall_anchors)])
+
+    if args.method == 'envelope':
 
         if args.debug:
             with open( "debug.p", "wb" ) as pfile:
@@ -478,16 +475,25 @@ def pair_decode_helper(args):
             alignment_envelope = envelope.build_envelope(y1,y2,alignment_col, sequence_to_signal1, sequence_to_signal2, padding=args.padding)
 
         logger.debug('\t Starting consensus basecalling...')
-        joined_basecalls = decoding_fn(y1, y2, alignment_envelope)
+        if not args.skip_matches:
+            joined_basecalls = decoding_fn(y1, y2, alignment_envelope)
+        else:
+            basecalls = []
+            for i, b in enumerate(basecall_boxes):
+                alignment_envelope_ = alignment_envelope[b[0]:b[1]]
+                y1_ = y1[b[0]:b[1]]
+                y2_ = y2[alignment_envelope_[0,0]:alignment_envelope_[-1,1]]
+                alignment_envelope_ -= alignment_envelope_[0,0]
+                basecalls.append((b[0], decoding_fn(y1_, y2_, alignment_envelope_)))
 
-    # output final basecalled sequence
-    #if not getattr(args, 'unittest', False):
-    #    with open(args.out+'.2d.fasta','a') as f:
-    #        print(fasta_format('consensus_{};{};{}'.format(args.method,in_path[0],in_path[1]), joined_basecalls), file=f)
+            # sort each segment by its first signal index
+            joined_basecalls = ''.join([i[1] for i in sorted(basecalls + basecall_anchors)])
 
     # return formatted strings but do output in main pair_decode function
-    if not args.diagonal_envelope:
-        return (fasta_format(in_path[0], basecall1)+fasta_format(in_path[1], basecall2), fasta_format('consensus_{};{};{}'.format(args.method,in_path[0],in_path[1]), joined_basecalls), pair_decode_summary)
-    else:
+    if args.diagonal_envelope:
+        # no 1D decoding to return if using a simple diagonal band
         return (fasta_format('consensus_{};{};{}'.format(args.method,in_path[0],in_path[1]), joined_basecalls), pair_decode_summary)
+    else:
+        return (fasta_format(in_path[0], basecall1)+fasta_format(in_path[1], basecall2), fasta_format('consensus_{};{};{}'.format(args.method,in_path[0],in_path[1]), joined_basecalls), pair_decode_summary)
+
     #return((basecall1, basecall2), joined_basecalls)

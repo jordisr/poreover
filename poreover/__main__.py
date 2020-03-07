@@ -66,8 +66,9 @@ def main():
     parser_pair.add_argument('--reverse_complement', default=False, action='store_true', help='Whether to reverse complement the second sequence')
     parser_pair.add_argument('--out', default='out',help='Prefix for FASTA sequence output')
     parser_pair.add_argument('--threads', type=int, default=1, help='Processes to use')
-    parser_pair.add_argument('--method', choices=['align', 'split', 'envelope'], default='envelope', help=argparse.SUPPRESS) # Method for dividing up search space (see code)
+    parser_pair.add_argument('--method', choices=['align', 'split', 'envelope'], default='envelope', help=argparse.SUPPRESS) # Method for dividing up search space (DEPRECATED)
     parser_pair.add_argument('--single', choices=['beam', 'viterbi'], default='viterbi', help='Algorithm for 1D basecalling (used to build alignment envelope)')
+    parser_pair.add_argument('--logging', default="info", choices=['info', 'debug'], help='Level for logging')
     parser_pair.add_argument('--debug', default=False, action='store_true', help='Save intermediate objects to pickled file for debugging')
     parser_pair.add_argument('--algorithm', default='beam', choices=['prefix' ,'beam'], help=argparse.SUPPRESS) # Search algorithm for pair decoding
     parser_pair.add_argument('--beam_width', type=int, default=5, help='Width for beam search')
@@ -75,11 +76,10 @@ def main():
     parser_pair.add_argument('--diagonal_envelope', action='store_true', help='Use a simple diagonal band for the signal alignment envelope')
     parser_pair.add_argument('--diagonal_width', type=int, default=50, help='Width of diagonal band envelope')
     parser_pair.add_argument('--padding', type=int, default=5, help='Padding for building alignment envelope')
+    parser_pair.add_argument('--skip_matches', action='store_true', help='Skip regions of sequence alignment with match columns greater than --skip_threshold')
+    parser_pair.add_argument('--skip_threshold', type=int, default=10, help='Number of consecutive matches to use for --skip_matches')
     # --method split
-    parser_pair.add_argument('--window', type=int, default=200, help=argparse.SUPPRESS) # Segment size used for splitting reads
-    # --method align
-    parser_pair.add_argument('--matches', type=int, default=8, help=argparse.SUPPRESS) # Match size for building anchors
-    parser_pair.add_argument('--indels', type=int, default=10, help=argparse.SUPPRESS) # Indel size for building anchors
+    parser_pair.add_argument('--window', type=int, default=200, help=argparse.SUPPRESS) # Segment size used for splitting reads (DEPRECATED)
 
     # Parse arguments and call corresponding command
     args = parser.parse_args()
