@@ -514,7 +514,7 @@ public:
 
     double emit_flip, emit_flop;
 
-    if (n->parent->depth == 0 and t==0) {
+    if (n->parent->depth == 0 && t==0) {
         emit_flip = y[t][n->last];
         emit_flop = y[t][n->last + flipflop_size];
     } else if (n->parent->last == n->last) {
@@ -566,7 +566,7 @@ public:
 
     double emit_flip, emit_flop;
 
-    if (n->parent->depth == 0 and t==0) {
+    if (n->parent->depth == 0 && t==0) {
         emit_flip = y[i][t][n->last];
         emit_flop = y[i][t][n->last + flipflop_size];
     } else if (n->parent->last == n->last) {
@@ -613,7 +613,7 @@ public:
     double gap_prob = n->probability_at(t-1) + y[t][gap_char];
     double no_gap_prob;
 
-    if (n->parent->depth == 0 and t==0) {
+    if (n->parent->depth == 0 && t==0) {
         no_gap_prob = y[t][n->last];
     } else if (n->parent->last == n->last) {
       no_gap_prob = logaddexp(n->parent->probability_gap_at(t-1) + y[t][n->last], n->probability_no_gap_at(t-1) + y[t][n->last]);
@@ -654,7 +654,7 @@ public:
     double gap_prob = n->probability_at(i, t-1) + y[i][t][gap_char];
     double no_gap_prob;
 
-    if (n->parent->depth == 0 and t==0) {
+    if (n->parent->depth == 0 && t==0) {
         no_gap_prob = y[i][t][n->last];
     } else if (n->parent->last == n->last) {
       no_gap_prob = logaddexp(n->parent->probability_gap_at(i,t-1) + y[i][t][n->last], n->probability_no_gap_at(i,t-1) + y[i][t][n->last]);
