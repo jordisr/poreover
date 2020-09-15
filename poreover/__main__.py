@@ -71,6 +71,7 @@ def main():
     parser_pair.add_argument('--logging', default="info", choices=['info', 'debug'], help='Level for logging')
     parser_pair.add_argument('--debug', default=False, action='store_true', help='Save intermediate objects to pickled file for debugging')
     parser_pair.add_argument('--algorithm', default='beam', choices=['prefix' ,'beam'], help=argparse.SUPPRESS) # Search algorithm for pair decoding
+    parser_pair.add_argument('--alignment', default='banded', choices=['banded' ,'full'], help='Do full Needleman-Wunsch alignment between 1D basecalls to build envelope')
     parser_pair.add_argument('--beam_width', type=int, default=5, help='Width for beam search')
     # --method envelope
     parser_pair.add_argument('--diagonal_envelope', action='store_true', help='Use a simple diagonal band for the signal alignment envelope')

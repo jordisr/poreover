@@ -356,6 +356,7 @@ def pair_decode_helper(args):
                 viterbi_path2 = decoding_cpp.cpp_viterbi_acceptor(model2.log_prob, basecall2, band_size=1000)
 
             sequence_to_signal1, _ = get_sequence_mapping(viterbi_path1, model1.kind)
+
             assert(len(sequence_to_signal1) == len(basecall1))
 
             sequence_to_signal2, _ = get_sequence_mapping(viterbi_path2, model2.kind)
@@ -363,7 +364,11 @@ def pair_decode_helper(args):
 
             logger.debug('\t Aligning basecalled sequences (Read1 is {} bp and Read2 is {} bp)...'.format(len(basecall1),len(basecall2)))
             #alignment = pairwise2.align.globalms(, , 2, -1, -.5, -.1)
-            alignment = align.global_pair(basecall1, basecall2)
+            if args.alignment == "full":
+                alignment = align.global_pair(basecall1, basecall2)
+            else:
+                alignment = align.global_pair_banded(basecall1, basecall2)
+
             alignment = np.array([list(s) for s in alignment[:2]])
             sequence_identity = np.sum(alignment[0] == alignment[1]) / len(alignment[0])
             logger.debug('\t Read sequence identity: {}'.format(sequence_identity))
