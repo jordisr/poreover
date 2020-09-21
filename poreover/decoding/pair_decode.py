@@ -266,17 +266,19 @@ def pair_decode(args):
                 self.log_f = open(args.out+'.log','w',1)
                 print('# PoreOver pair-decode', file=self.log_f)
                 print('# '+str(vars(args)), file=self.log_f)
-                print('# '+'\t'.join(map(str,["read1", "read2", "length1", "length2", "sequence_identity"])), file=self.log_f)
+                print('# '+'\t'.join(map(str,["read1", "read2", "length1", "length2", "sequence_identity", "skipped"])), file=self.log_f)
             def callback(self, x):
                 self.counter += 1
                 self.pbar.update(self.counter)
                 if len(x) == 3:
                     print(x[0], file=self.out_1d_f)
                     print(x[1], file=self.out_2d_f)
-                    print('\t'.join(map(str,[x[2][k] for k in ["read1", "read2", "length1", "length2", "sequence_identity"]])), file=self.log_f)
+                    print('\t'.join(map(str,[x[2].get(k, "") for k in ["read1", "read2", "length1", "length2", "sequence_identity", "skipped"]])), file=self.log_f)
                 elif len(x) == 2:
                     print(x[0], file=self.out_2d_f)
-                    print('\t'.join(map(str,[x[1][k] for k in ["read1", "read2"]])), file=self.log_f)
+                    print('\t'.join(map(str,[x[1].get(k, "") for k in ["read1", "read2"]])), file=self.log_f)
+                elif len(x) == 1:
+                    print('\t'.join(map(str,[x[0].get(k, "") for k in ["read1", "read2", "length1", "length2", "sequence_identity", "skipped"]])), file=self.log_f)
         callback_helper_ = callback_helper()
 
         bullet_point = u'\u25B8'+" "
@@ -355,6 +357,11 @@ def pair_decode_helper(args):
                 basecall2 = decoding_cpp.cpp_beam_search(model2.log_prob)
                 viterbi_path2 = decoding_cpp.cpp_viterbi_acceptor(model2.log_prob, basecall2, band_size=1000)
 
+            if abs(len(basecall1) - len(basecall2)) > 1000:
+                logger.warning("WARNING: Skipping pair due to length mismatch.")
+                pair_decode_summary = {'read1':in_path[0], 'read2':in_path[1], 'length1':len(basecall1), 'length2':len(basecall2), 'skipped':1}
+                return [pair_decode_summary]
+
             sequence_to_signal1, _ = get_sequence_mapping(viterbi_path1, model1.kind)
 
             assert(len(sequence_to_signal1) == len(basecall1))
@@ -373,10 +380,12 @@ def pair_decode_helper(args):
             sequence_identity = np.sum(alignment[0] == alignment[1]) / len(alignment[0])
             logger.debug('\t Read sequence identity: {}'.format(sequence_identity))
 
-            pair_decode_summary = {'read1':in_path[0], 'read2':in_path[1], 'length1':len(basecall1), 'length2':len(basecall2), 'sequence_identity':sequence_identity}
-
             if sequence_identity < 0.5:
-                logger.warning("WARNING: Pairwise sequence identity is very low ({}%). Did you mean to take the --reverse-complement of one of the reads?".format(sequence_identity))
+                logger.warning("WARNING: Skipping pair due to low pairwise identity ({}%). Did you mean to take the --reverse-complement of one of the reads?".format(sequence_identity))
+                pair_decode_summary = {'read1':in_path[0], 'read2':in_path[1], 'length1':len(basecall1), 'length2':len(basecall2), 'sequence_identity':sequence_identity, 'skipped':1}
+                return [pair_decode_summary]
+
+            pair_decode_summary = {'read1':in_path[0], 'read2':in_path[1], 'length1':len(basecall1), 'length2':len(basecall2), 'sequence_identity':sequence_identity, 'skipped':0}
 
             # get alignment_to_sequence mapping
             alignment_to_sequence = np.zeros(shape=alignment.shape,dtype=int)
