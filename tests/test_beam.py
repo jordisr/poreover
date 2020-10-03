@@ -75,6 +75,15 @@ class beam_2d_same(unittest.TestCase):
         print(result_1d, result_2d)
         self.assertTrue(result_1d == result_2d)
 
+    def test_same_row_col(self):
+        y = self.model.log_prob
+        result_1d = decoding.decoding_cpp.cpp_beam_search(y, beam_width_=10)
+        envelope_width = 10
+        envelope_ranges = np.array([(max(0,i-envelope_width),min(i+envelope_width, self.t_max)) for i in range(self.t_max)])
+        result_2d = decoding.decoding_cpp.cpp_beam_search_2d(y, y, envelope_ranges.tolist(), beam_width_=10, method_="row")
+        print(result_1d, result_2d)
+        self.assertTrue(result_1d == result_2d)
+
     #def test_same_2(self):
     #    y = self.model.log_prob
     #    result_1d = decoding.decoding_cpp.cpp_beam_search(y, alphabet_="ACGT", beam_width_=10)

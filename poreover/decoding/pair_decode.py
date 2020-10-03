@@ -168,6 +168,7 @@ class parallel_decoder:
         y2_subset,
         subset_envelope.tolist(),
         beam_width_=self.args.beam_width,
+        method_=self.args.beam_search_method,
         model_=self.kind))
 
     def _prefix_search_1d(self, y):

@@ -28,6 +28,16 @@ public:
 };
 
 template <class T>
+class node_greater_max_sym {
+public:
+  bool operator()(T x, T y) {
+    auto lhs = x->max_probability_sym();
+    auto rhs = y->max_probability_sym();
+    return (lhs > rhs);
+  }
+};
+
+template <class T>
 class node_greater_max_lengthnorm {
 // length normalized
 public:
