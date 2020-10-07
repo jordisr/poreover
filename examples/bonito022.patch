@@ -1,0 +1,14 @@
+diff --git a/bonito/io.py b/bonito/io.py
+index d594a8e..1d286b7 100644
+--- a/bonito/io.py
++++ b/bonito/io.py
+@@ -275,6 +275,9 @@ class DecoderWriter(Process):
+             # convert logprobs to probs
+             predictions = np.exp(predictions.astype(np.float32))
+ 
++            # save basecaller probabilities
++            np.save("{}.npy".format(read.read_id), predictions)
++
+             sequence, path = self.model.decode(
+                 predictions, beamsize=self.beamsize, qscores=True, return_path=True
+             )
