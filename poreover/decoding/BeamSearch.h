@@ -186,6 +186,11 @@ std::string beam_search_2d_by_row(double **y1, double **y2, int U, int V, std::s
         beam_.push(n);
     }
 
+    //std::cout << "Beam after initialization\n";
+    //for (int b=0; b < beam_.size(); b++) {
+    //    std::cout << "u=" << 0 << ", v=(0," << 0 << ")" << "----" << tree.get_label(beam_.elements[b]) << " : " << beam_.elements[b]->max_probability() << "\tmax[1] at v=" << beam_.elements[b]->max_t[1] << "\n";
+    //}
+
     //std::cout << "u" << "\t" << "v_start" << "\t" << "v_end" << "\t" << "top_node" << "\t" << "max_probability" << "\t" << "max_t" << "\t" << "length"<< "\n";
 
     for (int u=1; u<U; ++u) {
@@ -226,12 +231,12 @@ std::string beam_search_2d_by_row(double **y1, double **y2, int U, int V, std::s
         beam_.prune();
 
         // write out beam
-        /*
-        std::cout << "Beam after pruning\n";
-        for (int b=0; b < beam_.size(); b++) {
-            std::cout << "u=" << u << ", v=(0," << V << ")" << "----" << tree.get_label(beam_.elements[b]) << " : " << beam_.elements[b]->max_probability() << "\tmax[1] at v=" << beam_.elements[b]->max_t[1] << "\n";
-        }
-        */
+
+        //std::cout << "Beam after pruning\n";
+        //for (int b=0; b < beam_.size(); b++) {
+        //    std::cout << "last_t=" << beam_.elements[b]->last_t[0] << "\n";
+        //    std::cout << "u=" << u << ", v=(0," << V << ")" << "----" << tree.get_label(beam_.elements[b]) << " : " << beam_.elements[b]->probability_at(0, u) << "+" << beam_.elements[b]->max_prob[1] << "=" << beam_.elements[b]->max_probability() << "\tmax[1] at v=" << beam_.elements[b]->max_t[1] << "\n";
+        //}
 
         // just output statistics from top node
         //auto top_node_ = beam_.top();
@@ -289,7 +294,7 @@ std::string beam_search_2d_by_row_col(double **y1, double **y2, int **envelope_r
 
     int u = 1;
     int v = 1;
-    while (u < (U-1) && v < (V-1)) {
+    while (u <= (U-1) && v <= (V-1)) {
 
       // get bounds for iteration over alignment envelope
       int envelope_row_start = envelope_ranges[u][0];
