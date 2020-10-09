@@ -200,18 +200,14 @@ def call(args):
         model_file = args.weights
     model.load_weights(model_file)
 
-    if args.fast5:
-        if os.path.isdir(args.fast5):
-            fast5_files =  glob.glob(args.fast5+'/*.fast5')
-            for i in progressbar.progressbar(range(len(fast5_files))):
-                fast5 = fast5_files[i]
-                args.fast5 = fast5
-                args.out = os.path.basename(fast5)
-                call_helper(args, model)
-        else:
+    if os.path.isdir(getattr(args,"in")):
+        fast5_files =  glob.glob(os.path.join(getattr(args,"in"), "*.fast5"))
+        for i in progressbar.progressbar(range(len(fast5_files))):
+            fast5 = fast5_files[i]
+            setattr(args, 'in', fast5)
             call_helper(args, model)
     else:
-        sys.exit("An input file must be specified with --fast5!")
+        call_helper(args, model)
 
 def parse_fast5(f, scaling='standard'):
 
@@ -251,7 +247,7 @@ def parse_fast5(f, scaling='standard'):
     elif scaling == 'raw':
         signal = raw_signal
 
-    return signal
+    return read_id, signal
 
 def batch_input(signal, window_size, batch_size=128):
 
@@ -268,7 +264,8 @@ def batch_input(signal, window_size, batch_size=128):
 def call_helper(args, model):
 
     # load scaled signal from FAST5 file
-    signal = parse_fast5(args.fast5, scaling=args.scaling)
+    fast5_file = getattr(args, 'in')
+    read_id, signal = parse_fast5(fast5_file, scaling=args.scaling)
 
     # split signal into blocks to allow for faster basecalling with the GPU
     padded_batches, last_batch_index = batch_input(signal, window_size=args.window)
@@ -289,7 +286,12 @@ def call_helper(args, model):
     # now just saving logits, can use decode submodule for decoding probabilities
     logits_concatenate = np.concatenate(output)
 
-    if args.format == 'csv':
-        np.savetxt(args.out+'.csv', logits_concatenate, delimiter=',', header=','.join(['A','C','G','T','']), comments='', )
+    if args.use_id:
+        out_prefix = os.path.join(args.dir, read_id.decode('utf-8'))
     else:
-        np.save(args.out, logits_concatenate)
+        out_prefix = os.path.join(args.dir, Path(fast5_file).stem)
+
+    if args.format == 'csv':
+        np.savetxt(out_prefix+'.csv', logits_concatenate, delimiter=',', header=','.join(['A','C','G','T','']), comments='', )
+    else:
+        np.save(out_prefix, logits_concatenate)

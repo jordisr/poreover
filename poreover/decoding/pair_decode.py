@@ -33,6 +33,7 @@ import logging
 import copy
 import progressbar
 from itertools import starmap
+from pathlib import Path
 
 from . import decode
 from . import decoding_cpp
@@ -308,9 +309,19 @@ def pair_decode_helper(args):
     if len(in_path) != 2:
         logger.error("ERROR: Exactly two reads are required")
 
-    logger.debug('Read1:{} Read2:{}'.format(in_path[0], in_path[1]))
-    model1 = decode.model_from_trace(os.path.join(args.dir, in_path[0]), args.basecaller)
-    model2 = decode.model_from_trace(os.path.join(args.dir, in_path[1]), args.basecaller)
+    path1 = Path(in_path[0])
+    path2 = Path(in_path[1])
+
+    # if files end in FAST5 (as pairs output might) then automatically replace extension
+    if path1.suffix == ".fast5":
+        path1 = path1.with_suffix(".npy")
+    if path2.suffix == ".fast5":
+        path2 = path2.with_suffix(".npy")
+
+    logger.debug('Read1:{} Read2:{}'.format(path1, path2))
+
+    model1 = decode.model_from_trace(os.path.join(args.dir, path1), args.basecaller)
+    model2 = decode.model_from_trace(os.path.join(args.dir, path2), args.basecaller)
     U = model1.t_max
     V = model2.t_max
 
@@ -507,8 +518,8 @@ def pair_decode_helper(args):
     # return formatted strings but do output in main pair_decode function
     if args.diagonal_envelope:
         # no 1D decoding to return if using a simple diagonal band
-        return (fasta_format('consensus_{};{};{}'.format(args.method,in_path[0],in_path[1]), joined_basecalls), pair_decode_summary)
+        return (fasta_format('consensus;{};{}'.format(args.method, path1.stem, path2.stem), joined_basecalls), pair_decode_summary)
     else:
-        return (fasta_format(in_path[0], basecall1)+fasta_format(in_path[1], basecall2), fasta_format('consensus_{};{};{}'.format(args.method,in_path[0],in_path[1]), joined_basecalls), pair_decode_summary)
+        return (fasta_format(in_path[0], basecall1)+fasta_format(in_path[1], basecall2), fasta_format('consensus;{};{}'.format(path1.stem, path2.stem), joined_basecalls), pair_decode_summary)
 
     #return((basecall1, basecall2), joined_basecalls)
