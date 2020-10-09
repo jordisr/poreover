@@ -5,6 +5,7 @@ import h5py
 import glob
 import datetime
 import progressbar
+import pathlib
 from pathlib import Path
 
 INPUT_DIM=1
@@ -174,13 +175,13 @@ def train(args):
     validation_size = int(int(len(list(dataset))/args.batch_size)*args.holdout)
     print("Setting aside {}% of data for validation: {} batches".format(args.holdout*100, validation_size), file=log_file)
     log_file.close()
-    train_ctc_model(model, dataset.shuffle(buffer_size=5000).repeat(args.epochs).batch(args.batch_size, drop_remainder=True), out_dir=out_dir, save_frequency=args.save_every, log_frequency=args.loss_every, validation_size=validation_size)
+    train_ctc_model(model, dataset.shuffle(buffer_size=2000000).repeat(args.epochs).batch(args.batch_size, drop_remainder=True), out_dir=out_dir, save_frequency=args.save_every, log_frequency=args.loss_every, validation_size=validation_size)
 
 def call(args):
 
     if args.model is None:
         # if no model architecture is specified, use default architecture
-        model = build_model().conv1_bigru3()
+        model = build_model(args).conv1_bigru3()
     else:
         # otherwise, load architecture from JSON file
         # for some reason, this is much slower than specifying model explicitly
@@ -191,7 +192,9 @@ def call(args):
             model = tf.keras.models.model_from_json(json_config)
 
     # load trained model weights
-    if os.path.isdir(args.weights):
+    if args.weights is None:
+        model_file = str(Path(__file__).parent.parent.parent.joinpath("data").joinpath("model").joinpath("checkpoint-124"))
+    elif os.path.isdir(args.weights):
         model_file = tf.train.latest_checkpoint(args.weights)
     else:
         model_file = args.weights

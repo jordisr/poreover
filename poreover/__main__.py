@@ -36,7 +36,7 @@ def main():
     # Call
     parser_call = subparsers.add_parser('call', help='Run basecalling forward pass on set of FAST5 reads', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser_call.set_defaults(func=call)
-    parser_call.add_argument('--weights', help='Trained weights to load into model (if directory, loads latest from checkpoint file)', required=True)
+    parser_call.add_argument('--weights', default=None, help='Trained weights to load into model (if directory, loads latest from checkpoint file)')
     parser_call.add_argument('--model', help='Model config JSON file', default=None)
     parser_call.add_argument('--scaling', default='standard', choices=['standard', 'current', 'median', 'rescale'], help='Type of preprocessing (should be same as training)')
     parser_call.add_argument('--fast5', default=False, help='Single FAST5 file or directory of FAST5 files', required=True)
