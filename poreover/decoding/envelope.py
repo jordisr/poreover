@@ -63,8 +63,9 @@ def build_envelope(y1, y2, alignment_col, sequence_to_signal1, sequence_to_signa
 
     for (i,tup) in enumerate(alignment_col):
         (label, seq1, seq2) = tup
-        block = (int(sequence_to_signal_range1[max(seq1, 0)][0]), int(sequence_to_signal_range2[max(seq2, 0)][0]),
-                 int(sequence_to_signal_range1[max(seq1, 0)][1]), int(sequence_to_signal_range2[max(seq2, 0)][1])
+        # TODO added a fix but should double check banded alignment is working correctly
+        block = (int(sequence_to_signal_range1[min(max(seq1, 0), len(sequence_to_signal_range1)-1)][0]), int(sequence_to_signal_range2[min(max(seq2, 0), len(sequence_to_signal_range2)-1)][0]),
+                 int(sequence_to_signal_range1[min(max(seq1, 0), len(sequence_to_signal_range1)-1)][1]), int(sequence_to_signal_range2[min(max(seq2, 0), len(sequence_to_signal_range2)-1)][1])
                 )
         add_block(block, alignment_envelope)
 
