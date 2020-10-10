@@ -292,8 +292,8 @@ std::string beam_search_2d_by_row_col(double **y1, double **y2, int **envelope_r
         beam_.push(n);
     }
 
-    int u = 1;
-    int v = 1;
+    int u = 0;
+    int v = 0;
     while (u <= (U-1) && v <= (V-1)) {
 
       // get bounds for iteration over alignment envelope
@@ -302,12 +302,16 @@ std::string beam_search_2d_by_row_col(double **y1, double **y2, int **envelope_r
       int envelope_col_start = envelope_ranges_t[v][0];
       int envelope_col_end = envelope_ranges_t[v][1];
 
+      //std::cout << "ITERATION starting at u=" << u << "/" << U << "\t v=" << v << "/" << V << "\n";
+      //std::cout << "\tROW ENVELOPE FROM " << envelope_row_start << " TO " << envelope_row_end << "\n";
+      //std::cout << "\tCOL ENVELOPE FROM " << envelope_col_start << " TO " << envelope_col_end << "\n";
+
       int row_start, row_end, col_start, col_end;
 
-      if (v > envelope_row_start && v < envelope_row_end) {
+      if (v >= envelope_row_start && v < envelope_row_end) {
         row_start = v;
         row_end = envelope_row_end;
-      } else if (v <= envelope_row_start) {
+      } else if (v < envelope_row_start) {
         row_start = envelope_row_start;
         row_end = envelope_row_end;
         for (int b=0; b < beam_width; ++b) {
@@ -318,10 +322,10 @@ std::string beam_search_2d_by_row_col(double **y1, double **y2, int **envelope_r
         continue;
       }
 
-      if (u > envelope_col_start && u < envelope_col_end) {
+      if (u >= envelope_col_start && u < envelope_col_end) {
         col_start = u;
         col_end = envelope_col_end;
-      } else if (u <= envelope_col_start) {
+      } else if (u < envelope_col_start) {
         col_start = envelope_col_start;
         col_end = envelope_col_end;
         for (int b=0; b < beam_width; ++b) {
@@ -332,14 +336,11 @@ std::string beam_search_2d_by_row_col(double **y1, double **y2, int **envelope_r
         continue;
       }
 
-      //std::cout << "ITERATION starting at u=" << u << "/" << U << "\t v=" << v << "/" << V << "\n";
-      //std::cout << "\tROW ENVELOPE FROM " << envelope_row_start << " TO " << envelope_row_end << "\n";
-      //std::cout << "\tCOL ENVELOPE FROM " << envelope_col_start << " TO " << envelope_col_end << "\n";
       //std::cout << "\tROW FROM " << row_start << " TO " << row_end << "\n";
       //std::cout << "\tCOL FROM " << col_start << " TO " << col_end << "\n";
 
-      // initialize beam
-      for (int b=0; b < beam_width; ++b) {
+      int beam_size = beam_.size();
+      for (int b=0; b < beam_size; ++b) {
         // expand node and add children to the beam
 
           auto beam_node = beam_.elements[b];
