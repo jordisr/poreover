@@ -500,6 +500,12 @@ def pair_decode_helper(args):
             alignment_col = envelope.get_alignment_columns(alignment)
             alignment_envelope = envelope.build_envelope(y1,y2,alignment_col, sequence_to_signal1, sequence_to_signal2, padding=args.padding)
 
+        if args.debug_envelope:
+            # np.median(alignment_envelope[:,1]-(np.arange(U)*U/V).astype(int))
+            envelope_size = alignment_envelope[:,1]-alignment_envelope[:,0]
+            print(path1.stem, path2.stem, len(basecall1), len(basecall2), U, V, np.mean(envelope_size), np.std(envelope_size), np.median(envelope_size), np.min(envelope_size), np.max(envelope_size))
+            return ([{"skipped":1}])
+
         logger.debug('\t Starting consensus basecalling...')
         if not args.skip_matches:
             joined_basecalls = decoding_fn(y1, y2, alignment_envelope)

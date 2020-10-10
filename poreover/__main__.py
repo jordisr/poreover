@@ -73,6 +73,7 @@ def main():
     parser_pair.add_argument('--algorithm', default='beam', choices=['prefix' ,'beam'], help=argparse.SUPPRESS) # Search algorithm for pair decoding
     parser_pair.add_argument('--alignment', default='banded', choices=['banded' ,'full'], help='Do full Needleman-Wunsch alignment between 1D basecalls to build envelope')
     parser_pair.add_argument('--beam_width', type=int, default=5, help='Width for beam search')
+    parser_pair.add_argument('--debug_envelope', action='store_true', help=argparse.SUPPRESS) # just print out statistics on the alignment envelope and don't basecall
     # --method envelope
     parser_pair.add_argument('--diagonal_envelope', action='store_true', help='Use a simple diagonal band for the signal alignment envelope')
     parser_pair.add_argument('--diagonal_width', type=int, default=50, help='Width of diagonal band envelope')
