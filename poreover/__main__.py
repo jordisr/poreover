@@ -80,7 +80,7 @@ def main():
     parser_pair.add_argument('--padding', type=int, default=5, help='Padding for building alignment envelope')
     parser_pair.add_argument('--skip_matches', action='store_true', help='Skip regions of sequence alignment with match columns greater than --skip_threshold')
     parser_pair.add_argument('--skip_threshold', type=int, default=10, help='Number of consecutive matches to use for --skip_matches')
-    parser_pair.add_argument('--beam_search_method', choices=['row', 'row_col', 'grid'], default="row", help=argparse.SUPPRESS) # method for matrix traversal, passed to C++ decoder
+    parser_pair.add_argument('--beam_search_method', choices=['row', 'row_col', 'grid'], default="row_col", help=argparse.SUPPRESS) # method for matrix traversal, passed to C++ decoder
 
     # --method split
     parser_pair.add_argument('--window', type=int, default=200, help=argparse.SUPPRESS) # Segment size used for splitting reads (DEPRECATED)
