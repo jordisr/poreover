@@ -48,7 +48,7 @@ PoreOver includes a simple basecalling network with an architecture inspired by 
 This will run the forward pass of the network and save the logits output to `read.npy`. This can then be passed to the `decode`
 
 It will also take a directory as an input, e.g.
-`poreover call data/1d2`
+`poreover call data/reads`
 
 ### Decoding basecaller probabilities
 
@@ -63,9 +63,9 @@ While beam search may outperform Viterbi decoding, in our experience any improve
 
 Pair decoding can run either on a single pair as in
 
-`poreover pair-decode data/1d2/read1.npy data/1d2/read2.npy --reverse_complement --basecaller poreover `
+`poreover pair-decode data/reads/read1.npy data/reads/read2.npy --reverse_complement --basecaller poreover `
 
-Or using a list of read pairs
+Or using a list of read pairs (provided probabilities have already been generated with a basecaller).
 
 `poreover pair-decode data/pairs.txt --reverse_complement --basecaller poreover`
 
@@ -81,6 +81,8 @@ git apply poreover/data/bonito_022.patch
 pip install -r requirements.txt
 pip install -e .
 ~~~
+
+Now, running Bonito will generate a .npy file for each read.
 
 ### Decoding flip-flop basecallers
 
