@@ -3,6 +3,7 @@ import h5py
 import sys
 import os
 import glob
+from pathlib import Path
 from scipy.special import logsumexp
 
 from multiprocessing import Pool, get_logger
@@ -188,4 +189,4 @@ def decode_helper(in_path, args):
 
     # output decoded sequence
     fasta_header = os.path.basename(in_path)
-    return fasta_format(fasta_header, sequence)
+    return fasta_format(Path(in_path).stem, sequence)

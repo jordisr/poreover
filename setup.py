@@ -13,9 +13,9 @@ else:
     extra_compile_args = ['-std=c++11']
 
 ext_modules = [
-Extension("poreover.decoding.decoding_cpp", sources=["poreover/decoding/decoding_cpp.pyx"], include_dirs=[np.get_include()], language='c++',extra_link_args=extra_link_args, extra_compile_args=extra_compile_args),
-Extension("poreover.decoding.decoding_cy", sources=["poreover/decoding/decoding_cy.pyx"], include_dirs=[np.get_include()], language='c++',extra_link_args=extra_link_args, extra_compile_args=extra_compile_args),
-Extension("poreover.align.align", sources=["poreover/align/align.pyx"], include_dirs=[np.get_include()])
+Extension("poreover.decoding.decoding_cpp", sources=["poreover/decoding/decoding_cpp.pyx"], include_dirs=[np.get_include()], language='c++', extra_link_args=extra_link_args, extra_compile_args=extra_compile_args),
+Extension("poreover.decoding.decoding_cy", sources=["poreover/decoding/decoding_cy.pyx"], include_dirs=[np.get_include()], language='c++', extra_link_args=extra_link_args, extra_compile_args=extra_compile_args),
+Extension("poreover.align.align", sources=["poreover/align/align.pyx"], include_dirs=[np.get_include(), "poreover/decoding"], language='c++', extra_link_args=extra_link_args, extra_compile_args=extra_compile_args)
 ]
 
 setup(

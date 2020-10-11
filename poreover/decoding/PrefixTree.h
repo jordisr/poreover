@@ -108,9 +108,22 @@ double joint_probability(int u, int v) const {
    return last_prob[0] + max_prob[1];
  }
 
+ double max_probability_sym() const {
+   return max_prob[0] + max_prob[1];
+ }
+
  void reset_max() {
    max_prob[0] = DEFAULT_VALUE;
    max_prob[1] = DEFAULT_VALUE;
+ }
+
+ void reset_max(int i) {
+   if (i == 0) {
+     max_prob[i] = DEFAULT_VALUE;
+   } else if (i == 1) {
+     max_prob[i] = DEFAULT_VALUE;
+   }
+
  }
 
  void set_probability(int i, int t, double val) {
@@ -243,9 +256,21 @@ double joint_probability(int u, int v) const {
    return probability[0].at(last_t[0]) + max_prob[1];
  }
 
+ double max_probability_sym() const {
+   return max_prob[0] + max_prob[1];
+ }
+
  void reset_max() {
    max_prob[0] = DEFAULT_VALUE;
    max_prob[1] = DEFAULT_VALUE;
+ }
+
+ void reset_max(int i) {
+   if (i == 0) {
+     max_prob[i] = DEFAULT_VALUE;
+   } else if (i == 1) {
+     max_prob[i] = DEFAULT_VALUE;
+   }
  }
 
  void set_probability(int i, int t, double flip_val, double flop_val) {
@@ -369,9 +394,21 @@ public:
     return probability[0].at(last_t[0]) + max_prob[1];
   }
 
+  double max_probability_sym() const {
+    return max_prob[0] + max_prob[1];
+  }
+
   void reset_max() {
     max_prob[0] = DEFAULT_VALUE;
     max_prob[1] = DEFAULT_VALUE;
+  }
+
+  void reset_max(int i) {
+    if (i == 0) {
+      max_prob[i] = DEFAULT_VALUE;
+    } else if (i == 1) {
+      max_prob[i] = DEFAULT_VALUE;
+    }
   }
 
   void set_probability(int i, int t, double gap_val, double no_gap_val) {

@@ -1,1 +1,1 @@
-from .align import global_pair
+from .align import global_pair, global_pair_banded

@@ -33,6 +33,7 @@ import logging
 import copy
 import progressbar
 from itertools import starmap
+from pathlib import Path
 
 from . import decode
 from . import decoding_cpp
@@ -168,6 +169,7 @@ class parallel_decoder:
         y2_subset,
         subset_envelope.tolist(),
         beam_width_=self.args.beam_width,
+        method_=self.args.beam_search_method,
         model_=self.kind))
 
     def _prefix_search_1d(self, y):
@@ -266,17 +268,19 @@ def pair_decode(args):
                 self.log_f = open(args.out+'.log','w',1)
                 print('# PoreOver pair-decode', file=self.log_f)
                 print('# '+str(vars(args)), file=self.log_f)
-                print('# '+'\t'.join(map(str,["read1", "read2", "length1", "length2", "sequence_identity"])), file=self.log_f)
+                print('# '+'\t'.join(map(str,["read1", "read2", "length1", "length2", "sequence_identity", "skipped"])), file=self.log_f)
             def callback(self, x):
                 self.counter += 1
                 self.pbar.update(self.counter)
                 if len(x) == 3:
                     print(x[0], file=self.out_1d_f)
                     print(x[1], file=self.out_2d_f)
-                    print('\t'.join(map(str,[x[2][k] for k in ["read1", "read2", "length1", "length2", "sequence_identity"]])), file=self.log_f)
+                    print('\t'.join(map(str,[x[2].get(k, "") for k in ["read1", "read2", "length1", "length2", "sequence_identity", "skipped"]])), file=self.log_f)
                 elif len(x) == 2:
                     print(x[0], file=self.out_2d_f)
-                    print('\t'.join(map(str,[x[1][k] for k in ["read1", "read2"]])), file=self.log_f)
+                    print('\t'.join(map(str,[x[1].get(k, "") for k in ["read1", "read2"]])), file=self.log_f)
+                elif len(x) == 1:
+                    print('\t'.join(map(str,[x[0].get(k, "") for k in ["read1", "read2", "length1", "length2", "sequence_identity", "skipped"]])), file=self.log_f)
         callback_helper_ = callback_helper()
 
         bullet_point = u'\u25B8'+" "
@@ -305,9 +309,19 @@ def pair_decode_helper(args):
     if len(in_path) != 2:
         logger.error("ERROR: Exactly two reads are required")
 
-    logger.debug('Read1:{} Read2:{}'.format(in_path[0], in_path[1]))
-    model1 = decode.model_from_trace(os.path.join(args.dir, in_path[0]), args.basecaller)
-    model2 = decode.model_from_trace(os.path.join(args.dir, in_path[1]), args.basecaller)
+    path1 = Path(in_path[0])
+    path2 = Path(in_path[1])
+
+    # if files end in FAST5 (as pairs output might) then automatically replace extension
+    if path1.suffix == ".fast5":
+        path1 = path1.with_suffix(".npy")
+    if path2.suffix == ".fast5":
+        path2 = path2.with_suffix(".npy")
+
+    logger.debug('Read1:{} Read2:{}'.format(path1, path2))
+
+    model1 = decode.model_from_trace(os.path.join(args.dir, path1), args.basecaller)
+    model2 = decode.model_from_trace(os.path.join(args.dir, path2), args.basecaller)
     U = model1.t_max
     V = model2.t_max
 
@@ -355,7 +369,13 @@ def pair_decode_helper(args):
                 basecall2 = decoding_cpp.cpp_beam_search(model2.log_prob)
                 viterbi_path2 = decoding_cpp.cpp_viterbi_acceptor(model2.log_prob, basecall2, band_size=1000)
 
+            if abs(len(basecall1) - len(basecall2)) > 1000:
+                logger.warning("WARNING: Skipping pair due to length mismatch.")
+                pair_decode_summary = {'read1':in_path[0], 'read2':in_path[1], 'length1':len(basecall1), 'length2':len(basecall2), 'skipped':1}
+                return [pair_decode_summary]
+
             sequence_to_signal1, _ = get_sequence_mapping(viterbi_path1, model1.kind)
+
             assert(len(sequence_to_signal1) == len(basecall1))
 
             sequence_to_signal2, _ = get_sequence_mapping(viterbi_path2, model2.kind)
@@ -363,15 +383,21 @@ def pair_decode_helper(args):
 
             logger.debug('\t Aligning basecalled sequences (Read1 is {} bp and Read2 is {} bp)...'.format(len(basecall1),len(basecall2)))
             #alignment = pairwise2.align.globalms(, , 2, -1, -.5, -.1)
-            alignment = align.global_pair(basecall1, basecall2)
+            if args.alignment == "full":
+                alignment = align.global_pair(basecall1, basecall2)
+            else:
+                alignment = align.global_pair_banded(basecall1, basecall2)
+
             alignment = np.array([list(s) for s in alignment[:2]])
             sequence_identity = np.sum(alignment[0] == alignment[1]) / len(alignment[0])
             logger.debug('\t Read sequence identity: {}'.format(sequence_identity))
 
-            pair_decode_summary = {'read1':in_path[0], 'read2':in_path[1], 'length1':len(basecall1), 'length2':len(basecall2), 'sequence_identity':sequence_identity}
-
             if sequence_identity < 0.5:
-                logger.warning("WARNING: Pairwise sequence identity is very low ({}%). Did you mean to take the --reverse-complement of one of the reads?".format(sequence_identity))
+                logger.warning("WARNING: Skipping pair due to low pairwise identity ({}%). Did you mean to take the --reverse-complement of one of the reads?".format(sequence_identity))
+                pair_decode_summary = {'read1':in_path[0], 'read2':in_path[1], 'length1':len(basecall1), 'length2':len(basecall2), 'sequence_identity':sequence_identity, 'skipped':1}
+                return [pair_decode_summary]
+
+            pair_decode_summary = {'read1':in_path[0], 'read2':in_path[1], 'length1':len(basecall1), 'length2':len(basecall2), 'sequence_identity':sequence_identity, 'skipped':0}
 
             # get alignment_to_sequence mapping
             alignment_to_sequence = np.zeros(shape=alignment.shape,dtype=int)
@@ -474,6 +500,12 @@ def pair_decode_helper(args):
             alignment_col = envelope.get_alignment_columns(alignment)
             alignment_envelope = envelope.build_envelope(y1,y2,alignment_col, sequence_to_signal1, sequence_to_signal2, padding=args.padding)
 
+        if args.debug_envelope:
+            # np.median(alignment_envelope[:,1]-(np.arange(U)*U/V).astype(int))
+            envelope_size = alignment_envelope[:,1]-alignment_envelope[:,0]
+            print(path1.stem, path2.stem, len(basecall1), len(basecall2), U, V, np.mean(envelope_size), np.std(envelope_size), np.median(envelope_size), np.min(envelope_size), np.max(envelope_size))
+            return ([{"skipped":1}])
+
         logger.debug('\t Starting consensus basecalling...')
         if not args.skip_matches:
             joined_basecalls = decoding_fn(y1, y2, alignment_envelope)
@@ -492,8 +524,8 @@ def pair_decode_helper(args):
     # return formatted strings but do output in main pair_decode function
     if args.diagonal_envelope:
         # no 1D decoding to return if using a simple diagonal band
-        return (fasta_format('consensus_{};{};{}'.format(args.method,in_path[0],in_path[1]), joined_basecalls), pair_decode_summary)
+        return (fasta_format('consensus;{};{}'.format(args.method, path1.stem, path2.stem), joined_basecalls), pair_decode_summary)
     else:
-        return (fasta_format(in_path[0], basecall1)+fasta_format(in_path[1], basecall2), fasta_format('consensus_{};{};{}'.format(args.method,in_path[0],in_path[1]), joined_basecalls), pair_decode_summary)
+        return (fasta_format(in_path[0], basecall1)+fasta_format(in_path[1], basecall2), fasta_format('consensus;{};{}'.format(path1.stem, path2.stem), joined_basecalls), pair_decode_summary)
 
     #return((basecall1, basecall2), joined_basecalls)

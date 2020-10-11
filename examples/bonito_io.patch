@@ -1,4 +1,0 @@
-11a12
-> import numpy as np
-93a95
->             np.save("{}.npy".format(read_id), predictions)
