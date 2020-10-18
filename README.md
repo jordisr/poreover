@@ -69,24 +69,25 @@ Or using a list of read pairs (provided probabilities have already been generate
 
 `poreover pair-decode data/pairs.txt --reverse_complement --basecaller poreover`
 
+Each line in the pairs file must specify the paths to two reads' neural network output. As a convenience, if the listed file ends with `.fast5` (as in the example) `poreover` will look for the appropriate `.npy` file.
 
 ### Modifying Bonito for use with PoreOver
 
-As Bonito does not currently support saving the basecaller probabilities, a slight modification must be made to allow this. This can be done using the bonito_022.patch file (needs Bonito version 0.2.2).
+As Bonito does not currently support saving the basecaller probabilities, a slight modification must be made to allow this. This can be done using the bonito022.patch file (needs Bonito version 0.2.2).
 
 ~~~
 git clone https://github.com/nanoporetech/bonito --branch v0.2.2
 cd bonito
-git apply poreover/data/bonito_022.patch
+git apply ../poreover/data/bonito022.patch # substitute path to poreover repo
 pip install -r requirements.txt
 pip install -e .
 ~~~
 
-Now, running Bonito will generate a .npy file for each read.
+Now, running Bonito will generate a .npy file for each read, named by the read ID.
 
 ### Decoding flip-flop basecallers
 
-Flip-flop is a CTC variation developed by ONT and implemented in their production basecaller Guppy, as well as the research bascaller Flappie [Flappie](https://github.com/nanoporetech/flappie). Both of these basecallers can optionally output a trace of probabilities using the `--fast5-out` (in Guppy) or the `--trace` (Flappie) option.
+Flip-flop is a CTC variation developed by ONT and implemented in their production basecaller Guppy, as well as the research bascaller [Flappie](https://github.com/nanoporetech/flappie). Both of these basecallers can optionally output a trace of probabilities using the `--fast5-out` (in Guppy) or the `--trace` (Flappie) option.
 
 PoreOver can read and decode these probabilities, yielding a basecalled sequence.
 
@@ -102,8 +103,8 @@ It is possible to use one of the architectures available in PoreOver to train a 
 
 `poreover train --data data/training.npz --loss_every 5 --epochs 10`
 
-This will use the default architecture of 1 convolutional + 3 bidirectional GRU layers, though there are a few other named architectures listed in `poreover/network/network.py`.
+This will use the default architecture of 1 convolutional + 3 bidirectional GRU layers, though there are a few other named architectures listed in `poreover/network/network.py`. Checkpoints as well as the final parameters will be written to a directory named with `[model architecture]_[run name]_[start date]_[start time]`. This directory can be passed to the `call` command (as shown below).
 
 Once there is a model to load, we can make a basecall on a sample read (of course, after only a little training on a toy dataset we would not expect it to be very accurate).
 
-`poreover call --fast5 data/read.fast5 --weights $RUN_DIRECTORY --model $RUN_DIRECTORY/model.json`
+`poreover call data/read.fast5 --weights $RUN_DIRECTORY --model $RUN_DIRECTORY/model.json`
