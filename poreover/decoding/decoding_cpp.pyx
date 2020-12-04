@@ -16,7 +16,7 @@ cdef extern from "BeamSearch.h":
     string beam_search(double**, int, string, int, string)
     string beam_search(double**, double**, int, int, string, int**, int, string, string)
     string beam_search(double**, double**, int, int, string, int, string, string)
-    double forward(double**, int, string, string, string)
+    double forward(double**, int, string, string, string, int)
 
 cdef extern from "Forward.h":
     string viterbi_acceptor_poreover(double**, int, int, string, string alphabet)
@@ -46,20 +46,21 @@ cdef int** pointer_from_array_int(int [:,:] y):
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def cpp_forward(y_, label_, alphabet_="ACGT", model_="ctc"):
+def cpp_forward(y_, label_, alphabet_="ACGT", model_="ctc", band_=0):
 
     cdef int U = y_.shape[0]
     cdef int alphabet_size = y_.shape[1]
     cdef string label = label_.encode("UTF-8")
     cdef string alphabet = alphabet_.encode("UTF-8")
     cdef string model = model_.encode("UTF-8")
+    cdef int band = band_
     cdef double result
 
     cdef np.ndarray[double,ndim=2,mode="c"] y = np.asarray(y_, dtype=DTYPE, order="C")
     cdef double** point_to_y = pointer_from_array_double(y)
 
     try:
-        result = forward(&point_to_y[0], U, label, alphabet, model)
+        result = forward(&point_to_y[0], U, label, alphabet, model, band)
         return(result)
     finally:
         free(point_to_y)

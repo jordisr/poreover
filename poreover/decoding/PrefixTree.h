@@ -708,7 +708,7 @@ public:
 // Use existing PrefixTree data structure to calculate forward probabilities
 //  instead of explicit DP matrix. Should produce identical results.
 template <class TNode, class TTree>
-double forward_(double **y, int t_max, std::string label, std::string alphabet) {
+double forward_(double **y, int t_max, std::string label, std::string alphabet, int band) {
 
     int s_max = label.length();
     int alphabet_size = alphabet.length();
@@ -732,10 +732,21 @@ double forward_(double **y, int t_max, std::string label, std::string alphabet) 
         currNode = currNode->add_child(label_int[s]);
         substrings.push_back(currNode);
         //currNode->set_probability(0, y[0][label_int[0]], y[0][label_int[0]+tree.flipflop_size]);
-        for (int t=0; t<t_max; t++) {
+
+        int start_t = 0;
+        int end_t = t_max;
+
+        if (band > 0) {
+          int mid_t = int(t_max/s_max*s);
+          start_t = std::max(0,mid_t-band);
+          end_t = std::min(t_max, mid_t+band);
+        }
+
+        for (int t=start_t; t<end_t; t++) {
             tree.update_prob(currNode, t);
         }
-    }
+
+      }
 
     delete [] label_int;
 
@@ -748,13 +759,13 @@ double forward_(double **y, int t_max, std::string label, std::string alphabet) 
     return currNode->last_probability();
 }
 
-double forward(double **y, int t_max, std::string label, std::string alphabet, std::string model="ctc") {
+double forward(double **y, int t_max, std::string label, std::string alphabet, std::string model="ctc", int band=0) {
     if (model == "ctc") {
-        return forward_<PoreOverNode, PoreOverPrefixTree>(y, t_max, label, alphabet);
+        return forward_<PoreOverNode, PoreOverPrefixTree>(y, t_max, label, alphabet, band);
     } else if (model == "ctc_merge_repeats") {
-        return forward_<BonitoNode, BonitoPrefixTree>(y, t_max, label, alphabet);
+        return forward_<BonitoNode, BonitoPrefixTree>(y, t_max, label, alphabet, band);
     } else if (model == "ctc_flipflop") {
-        return forward_<FlipFlopNode, FlipFlopPrefixTree>(y, t_max, label, alphabet);
+        return forward_<FlipFlopNode, FlipFlopPrefixTree>(y, t_max, label, alphabet, band);
     }
 }
 
