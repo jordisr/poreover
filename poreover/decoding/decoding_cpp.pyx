@@ -18,6 +18,9 @@ cdef extern from "BeamSearch.h":
     string beam_search(double**, double**, int, int, string, int, string, string)
     double forward(double**, int, string, string, string, int)
 
+cdef extern from "PrefixTreeMulti.h":
+    string beam_polish(double**, int*, int**, string, string, int)
+
 cdef extern from "Forward.h":
     string viterbi_acceptor_poreover(double**, int, int, string, string alphabet)
 
@@ -138,6 +141,31 @@ def cpp_beam_search_2d(y1_, y2_, envelope_ranges_=None, beam_width_=25, alphabet
         free(point_to_y2)
         if envelope_ranges_ is not None:
             free(point_to_envelope_ranges)
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def cpp_beam_polish(y_, target_, envelope_ranges_, beam_width_=25, alphabet_="ACGT"):
+
+    cdef int beam_width = beam_width_
+    cdef string alphabet = alphabet_.encode("UTF-8")
+    cdef string target = target_.encode("UTF-8")
+
+    cdef np.ndarray[double,ndim=2,mode="c"] y = np.asarray(np.concatenate(y_).astype(DTYPE), dtype=DTYPE, order="C")
+    cdef np.ndarray[int,ndim=1,mode="c"] t_max = np.asarray(np.array([a.shape[0] for a in y_]), dtype=np.intc, order="C")
+    cdef int* point_to_t_max = <int *> t_max.data
+
+    cdef double** point_to_y = pointer_from_array_double(y)
+
+    cdef np.ndarray[int,ndim=2,mode="c"] envelope_ranges = np.asarray(np.concatenate(envelope_ranges_), dtype=np.intc, order="C")
+    cdef int** point_to_envelopes = pointer_from_array_int(envelope_ranges)
+
+    try:
+        decoded_sequence = beam_polish(&point_to_y[0], point_to_t_max, &point_to_envelopes[0], target, alphabet, beam_width)
+        return(decoded_sequence.decode("UTF-8").lstrip('\x00'))
+    finally:
+        free(point_to_y)
+        free(point_to_envelopes)
+        #free(point_to_t_max)
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
