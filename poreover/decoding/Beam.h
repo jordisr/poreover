@@ -42,10 +42,12 @@ class node_greater_max_lengthnorm {
 // length normalized
 public:
   bool operator()(T x, T y) {
-    float length_norm_x = std::pow(x->depth, 0.2);
-    float length_norm_y = std::pow(y->depth, 0.2);
-    auto lhs = x->max_probability()/length_norm_x;
-    auto rhs = y->max_probability()/length_norm_y;
+    //float length_norm_x = std::pow(x->depth, 2);
+    float length_norm_x = std::pow(std::abs(1000-x->depth),0.05)+1;
+    //float length_norm_y = std::pow(y->depth, 2);
+    float length_norm_y = std::pow(std::abs(1000-y->depth),0.05)+1;
+    auto lhs = x->max_probability()*length_norm_x;
+    auto rhs = y->max_probability()*length_norm_y;
     return (lhs > rhs);
   }
 };

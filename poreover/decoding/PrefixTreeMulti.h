@@ -18,38 +18,63 @@
 #define DEFAULT_VALUE -std::numeric_limits<double>::infinity()
 
 // first step is getting consensus algorithm working with constant number of reads...
-class BonitoNodeMulti : public Node<BonitoNodeMulti>{
+class BonitoNodeMulti {
 public:
-  static const int dim = NUM_READS;
-  std::unordered_map<int, double> probability[dim];
-  std::unordered_map<int, double> probability_gap[dim];
-  std::unordered_map<int, double> probability_no_gap[dim];
 
-  double max_prob[dim];
-  int last_t[dim];
-  int max_t[dim];
+  // number of reads
+  const int dim;
 
-  BonitoNodeMulti(int s, BonitoNodeMulti* p) : Node<BonitoNodeMulti>(s, p) {
-    for (int d=0; d<dim; ++d) {
-      max_prob[d] = DEFAULT_VALUE;
-      last_t[d] = 0;
-      max_t[d] = 0;
+  // general node variables
+  int last;
+  BonitoNodeMulti* parent;
+  std::vector<BonitoNodeMulti*> children;
+  int depth = 0;
+
+  // for storing forward probabilities
+  std::unordered_map<int, double>* probability;
+  std::unordered_map<int, double>* probability_gap;
+  std::unordered_map<int, double>* probability_no_gap;
+  double* max_prob;
+  int* last_t;
+  int* max_t;
+
+    BonitoNodeMulti(int d, int s, BonitoNodeMulti* p) :dim{d}, last{s}, parent{p} {
+      probability = new std::unordered_map<int, double>[dim];
+      probability_gap = new std::unordered_map<int, double>[dim];
+      probability_no_gap = new std::unordered_map<int, double>[dim];
+
+      max_prob = new double[dim];
+      last_t = new int[dim];
+      max_t = new int[dim];
+
+      for (int i=0; i<dim; ++i) {
+
+        probability[i][-1] = DEFAULT_VALUE;
+        probability_gap[i][-1] = DEFAULT_VALUE;
+        probability_no_gap[i][-1] = DEFAULT_VALUE;
+
+        max_prob[i] = DEFAULT_VALUE;
+        last_t[i] = 0;
+        max_t[i] = 0;
+
+      }
     }
-  }
-  BonitoNodeMulti(int s) : Node<BonitoNodeMulti>(s) {
-    for (int d=0; d<dim; ++d) {
-      max_prob[d] = DEFAULT_VALUE;
-      last_t[d] = 0;
-      max_t[d] = 0;
+
+    BonitoNodeMulti(int d, int s) : BonitoNodeMulti(d, s, nullptr) {}
+
+    BonitoNodeMulti(int d) : BonitoNodeMulti(d, -1, nullptr) {}
+
+    int get_last() const { return last; }
+
+    BonitoNodeMulti* get_parent() const { return parent; }
+
+    BonitoNodeMulti* add_child(int c) {
+      BonitoNodeMulti* child = new BonitoNodeMulti(dim, c);
+      child->parent = static_cast<BonitoNodeMulti*>(this);
+      child->depth = this->depth + 1;
+      children.push_back(child);
+      return child;
     }
-  }
-  BonitoNodeMulti() : Node<BonitoNodeMulti>() {
-    for (int d=0; d<dim; ++d) {
-      max_prob[d] = DEFAULT_VALUE;
-      last_t[d] = 0;
-      max_t[d] = 0;
-    }
-  }
 
    double probability_at(int n, int t) const {
     if (probability[n].count(t) > 0) {
@@ -98,9 +123,7 @@ public:
   double max_probability_sym_safe() const {
     double prob_sum = 0;
     for (int d=0; d<dim; ++d) {
-      //if (! isinf(max_prob[d])) {
         prob_sum += max_prob[d];
-      //}
     }
     return prob_sum;
   }
@@ -132,34 +155,32 @@ public:
     }
   }
 
+  virtual ~BonitoNodeMulti() {
+      for (auto x : children) {
+          delete x;
+      }
+      delete[] probability;
+      delete[] probability_gap;
+      delete[] probability_no_gap;
+      delete[] max_prob;
+      delete[] last_t;
+      delete[] max_t;
+  }
+
 };
 
 class BonitoPrefixTreeMulti : public PrefixTree<BonitoNodeMulti*> {
 public:
-  static const int dim = NUM_READS;
-  int t_max[dim];
-  double **y[dim];
+  int dim;
+  int* t_max;
+  double ***y;
   int gap_char;
 
-  BonitoPrefixTreeMulti(double **d1, int u, double **d2, int v, std::string a) : PrefixTree<BonitoNodeMulti*>(a) {
+  BonitoPrefixTreeMulti(int dim_, double **arg_y, int *arg_t_max, std::string a) : PrefixTree<BonitoNodeMulti*>(a) {
 
-    y[0] = d1;
-    y[1] = d2;
-
-    t_max[0] = u;
-    t_max[1] = v;
-
-    gap_char = alphabet.length();
-    root = new BonitoNodeMulti(gap_char);
-    for (int d=0; d<dim; ++d) {
-      root->probability[d][-1] = 0;
-      root->probability_gap[d][-1] = 0;
-      root->probability_no_gap[d][-1] = DEFAULT_VALUE;
-    }
-
-  }
-
-  BonitoPrefixTreeMulti(double **arg_y, int *arg_t_max, std::string a) : PrefixTree<BonitoNodeMulti*>(a) {
+    dim = dim_;
+    t_max = new int[dim];
+    y = new double**[dim];
 
     int t_max_cum = 0;
     for (int d=0; d<dim; ++d) {
@@ -168,11 +189,12 @@ public:
     }
 
     gap_char = alphabet.length();
-    root = new BonitoNodeMulti(gap_char);
+    root = new BonitoNodeMulti(dim, gap_char);
+    std::cout << root->probability[0][0] << "\n";
     for (int d=0; d<dim; ++d) {
       root->probability[d][-1] = 0;
-      root->probability_gap[d][-1] = 0;
-      root->probability_no_gap[d][-1] = DEFAULT_VALUE;
+      root->probability_gap[d][-1]  = 0;
+      root->probability_no_gap[d][-1]  = DEFAULT_VALUE;
     }
   }
 
@@ -195,37 +217,10 @@ public:
 
 };
 
-int print_data(double **arg_y, int *arg_t_max, std::string alphabet) {
-  static const int dim = NUM_READS;
+std::string beam_polish(int dim, double **arg_y, int *arg_t_max, int **arg_envelope_ranges, std::string reference, std::string alphabet, int beam_width, bool verbose) {
 
-  double **y[dim];
-  int t_max_cum = 0;
-
-  for (int d=0; d<dim; ++d) {
-    y[d] = &arg_y[t_max_cum];
-    t_max_cum += arg_t_max[d];
-  }
-
-  std::cout << "Writing data from print_data...\n";
-  for (int d=0; d<dim; ++d) {
-    std::cout << "Read " << d << "\n";
-    int this_t_max = arg_t_max[d];
-    for (int t=0; t<this_t_max; ++t) {
-      std::cout << "\tRow " << t << "\t";
-      for (int c=0; c<=alphabet.length(); ++c) {
-        std::cout << "\t" << y[d][t][c];
-      }
-      std::cout << "\n";
-    }
-  }
-  return 0;
-}
-
-std::string beam_polish(double **arg_y, int *arg_t_max, int **arg_envelope_ranges, std::string reference, std::string alphabet, int beam_width) {
-
-    static const int dim = NUM_READS;
-    double **y[dim];
-    int **envelope_ranges[dim];
+    double*** y = new double**[dim];
+    int*** envelope_ranges = new int**[dim];
 
     // split concatenated logits and alignment envelope ranges
     int e = 0;
@@ -237,7 +232,7 @@ std::string beam_polish(double **arg_y, int *arg_t_max, int **arg_envelope_range
       e += reference.length();
     }
 
-    BonitoPrefixTreeMulti tree(arg_y, arg_t_max, alphabet);
+    BonitoPrefixTreeMulti tree(dim, arg_y, arg_t_max, alphabet);
     Beam<BonitoNodeMulti*, node_greater_max_lengthnorm<BonitoNodeMulti*>> beam_(beam_width);
 
     auto children = tree.expand(tree.root);
@@ -328,15 +323,13 @@ std::string beam_polish(double **arg_y, int *arg_t_max, int **arg_envelope_range
         }
 
         beam_.prune();
-        //std::cout << "Beam after pruning\n";
-        /*
-        for (int b=0; b < beam_.size(); b++) {
-            std::cout << "last_t=" << beam_.elements[b]->last_t[0] << "\n";
-            std::cout << "t=" << t << "----" << tree.get_label(beam_.elements[b]) << " : " << beam_.elements[b]->max_probability() << "\tmax[1] at v=" << beam_.elements[b]->max_t[1] << "\n";
-            std::cout << "t=" << t << "----" << tree.get_label(beam_.elements[b]) << " : " << beam_.elements[b]->max_prob[0] << "+" << beam_.elements[b]->max_prob[1] << "+" << beam_.elements[b]->max_prob[2] << "\n";
+        if (verbose) {
+          std::cout << "Beam after pruning\n";
+          for (int b=0; b < beam_.size(); b++) {
+              std::cout << "last_t=" << beam_.elements[b]->last_t[0] << "\n";
+              std::cout << "t=" << t << "----" << tree.get_label(beam_.elements[b]) << " : " << beam_.elements[b]->max_probability() << "\n";
+          }
         }
-        */
-
     }
 
     // just output statistics from top node

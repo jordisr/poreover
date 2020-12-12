@@ -19,7 +19,7 @@ cdef extern from "BeamSearch.h":
     double forward(double**, int, string, string, string, int)
 
 cdef extern from "PrefixTreeMulti.h":
-    string beam_polish(double**, int*, int**, string, string, int)
+    string beam_polish(int, double**, int*, int**, string, string, int, bool)
 
 cdef extern from "Forward.h":
     string viterbi_acceptor_poreover(double**, int, int, string, string alphabet)
@@ -147,6 +147,7 @@ def cpp_beam_search_2d(y1_, y2_, envelope_ranges_=None, beam_width_=25, alphabet
 def cpp_beam_polish(y_, target_, envelope_ranges_, beam_width_=25, alphabet_="ACGT"):
 
     cdef int beam_width = beam_width_
+    cdef int dim = len(envelope_ranges_)
     cdef string alphabet = alphabet_.encode("UTF-8")
     cdef string target = target_.encode("UTF-8")
 
@@ -160,7 +161,7 @@ def cpp_beam_polish(y_, target_, envelope_ranges_, beam_width_=25, alphabet_="AC
     cdef int** point_to_envelopes = pointer_from_array_int(envelope_ranges)
 
     try:
-        decoded_sequence = beam_polish(&point_to_y[0], point_to_t_max, &point_to_envelopes[0], target, alphabet, beam_width)
+        decoded_sequence = beam_polish(dim, &point_to_y[0], point_to_t_max, &point_to_envelopes[0], target, alphabet, beam_width, False)
         return(decoded_sequence.decode("UTF-8").lstrip('\x00'))
     finally:
         free(point_to_y)
