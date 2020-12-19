@@ -2,6 +2,7 @@
 PoreOver
 '''
 import argparse, sys, glob, os, logging, progressbar
+from pkg_resources import get_distribution
 
 from poreover.network.network import call, train
 from poreover.decoding.decode import decode
@@ -31,6 +32,7 @@ def main():
     parser_train.add_argument('--num_neurons', type=int, default=128, help='Number of neurons in RNN layers')
     parser_train.add_argument('--kernel_size', type=int, default=9, help='Kernel size in Conv1D layer')
     parser_train.add_argument('--filters', type=int, default=256, help='Number of filters in Conv1D layer')
+    parser_train.add_argument('-v', '--version', action='version', version=get_distribution("poreover").version)
 
     # Call
     parser_call = subparsers.add_parser('call', help='Run basecalling forward pass on set of FAST5 reads', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -44,6 +46,7 @@ def main():
     parser_call.add_argument('--window', type=int, default=1000, help='Call read using chunks of this size')
     parser_call.add_argument('--format', choices=['csv', 'npy'], default='npy', help='Save softmax probabilities to CSV file or logits to binarized NumPy format')
     parser_call.add_argument('--no_stack', default=False, action='store_true', help='Basecall [1xSIGNAL_LENGTH] tensor instead of splitting it into windows (slower)')
+    parser_call.add_argument('-v', '--version', action='version', version=get_distribution("poreover").version)
 
     # Decode
     parser_decode = subparsers.add_parser('decode', help='Decode basecaller probabilities to a FASTA file')
@@ -55,10 +58,12 @@ def main():
     parser_decode.add_argument('--window', type=int, default=400, help='Use chunks of this size for prefix search')
     parser_decode.add_argument('--beam_width', type=int, default=25, help='Width for beam search')
     parser_decode.add_argument('--threads', type=int, default=1, help='Processes to use')
+    parser_decode.add_argument('-v', '--version', action='version', version=get_distribution("poreover").version)
 
     # Pair decode
     parser_pair= subparsers.add_parser('pair-decode', help='1D2 consensus decoding of two output probabilities', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser_pair.set_defaults(func=pair_decode)
+    parser_pair.add_argument('-v', '--version', action='version', version=get_distribution("poreover").version)
     # general options
     parser_pair.add_argument('in', nargs='+', help='Softmax probabilities to decode (either .npy from PoreOver, or HDF5/FAST5 from Flappie or Guppy) or list of read pairs')
     parser_pair.add_argument('--dir', default='.', help='Base directory to look in for basecaller probabilities')

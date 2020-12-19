@@ -7,6 +7,7 @@ import datetime
 import progressbar
 import pathlib
 from pathlib import Path
+from pkg_resources import get_distribution
 
 INPUT_DIM=1
 
@@ -132,7 +133,7 @@ def train(args):
     # print software message, should incorporate to other subroutines as well
     coffee_emoji = u'\U00002615'
     dna_emoji = u'\U0001F9EC'
-    print('{0:2}{1:3}{0:2} {2:^30} {0:2}{1:3}{0:2}'.format(coffee_emoji, dna_emoji,'PoreOver train (version 0.0)'), file=sys.stderr)
+    print('{0:2}{1:3}{0:2} {2:^30} {0:2}{1:3}{0:2}'.format(coffee_emoji, dna_emoji,'PoreOver train'), file=sys.stderr)
 
     # directory for model checkpoints and logging
     out_dir = "{}_{}_{}".format(args.model, args.name, datetime.datetime.now().strftime("%Y-%m-%d_%H-%M"))
