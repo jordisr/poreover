@@ -8,6 +8,17 @@
 #include <cmath>
 
 template <class T>
+class node_greater_beam {
+// store beam score explicitly in node instead of calculating during comparison
+public:
+  bool operator()(T x, T y) {
+    auto lhs = x->beam_score;
+    auto rhs = y->beam_score;
+    return (lhs > rhs);
+  }
+};
+
+template <class T>
 class node_greater {
 public:
   bool operator()(T x, T y) {
@@ -42,12 +53,16 @@ class node_greater_max_lengthnorm {
 // length normalized
 public:
   bool operator()(T x, T y) {
-    //float length_norm_x = std::pow(x->depth, 2);
-    float length_norm_x = std::pow(std::abs(1000-x->depth),0.05)+1;
-    //float length_norm_y = std::pow(y->depth, 2);
-    float length_norm_y = std::pow(std::abs(1000-y->depth),0.05)+1;
-    auto lhs = x->max_probability()*length_norm_x;
-    auto rhs = y->max_probability()*length_norm_y;
+    //float length_norm_x = std::pow(x->depth, 0.05);
+    float length_norm_x = std::pow((50 + x->depth), 0.6)/std::pow((50 + 1), 0.6);
+    float length_norm_y = std::pow((50 + y->depth), 0.6)/std::pow((50 + 1), 0.6);
+    //float length_norm_x = std::pow(std::abs(1000-x->depth),0.05)+1;
+    //float length_norm_x = std::pow(std::abs(x->depth),0.05)+1;
+    //float length_norm_y = std::pow(y->depth, 0.05);
+    //float length_norm_y = std::pow(std::abs(1000-y->depth),0.05)+1;
+    //float length_norm_y = std::pow(std::abs(y->depth),0.05)+1;
+    auto lhs = x->max_probability()/length_norm_x;
+    auto rhs = y->max_probability()/length_norm_y;
     return (lhs > rhs);
   }
 };

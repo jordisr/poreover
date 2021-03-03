@@ -14,10 +14,8 @@
 #include "PrefixTree.h"
 #include "Beam.h"
 
-#define NUM_READS 3
 #define DEFAULT_VALUE -std::numeric_limits<double>::infinity()
 
-// first step is getting consensus algorithm working with constant number of reads...
 class BonitoNodeMulti {
 public:
 
@@ -29,6 +27,7 @@ public:
   BonitoNodeMulti* parent;
   std::vector<BonitoNodeMulti*> children;
   int depth = 0;
+  double beam_score;
 
   // for storing forward probabilities
   std::unordered_map<int, double>* probability;
@@ -155,6 +154,19 @@ public:
     }
   }
 
+  void clear_on(int i) {
+    if (depth <= i) {
+      for (int n=0; n<dim; ++n) {
+        probability[n].clear();
+        probability_gap[n].clear();
+        probability_no_gap[n].clear();
+      }
+    }
+    for (auto x : children) {
+        x->clear_on(i);
+    }
+  }
+
   virtual ~BonitoNodeMulti() {
       for (auto x : children) {
           delete x;
@@ -190,7 +202,6 @@ public:
 
     gap_char = alphabet.length();
     root = new BonitoNodeMulti(dim, gap_char);
-    std::cout << root->probability[0][0] << "\n";
     for (int d=0; d<dim; ++d) {
       root->probability[d][-1] = 0;
       root->probability_gap[d][-1]  = 0;
@@ -210,14 +221,18 @@ public:
       no_gap_prob = logaddexp(n->parent->probability_at(i,t-1) + y[i][t][n->last], n->probability_no_gap_at(i,t-1) + y[i][t][n->last]);
     }
 
-    //std::cout << "i:" << i << "\tt:" << t << "\tgap_prob:" << gap_prob << "\tno_gap_prob:" << no_gap_prob << "\n";
     n->set_probability(i, t, gap_prob, no_gap_prob);
 
   }
 
+  virtual ~BonitoPrefixTreeMulti() {
+    delete[] t_max;
+    delete[] y;
+  }
+
 };
 
-std::string beam_polish(int dim, double **arg_y, int *arg_t_max, int **arg_envelope_ranges, std::string reference, std::string alphabet, int beam_width, bool verbose) {
+std::string beam_polish(int dim, double **arg_y, int *arg_t_max, int **arg_envelope_ranges, std::string reference, std::string alphabet, int beam_width, bool verbose, bool length_norm) {
 
     double*** y = new double**[dim];
     int*** envelope_ranges = new int**[dim];
@@ -233,7 +248,7 @@ std::string beam_polish(int dim, double **arg_y, int *arg_t_max, int **arg_envel
     }
 
     BonitoPrefixTreeMulti tree(dim, arg_y, arg_t_max, alphabet);
-    Beam<BonitoNodeMulti*, node_greater_max_lengthnorm<BonitoNodeMulti*>> beam_(beam_width);
+    Beam<BonitoNodeMulti*, node_greater_beam<BonitoNodeMulti*>> beam_(beam_width);
 
     auto children = tree.expand(tree.root);
 
@@ -270,7 +285,7 @@ std::string beam_polish(int dim, double **arg_y, int *arg_t_max, int **arg_envel
           beam_node->reset_max();
 
           for (int d=0; d<dim; d++) {
-            //for (int td=0; td<arg_t_max[d]; td++) {
+
             int td_start = envelope_ranges[d][t][0];
             int td_end = envelope_ranges[d][t][1];
             for (int td=td_start; td<td_end; td++) {
@@ -280,26 +295,12 @@ std::string beam_polish(int dim, double **arg_y, int *arg_t_max, int **arg_envel
 
           // expand node and add children to the beam
           auto children = tree.expand(beam_node);
-          /*
-          for (int i=0; i<children.size(); i++) {
-              auto child = children[i];
-              for (int d=0; d<dim; d++) {
-                //for (int td=0; td<arg_t_max[d]; td++) {
-                int td_start = envelope_ranges[d][t][0];
-                int td_end = envelope_ranges[d][t][1];
-                //std::cout << "start:" << td_start << "\tend:" << td_end <<"\n";
-                for (int td=td_start; td<td_end; td++) {
-                  tree.update_prob(child, d, td);
-                }
-              }
-              beam_.push(child);
-          }
-          */
+
           for (int i=0; i<children.size(); i++) {
               auto child = children[i];
               auto grandchildren = tree.expand(child);
               for (int d=0; d<dim; d++) {
-                //for (int td=0; td<arg_t_max[d]; td++) {
+
                 int td_start = envelope_ranges[d][t][0];
                 int td_end = envelope_ranges[d][t][1];
                 //std::cout << "start:" << td_start << "\tend:" << td_end <<"\n";
@@ -322,6 +323,19 @@ std::string beam_polish(int dim, double **arg_y, int *arg_t_max, int **arg_envel
 
         }
 
+        // calculate beam scores
+        int ref_length = reference.length();
+
+        for (int b=0; b < beam_.size(); b++) {
+          if (length_norm) {
+            // simple length normalization scheme
+            beam_.elements[b]->beam_score = beam_.elements[b]->max_probability() / beam_.elements[b]->depth;
+          } else {
+            // no length normalization
+            beam_.elements[b]->beam_score = beam_.elements[b]->max_probability();
+          }
+        }
+
         beam_.prune();
         if (verbose) {
           std::cout << "Beam after pruning\n";
@@ -330,11 +344,25 @@ std::string beam_polish(int dim, double **arg_y, int *arg_t_max, int **arg_envel
               std::cout << "t=" << t << "----" << tree.get_label(beam_.elements[b]) << " : " << beam_.elements[b]->max_probability() << "\n";
           }
         }
+
+        if (t % 1000 == 0) {
+          // TODO more efficient pruning method to reduce memory usage
+          int min_depth = ref_length*2;
+          for (int b=0; b < beam_.size(); b++) {
+              if (beam_.elements[b]->depth < min_depth) {
+                min_depth = beam_.elements[b]->depth;
+              }
+            }
+          tree.root->clear_on(min_depth-2);
+        }
     }
 
     // just output statistics from top node
     auto top_node_ = beam_.top();
     std::string top_node_label = tree.get_label(top_node_);
+
+    delete[] y;
+    delete[] envelope_ranges;
 
     return top_node_label;
 

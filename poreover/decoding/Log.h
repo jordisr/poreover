@@ -15,7 +15,7 @@ double log_(double x) {
 }
 
 double logaddexp(double x1, double x2) {
-  if (isinf(x1) && isinf(x2)) {
+  if (std::isinf(x1) && std::isinf(x2)) {
     return DEFAULT_VALUE;
   } else if (x1 >= x2) {
     return(x1 + log_(1 + exp(x2-x1)));
