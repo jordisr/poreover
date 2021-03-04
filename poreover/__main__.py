@@ -6,6 +6,7 @@ import argparse, sys, glob, os, logging, progressbar
 from poreover.network.network import call, train
 from poreover.decoding.decode import decode
 from poreover.decoding.pair_decode import pair_decode
+from poreover.decoding.consensus import consensus
 
 def main():
     # Set up argument parser
@@ -81,9 +82,24 @@ def main():
     parser_pair.add_argument('--skip_matches', action='store_true', help='Skip regions of sequence alignment with match columns greater than --skip_threshold')
     parser_pair.add_argument('--skip_threshold', type=int, default=10, help='Number of consecutive matches to use for --skip_matches')
     parser_pair.add_argument('--beam_search_method', choices=['row', 'row_col', 'grid'], default="row_col", help=argparse.SUPPRESS) # method for matrix traversal, passed to C++ decoder
-
     # --method split
     parser_pair.add_argument('--window', type=int, default=200, help=argparse.SUPPRESS) # Segment size used for splitting reads (DEPRECATED)
+
+    # Consensus
+    parser_consensus= subparsers.add_parser('consensus', help='Consensus basecalling of multiple reads', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser_consensus.set_defaults(func=consensus)
+    parser_consensus.add_argument('--fastq', help='Path to FASTQ sequences used for overlap', required=True)
+    parser_consensus.add_argument('--paf', help='PAF file with read overlaps', required=True)
+    parser_consensus.add_argument('--logits', help='Directory of neural network output', required=True)
+    parser_consensus.add_argument('--bins', default=None, help='Location of read consensus bins')
+    parser_consensus.add_argument('--out', default='consensus',help='Prefix for FASTA sequence output')
+    parser_consensus.add_argument('--debug', action='store_true', help='Dump data for debugging')
+    parser_consensus.add_argument('--threads', type=int, default=1, help='Number of parallel threads')
+    parser_consensus.add_argument('--strand', choices=["-","+","both"], default="both", help='Only use reads mapping to specific strand')
+    parser_consensus.add_argument('--max', type=int, default=0, help='Downsample reads if more than max')
+    parser_consensus.add_argument('--seed', type=int, default=1, help='Random seed for downsampling')
+    parser_consensus.add_argument('--beam_width', type=int, default=25, help='Width for consensus beam search')
+    parser_consensus.add_argument('--length_norm', action='store_true', help='Weight beam scores with length normalization')
 
     # Parse arguments and call corresponding command
     args = parser.parse_args()
