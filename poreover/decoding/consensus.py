@@ -114,7 +114,7 @@ def envelope_from_coord(c, s, w=10):
     return envelope.astype(int)
 
 
-def consensus_helper(in_path, fastq, args):
+def consensus_helper(in_path, fastq_, logit_paths, args):
     # consensus from single overlap PAF file
 
     basecalls_1d = ""
@@ -134,6 +134,12 @@ def consensus_helper(in_path, fastq, args):
     if (args.max > 0) and (len(paf) > args.max):
         paf = paf.sample(args.max, random_state=args.seed)
     assert(len(paf) > 0)
+
+    # need to standardize input
+    if (args.fastq is not None) and (args.bins is not None):
+        fastq = read_fastq(os.path.join(os.path.split(in_path)[0], args.fastq))
+    else:
+        fastq = fastq_
 
     #print("Total of {} reads in overlap file".format(len(paf)))
 
@@ -156,7 +162,10 @@ def consensus_helper(in_path, fastq, args):
         read_base = read_split[0]
 
         # load logits and generate sequence/signal
-        logits = load_logits("{}.npy".format(read_base), base_dir=args.logits)
+        if read_base in logit_paths:
+            logits = load_logits(logit_paths[read_base])
+        else:
+            logits = load_logits("{}.npy".format(read_base), base_dir=args.logits)
 
         if r.strand == "-":
             logits.reverse_complement()
@@ -227,6 +236,11 @@ def consensus_helper(in_path, fastq, args):
     # run polishing
     fasta_header = '{};{}'.format(Path(in_path).parent.name, len(all_logits))
     sequence = decoding_cpp.cpp_beam_polish(all_logits,"A"*(ref_end-ref_start), all_envelopes, beam_width_=args.beam_width, verbose_=False, length_norm_=args.length_norm)
+
+    if args.bins is not None:
+        with open(os.path.join(os.path.split(in_path)[0], "{}.fasta".format(args.out)), 'w') as out_fasta:
+            print(decode.fasta_format(fasta_header, sequence), file=out_fasta)
+
     return (decode.fasta_format(fasta_header, sequence), basecalls_1d)
 
 def load_logits(f, base_dir='.'):
@@ -252,6 +266,12 @@ def split_read_mappy(full_seq, sub_seq):
     for hit in a.map(sub_seq):
         print("{}\t{}\t{}\t{}".format(hit.ctg, hit.r_st, hit.r_en, hit.cigar_str))
 
+def read_fastq(f):
+    fastq = {}
+    with open(f, "r") as handle:
+        for record in SeqIO.parse(handle, "fastq"):
+            fastq[record.id] = str(record.seq)
+    return fastq
 
 def consensus(args):
     # set up logger - should make it global
@@ -270,10 +290,21 @@ def consensus(args):
     logger.info('{0:2}{1:3}{0:2} {2:^30} {0:2}{1:3}{0:2}'.format(coffee_emoji, dna_emoji,'PoreOver consensus'))
 
     # load FASTQ
-    fastq = {}
-    with open(args.fastq, "r") as handle:
-        for record in SeqIO.parse(handle, "fastq"):
-            fastq[record.id] = str(record.seq)
+    if (args.fastq is not None) and (args.bins is None):
+        fastq = read_fastq(args.fastq)
+    else:
+        fastq = {}
+
+    # look for logits one level deeper if none found in args.logits
+    if os.path.isdir(args.logits):
+        logit_paths = {}
+        if not next(glob.iglob("{}/*.{}".format(args.logits, "npy")), False):
+            for f in glob.iglob("{}/*/*.{}".format(args.logits, "npy")):
+                logit_paths[os.path.splitext(os.path.split(f)[1])[0]] = f
+            if len(logit_paths) < 1:
+                sys.exit("No files in --logits")
+    else:
+        sys.exit("--logits is not a directory")
 
     # get list of read bin directories
     in_files = []
@@ -304,12 +335,12 @@ def consensus(args):
 
         with Pool(processes=args.threads) as pool: # maxtasksperchild=1?
             for p in in_files:
-                pool.apply_async(consensus_helper, (p, fastq, args,), callback=callback_helper_.callback)
+                pool.apply_async(consensus_helper, (p, fastq, logit_paths, args,), callback=callback_helper_.callback)
             pool.close()
             pool.join()
 
     elif len(in_files) == 1:
-        seqs = consensus_helper(in_files[0], fastq, args)
+        seqs = consensus_helper(in_files[0], fastq, logit_paths, args)
         print(seqs[0])
         #with open(args.out+'.fasta', 'w') as out_fasta:
         #    print(seqs, file=out_fasta)

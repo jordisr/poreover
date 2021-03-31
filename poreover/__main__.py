@@ -88,7 +88,7 @@ def main():
     # Consensus
     parser_consensus= subparsers.add_parser('consensus', help='Consensus basecalling of multiple reads', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser_consensus.set_defaults(func=consensus)
-    parser_consensus.add_argument('--fastq', help='Path to FASTQ sequences used for overlap', required=True)
+    parser_consensus.add_argument('--fastq', default=None, help='Path to FASTQ sequences used for overlap')
     parser_consensus.add_argument('--paf', help='PAF file with read overlaps', required=True)
     parser_consensus.add_argument('--logits', help='Directory of neural network output', required=True)
     parser_consensus.add_argument('--bins', default=None, help='Location of read consensus bins')
