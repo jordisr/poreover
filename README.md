@@ -2,16 +2,15 @@
 # PoreOver: Nanopore basecalling and consensus decoding
 ## Introduction
 
-PoreOver is a basecalling tool for the Oxford Nanopore sequencing platform and is primarily intended for the task of consensus decoding raw basecaller probabilities for [higher accuracy 1D<sup>2</sup> sequencing](https://www.biorxiv.org/content/10.1101/2020.02.25.956771v1).
+PoreOver is a basecalling tool for the Oxford Nanopore sequencing platform and is primarily intended for the task of consensus decoding raw basecaller probabilities for [higher accuracy 1D<sup>2</sup> sequencing](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-020-02255-1).
 PoreOver includes a standalone RNN basecaller (PoreOverNet) that can be used to generate these probabilities, though the highest consensus accuracy is achieved in combination with [Bonito](https://github.com/nanoporetech/bonito), one of ONT's research basecallers.
 
 More generally, PoreOver can serve as platform on which to explore new decoding algorithms and basecalling architectures.
 
 If you find it useful, please cite:
-~~~
-Pair consensus decoding improves accuracy of neural network basecallers for nanopore sequencing.
-Jordi Silvestre-Ryan, Ian Holmes. bioRxiv 2020.02.25.956771; doi: https://doi.org/10.1101/2020.02.25.956771
-~~~
+`
+Silvestre-Ryan J, Holmes I. Pair consensus decoding improves accuracy of neural network basecallers for nanopore sequencing. Genome biology. 2021 Dec;22(1):1-6.
+`
 
 ### Requirements
 * Python 3
