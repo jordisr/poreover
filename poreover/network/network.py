@@ -11,6 +11,8 @@ from pkg_resources import get_distribution
 
 INPUT_DIM=1
 
+from poreover.network.transformer import transformer, positional_encoding
+
 class build_model:
     def __init__(self, args):
         self.num_neurons = getattr(args, "num_neurons", 128)
@@ -63,6 +65,31 @@ class build_model:
         tf.keras.layers.GRU(256, return_sequences=True, go_backwards=False),
         tf.keras.layers.Dense(num_labels+1, activation=None)])
 
+    def conv2_attention(self, input_size=1000, num_labels=4, strides=2):
+
+        d_model = self.num_neurons
+        kernel_size = self.kernel_size
+        key_dim = 32
+        num_heads = 4
+
+        # set up layers
+        inputs = tf.keras.Input(shape=(input_size,1))
+        conv1_layer = tf.keras.layers.Conv1D(d_model, kernel_size, strides=1, padding="same", use_bias=False, activation="relu")
+        conv2_layer = tf.keras.layers.Conv1D(d_model, kernel_size, strides=strides, padding="same", use_bias=False, activation="relu")
+        transformer1_block = transformer(d_model=d_model, d_ff=d_model*4, key_dim=key_dim, num_heads=num_heads)
+        transformer2_block = transformer(d_model=d_model, d_ff=d_model*4, key_dim=key_dim, num_heads=num_heads)
+
+        # network architecture
+        x = conv1_layer(inputs)
+        x = conv2_layer(x)
+        x = x + positional_encoding(input_size // strides, d_model)
+        x = transformer1_block(x)
+        x = transformer2_block(x)
+        outputs = tf.keras.layers.Dense(num_labels+1, activation=None)(x)
+
+        model = tf.keras.Model(inputs=inputs, outputs=outputs, name="transformer")
+        return model
+
 def ragged_from_list_of_lists(l):
     return tf.RaggedTensor.from_row_lengths(np.concatenate(l), np.array([len(i) for i in l]))
 
@@ -91,7 +118,7 @@ def train_ctc_model(model, dataset, optimizer=tf.keras.optimizers.Adam(), out_di
     with writer.as_default():
         for X,y in training_dataset:
 
-            sequence_length = tf.ones(X.shape[0], dtype=np.int32)*1000
+            sequence_length = tf.ones(X.shape[0], dtype=np.int32)*500
             with tf.GradientTape() as tape:
                 y_pred = model(X)
                 loss = tf.reduce_mean(tf.compat.v1.nn.ctc_loss(inputs=y_pred,
@@ -150,6 +177,11 @@ def train(args):
         tf.random.set_seed(args.seed)
         np.random.seed(args.seed)
 
+    # allow memory growth when using GPU
+    physical_devices = tf.config.list_physical_devices('GPU')
+    if len(physical_devices) > 0:
+        tf.config.experimental.set_memory_growth(physical_devices[0], True)
+
     # load npz training data
     training = np.load(args.data)
     signal = np.expand_dims(training['signal'],axis=2)
@@ -176,7 +208,10 @@ def train(args):
     validation_size = int(int(len(list(dataset))/args.batch_size)*args.holdout)
     print("Setting aside {}% of data for validation: {} batches".format(args.holdout*100, validation_size), file=log_file)
     log_file.close()
-    train_ctc_model(model, dataset.shuffle(buffer_size=2000000).repeat(args.epochs).batch(args.batch_size, drop_remainder=True), out_dir=out_dir, save_frequency=args.save_every, log_frequency=args.loss_every, validation_size=validation_size)
+
+    train_optimizer = tf.keras.optimizers.Adam(args.learning_rate)
+    train_dataset = dataset.shuffle(buffer_size=2000000).repeat(args.epochs).batch(args.batch_size, drop_remainder=True)
+    train_ctc_model(model, dataset=train_dataset, optimizer=train_optimizer, out_dir=out_dir, save_frequency=args.save_every, log_frequency=args.loss_every, validation_size=validation_size)
 
 def call(args):
 
