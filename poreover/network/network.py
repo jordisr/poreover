@@ -90,6 +90,19 @@ class build_model:
         model = tf.keras.Model(inputs=inputs, outputs=outputs, name="transformer")
         return model
 
+def ctc_loss(ctc_merge_repeated=False):
+    # wrapper for TF1 CTC loss
+    # target_y are unnormalized logits and predicted_y are one-hot-encoded labels
+    def loss(target_y, predicted_y):
+        sequence_length = tf.ones(tf.cast(predicted_y.shape[0], np.int32), dtype=np.int32)*tf.cast(predicted_y.shape[1], np.int32)
+        return tf.compat.v1.nn.ctc_loss(inputs=predicted_y,
+                                        labels=target_y,
+                                        sequence_length=sequence_length,
+                                        time_major=False,
+                                        preprocess_collapse_repeated=False,
+                                        ctc_merge_repeated=ctc_merge_repeated)
+    return loss
+
 def ragged_from_list_of_lists(l):
     return tf.RaggedTensor.from_row_lengths(np.concatenate(l), np.array([len(i) for i in l]))
 
@@ -101,6 +114,12 @@ def validation_error(model, dataset):
         tmp3 = ragged_from_list_of_lists(tmp2).to_sparse()
         edit_distance.append(tf.reduce_mean(tf.edit_distance(hypothesis=tmp3, truth=y, normalize=True)).numpy())
     return(np.mean(edit_distance))
+
+def edit_distance(y_true, y_pred):
+    predicted_labels = tf.cast(tf.math.argmax(tf.nn.softmax(y_pred), axis=2), np.int32)
+    predicted_labels = tf.ragged.boolean_mask(predicted_labels, predicted_labels < 4).to_sparse()
+    values = tf.edit_distance(hypothesis=predicted_labels, truth=tf.cast(y_true, np.int32), normalize=True)
+    return values
 
 def train_ctc_model(model, dataset, optimizer=tf.keras.optimizers.Adam(), out_dir="save", save_frequency=10, log_frequency=10, ctc_merge_repeated=False, validation_size=0, early_stopping=True):
     avg_loss = []
@@ -187,12 +206,7 @@ def train(args):
     signal = np.expand_dims(training['signal'],axis=2)
     labels = tf.RaggedTensor.from_row_lengths(training['labels'].astype(np.int32),training['row_lengths'].astype(np.int32)).to_sparse()
     dataset = tf.data.Dataset.zip((tf.data.Dataset.from_tensor_slices(signal), tf.data.Dataset.from_tensor_slices(labels)))
-    dataset.shuffle(buffer_size=2000000)
-
-    #if args.model == 'rnn':
-    #    model = rnn(num_neurons=args.num_neurons)
-    #elif args.model == 'cnn_rnn':
-    #    model = cnn_rnn(num_neurons=args.num_neurons, kernel_size=args.kernel_size)
+    batched_dataset = dataset.shuffle(buffer_size=2000000).batch(args.batch_size, drop_remainder=True)
 
     # get the neural network architecture
     model = getattr(build_model(args), args.model)()
@@ -210,8 +224,28 @@ def train(args):
     log_file.close()
 
     train_optimizer = tf.keras.optimizers.Adam(args.learning_rate)
-    train_dataset = dataset.shuffle(buffer_size=2000000).repeat(args.epochs).batch(args.batch_size, drop_remainder=True)
-    train_ctc_model(model, dataset=train_dataset, optimizer=train_optimizer, out_dir=out_dir, save_frequency=args.save_every, log_frequency=args.loss_every, validation_size=validation_size)
+    train_dataset = batched_dataset.skip(validation_size)
+    validation_dataset = batched_dataset.take(validation_size)
+
+    # original training loop - not needed if using Keras Model training API
+    #train_ctc_model(model, dataset=train_dataset, optimizer=train_optimizer, out_dir=out_dir, save_frequency=args.save_every, log_frequency=args.loss_every, validation_size=validation_size)
+
+    # callbacks for training
+    early_stopping_callback = tf.keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=1e-2, patience=3, verbose=1)
+    model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(os.path.join(out_dir, "{epoch:02d}.hdf5"), save_freq='epoch')
+    tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=os.path.join(out_dir,'logs'), update_freq='epoch')
+    terminante_on_nan_callback = tf.keras.callbacks.TerminateOnNaN()
+    csv_logger_callback = tf.keras.callbacks.CSVLogger(os.path.join(out_dir,'train.csv'), separator=',', append=False)
+
+    callbacks = [model_checkpoint_callback,
+                early_stopping_callback,
+                tensorboard_callback,
+                terminante_on_nan_callback,
+                csv_logger_callback]
+
+    model.compile(optimizer=train_optimizer, loss=ctc_loss(), metrics=[edit_distance])
+
+    model.fit(train_dataset, epochs=args.epochs, validation_data=validation_dataset, callbacks=callbacks)
 
 def call(args):
 
@@ -222,6 +256,7 @@ def call(args):
         # otherwise, load architecture from JSON file
         # for some reason, this is much slower than specifying model explicitly
         # possibly (?) related to https://github.com/tensorflow/tensorflow/issues/31243
+        # TODO is this still true?
         json_config_path = args.model
         with open(json_config_path) as json_file:
             json_config = json_file.read()
