@@ -21,6 +21,28 @@ def positional_encoding(position, d_model):
 
     return tf.cast(pos_encoding, dtype=tf.float32)
 
+# learning rate schedule from https://www.tensorflow.org/text/tutorials/transformer#loss_and_metrics
+class warmup_learning_schedule(tf.keras.optimizers.schedules.LearningRateSchedule):
+    def __init__(self, d_model, warmup_steps=4000):
+        super(warmup_learning_schedule, self).__init__()
+
+        self.d_model = tf.cast(d_model, tf.float32)
+        self.warmup_steps = warmup_steps
+
+    def __call__(self, step):
+        step_ = tf.cast(step, tf.float32)
+        arg1 = tf.math.rsqrt(step_)
+        arg2 = step_ * (self.warmup_steps ** -1.5)
+
+        return tf.math.rsqrt(self.d_model) * tf.math.minimum(arg1, arg2)
+
+    def get_config(self):
+        config = {
+            'd_model': self.d_model,
+            'warmup_steps':self.warmup_steps
+        }
+        return config
+
 class transformer(tf.keras.layers.Layer):
     def __init__(self, d_model, d_ff, num_heads, key_dim, **kwargs):
         super(transformer, self).__init__(**kwargs)

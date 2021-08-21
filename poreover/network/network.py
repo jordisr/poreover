@@ -11,7 +11,7 @@ from pkg_resources import get_distribution
 
 INPUT_DIM=1
 
-from poreover.network.transformer import transformer, positional_encoding
+from poreover.network.transformer import transformer, positional_encoding, warmup_learning_schedule
 
 class build_model:
     def __init__(self, args):
@@ -65,7 +65,7 @@ class build_model:
         tf.keras.layers.GRU(256, return_sequences=True, go_backwards=False),
         tf.keras.layers.Dense(num_labels+1, activation=None)])
 
-    def conv2_attention(self, input_size=1000, num_labels=4, strides=2):
+    def conv2_attention3(self, input_size=1000, num_labels=4, strides=2):
 
         d_model = self.num_neurons
         kernel_size = self.kernel_size
@@ -78,6 +78,7 @@ class build_model:
         conv2_layer = tf.keras.layers.Conv1D(d_model, kernel_size, strides=strides, padding="same", use_bias=False, activation="relu")
         transformer1_block = transformer(d_model=d_model, d_ff=d_model*4, key_dim=key_dim, num_heads=num_heads)
         transformer2_block = transformer(d_model=d_model, d_ff=d_model*4, key_dim=key_dim, num_heads=num_heads)
+        transformer3_block = transformer(d_model=d_model, d_ff=d_model*4, key_dim=key_dim, num_heads=num_heads)
 
         # network architecture
         x = conv1_layer(inputs)
@@ -85,11 +86,39 @@ class build_model:
         x = x + positional_encoding(input_size // strides, d_model)
         x = transformer1_block(x)
         x = transformer2_block(x)
+        x = transformer3_block(x)
         outputs = tf.keras.layers.Dense(num_labels+1, activation=None)(x)
 
         model = tf.keras.Model(inputs=inputs, outputs=outputs, name="transformer")
         return model
 
+    def conv2_attention6(self, input_size=1000, num_labels=4, strides=2):
+
+        d_model = self.num_neurons
+        kernel_size = self.kernel_size
+        num_heads = 8
+        key_dim = d_model // num_heads
+        num_transformer_layers = 6
+
+        # set up layers
+       inputs = tf.keras.Input(shape=(input_size,1))
+        conv1_layer = tf.keras.layers.Conv1D(d_model, kernel_size, strides=1, padding="same", use_bias=False, activation="relu")
+        conv2_layer = tf.keras.layers.Conv1D(d_model, kernel_size, strides=strides, padding="same", use_bias=False, activation="relu")
+
+        # network architecture
+        x = conv1_layer(inputs)
+        x = conv2_layer(x)
+        x = x + positional_encoding(input_size // strides, d_model)
+
+        for _ in range(num_transformer_layers):
+            x = transformer(d_model=d_model, d_ff=d_model*4, key_dim=key_dim, num_heads=num_heads)(x)
+
+        outputs = tf.keras.layers.Dense(num_labels+1, activation=None)(x)
+
+        model = tf.keras.Model(inputs=inputs, outputs=outputs, name="transformer")
+
+        return model
+    
 def ctc_loss(ctc_merge_repeated=False):
     # wrapper for TF1 CTC loss
     # target_y are unnormalized logits and predicted_y are one-hot-encoded labels
@@ -198,9 +227,9 @@ def train(args):
 
     # allow memory growth when using GPU
     physical_devices = tf.config.list_physical_devices('GPU')
-    if len(physical_devices) > 0:
-        tf.config.experimental.set_memory_growth(physical_devices[0], True)
-
+    for d in physical_devices:
+        tf.config.experimental.set_memory_growth(d, True)
+      
     # load npz training data
     training = np.load(args.data)
     signal = np.expand_dims(training['signal'],axis=2)
@@ -208,44 +237,60 @@ def train(args):
     dataset = tf.data.Dataset.zip((tf.data.Dataset.from_tensor_slices(signal), tf.data.Dataset.from_tensor_slices(labels)))
     batched_dataset = dataset.shuffle(buffer_size=2000000).batch(args.batch_size, drop_remainder=True)
 
-    # get the neural network architecture
-    model = getattr(build_model(args), args.model)()
+    strategy = tf.distribute.MirroredStrategy()
+    print("Number of devices: {}".format(strategy.num_replicas_in_sync))
+    
+    with strategy.scope():
+        # get the neural network architecture model
+        model = getattr(build_model(args), args.model)()
 
-    # restart training from weights in checkpoint
-    if args.restart:
-        if os.path.isdir(args.restart):
-            model_file = tf.train.latest_checkpoint(args.restart)
+        # save architecture
+        json_config = model.to_json()
+        with open(out_dir+'/model.json', 'w') as json_file:
+            json_file.write(json_config)
+
+        # restart training from weights in checkpoint
+        if args.restart:
+            if os.path.isdir(args.restart):
+                model_file = tf.train.latest_checkpoint(args.restart)
+            else:
+                model_file = args.restart
+            model.load_weights(model_file)
+
+        validation_size = int(int(len(list(dataset))/args.batch_size)*args.holdout)
+        print("Setting aside {}% of data for validation: {} batches".format(args.holdout*100, validation_size), file=log_file)
+        log_file.close()
+
+        if args.attention_warmup:
+            # use warmup schedule for training transformer model
+            learning_rate = warmup_learning_schedule(args.num_neurons)
+            optimizer = tf.keras.optimizers.Adam(learning_rate, beta_1=0.9, beta_2=0.98, epsilon=1e-9)
+
         else:
-            model_file = args.restart
-        model.load_weights(model_file)
+            optimizer = tf.keras.optimizers.Adam(args.learning_rate)
+        
+        train_dataset = batched_dataset.skip(validation_size)
+        validation_dataset = batched_dataset.take(validation_size)
 
-    validation_size = int(int(len(list(dataset))/args.batch_size)*args.holdout)
-    print("Setting aside {}% of data for validation: {} batches".format(args.holdout*100, validation_size), file=log_file)
-    log_file.close()
+        # original training loop - not needed if using Keras Model training API
+        #train_ctc_model(model, dataset=train_dataset, optimizer=train_optimizer, out_dir=out_dir, save_frequency=args.save_every, log_frequency=args.loss_every, validation_size=validation_size)
 
-    train_optimizer = tf.keras.optimizers.Adam(args.learning_rate)
-    train_dataset = batched_dataset.skip(validation_size)
-    validation_dataset = batched_dataset.take(validation_size)
+        # callbacks for training
+        early_stopping_callback = tf.keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=1e-2, patience=3, verbose=1)
+        model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(os.path.join(out_dir, "{epoch:02d}.hdf5"), save_freq='epoch', save_weights_only=True)
+        tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=os.path.join(out_dir,'logs'), update_freq='epoch')
+        terminante_on_nan_callback = tf.keras.callbacks.TerminateOnNaN()
+        csv_logger_callback = tf.keras.callbacks.CSVLogger(os.path.join(out_dir,'train.csv'), separator=',', append=False)
 
-    # original training loop - not needed if using Keras Model training API
-    #train_ctc_model(model, dataset=train_dataset, optimizer=train_optimizer, out_dir=out_dir, save_frequency=args.save_every, log_frequency=args.loss_every, validation_size=validation_size)
+        callbacks = [model_checkpoint_callback,
+                    early_stopping_callback,
+                    tensorboard_callback,
+                    terminante_on_nan_callback,
+                    csv_logger_callback]
 
-    # callbacks for training
-    early_stopping_callback = tf.keras.callbacks.EarlyStopping(monitor="val_loss", min_delta=1e-2, patience=3, verbose=1)
-    model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(os.path.join(out_dir, "{epoch:02d}.hdf5"), save_freq='epoch')
-    tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=os.path.join(out_dir,'logs'), update_freq='epoch')
-    terminante_on_nan_callback = tf.keras.callbacks.TerminateOnNaN()
-    csv_logger_callback = tf.keras.callbacks.CSVLogger(os.path.join(out_dir,'train.csv'), separator=',', append=False)
+        model.compile(optimizer=optimizer, loss=ctc_loss(), metrics=[edit_distance])
 
-    callbacks = [model_checkpoint_callback,
-                early_stopping_callback,
-                tensorboard_callback,
-                terminante_on_nan_callback,
-                csv_logger_callback]
-
-    model.compile(optimizer=train_optimizer, loss=ctc_loss(), metrics=[edit_distance])
-
-    model.fit(train_dataset, epochs=args.epochs, validation_data=validation_dataset, callbacks=callbacks)
+        model.fit(train_dataset, epochs=args.epochs, validation_data=validation_dataset, callbacks=callbacks)
 
 def call(args):
 
@@ -260,7 +305,7 @@ def call(args):
         json_config_path = args.model
         with open(json_config_path) as json_file:
             json_config = json_file.read()
-            model = tf.keras.models.model_from_json(json_config)
+            model = tf.keras.models.model_from_json(json_config, custom_objects={'transformer':transformer)
 
     # load trained model weights
     if args.weights is None:
