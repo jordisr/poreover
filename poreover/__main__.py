@@ -25,6 +25,7 @@ def main():
     parser_train.add_argument('--loss_every', type=int, default=100, help='Frequency with which to output minibatch loss')
     parser_train.add_argument('--ctc_merge_repeated', action='store_true', default=False, help='boolean option for tf.compat.v1.nn.ctc_loss')
     parser_train.add_argument('--attention_warmup', action='store_true', default=False, help='learning rate schedule with warmup steps')
+    parser_train.add_argument('--gpu', nargs="+", default=[], help='Specify which GPU devices for training. Default: Train on all available GPUs.')
     #parser_train.add_argument('--model', default='conv1_bigru3', choices=['bigru3', 'conv1_bigru3', 'conv2_bigru3', 'conv1_gru5'], help='Neural network architecture')
     parser_train.add_argument('--model', default='conv1_bigru3', help='Neural network architecture')
     parser_train.add_argument('--restart', default=False, help='Trained model to load (if directory, loads latest from checkpoint file)')
