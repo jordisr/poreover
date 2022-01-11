@@ -7,6 +7,7 @@ from pkg_resources import get_distribution
 from poreover.network.network import call, train
 from poreover.decoding.decode import decode
 from poreover.decoding.pair_decode import pair_decode
+from poreover.benchmark import benchmark
 
 def main():
     # Set up argument parser
@@ -86,9 +87,16 @@ def main():
     parser_pair.add_argument('--skip_matches', action='store_true', help='Skip regions of sequence alignment with match columns greater than --skip_threshold')
     parser_pair.add_argument('--skip_threshold', type=int, default=10, help='Number of consecutive matches to use for --skip_matches')
     parser_pair.add_argument('--beam_search_method', choices=['row', 'row_col', 'grid'], default="row_col", help=argparse.SUPPRESS) # method for matrix traversal, passed to C++ decoder
-
     # --method split
     parser_pair.add_argument('--window', type=int, default=200, help=argparse.SUPPRESS) # Segment size used for splitting reads (DEPRECATED)
+
+    parser_benchmark = subparsers.add_parser('benchmark', help='Assess accuracy of basecalled FASTA/FASTQ files')
+    parser_benchmark.set_defaults(func=benchmark)
+    parser_benchmark.add_argument('--fasta', help='FASTA file', default=None)
+    parser_benchmark.add_argument('--fasta_pair', help='Prefix with 1D/2D (*.1d.fasta and *.2d.fasta)', default=None)
+    parser_benchmark.add_argument('--fastq', help='FASTQ file', default=None)
+    parser_benchmark.add_argument('--reference', help='Reference genome', required=True)
+    parser_benchmark.add_argument('--full',action="store_true", help="Collect more statistics on types of errors")
 
     # Parse arguments and call corresponding command
     args = parser.parse_args()

@@ -3,4 +3,6 @@ scipy
 Cython
 h5py
 progressbar2
+mappy
+biopython
 tensorflow>=2.0.0
