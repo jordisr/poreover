@@ -235,13 +235,25 @@ def consensus_helper(in_path, fastq_, logit_paths, args):
 
     # run polishing
     fasta_header = '{};{}'.format(Path(in_path).parent.name, len(all_logits))
-    sequence = decoding_cpp.cpp_beam_polish(all_logits,"A"*(ref_end-ref_start), all_envelopes, beam_width_=args.beam_width, verbose_=False, length_norm_=args.length_norm)
+    sequence = decoding_cpp.cpp_beam_polish(all_logits,"A"*(ref_end-ref_start), all_envelopes, beam_width_=args.beam_width, verbose_=False, length_norm_=args.length_norm, return_beam_=args.return_beam)
 
-    if args.bins is not None:
-        with open(os.path.join(os.path.split(in_path)[0], "{}.fasta".format(args.out)), 'w') as out_fasta:
-            print(decode.fasta_format(fasta_header, sequence), file=out_fasta)
+    # TODO: is this needed?
+    #if args.bins is not None:
+    #    with open(os.path.join(os.path.split(in_path)[0], "{}.fasta".format(args.out)), 'w') as out_fasta:
+    #        print(decode.fasta_format(fasta_header, sequence), file=out_fasta)
 
-    return (decode.fasta_format(fasta_header, sequence), basecalls_1d)
+    # check for full_beam option
+    if args.return_beam:
+        full_seq_out = ""
+        beam_seqs = sequence.split('/')
+        for i, seq in enumerate(beam_seqs):
+            if len(seq) > 0:
+                this_seq, score = seq.split(':')
+                this_header = '{};{};{}'.format(Path(in_path).parent.name, i, score)
+                full_seq_out += decode.fasta_format(this_header, this_seq.lstrip('\x00'))
+        return [full_seq_out]
+    else:
+        return (decode.fasta_format(fasta_header, sequence), basecalls_1d)
 
 def load_logits(f, base_dir='.'):
     return decode.model_from_trace(os.path.join(base_dir, f), basecaller="bonito")

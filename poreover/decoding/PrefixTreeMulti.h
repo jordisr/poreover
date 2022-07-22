@@ -232,7 +232,7 @@ public:
 
 };
 
-std::string beam_polish(int dim, double **arg_y, int *arg_t_max, int **arg_envelope_ranges, std::string reference, std::string alphabet, int beam_width, bool verbose, bool length_norm) {
+std::string beam_polish(int dim, double **arg_y, int *arg_t_max, int **arg_envelope_ranges, std::string reference, std::string alphabet, int beam_width, bool verbose, bool length_norm, bool return_beam) {
 
     double*** y = new double**[dim];
     int*** envelope_ranges = new int**[dim];
@@ -358,11 +358,27 @@ std::string beam_polish(int dim, double **arg_y, int *arg_t_max, int **arg_envel
     }
 
     // just output statistics from top node
+    std::string full_beam = "";
+    if (return_beam) {
+      for (int b=0; b < beam_width; ++b) {
+          auto beam_node = beam_.elements[b];
+          // seq1:score1/seq2:score2 as one long string
+          full_beam += tree.get_label(beam_node);
+          full_beam += ":" + std::to_string(beam_node->max_probability()) + "/";
+      }
+      
+    }
+    //std::cout << full_beam << "\n";
+
     auto top_node_ = beam_.top();
     std::string top_node_label = tree.get_label(top_node_);
 
     delete[] y;
     delete[] envelope_ranges;
+
+    if (return_beam) {
+      top_node_label = full_beam;
+    }
 
     return top_node_label;
 

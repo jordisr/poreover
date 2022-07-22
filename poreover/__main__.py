@@ -100,6 +100,7 @@ def main():
     parser_consensus.add_argument('--seed', type=int, default=1, help='Random seed for downsampling')
     parser_consensus.add_argument('--beam_width', type=int, default=25, help='Width for consensus beam search')
     parser_consensus.add_argument('--length_norm', action='store_true', help='Weight beam scores with length normalization')
+    parser_consensus.add_argument('--return_beam', action='store_true', help='Return all sequences in beam (not just top one)')
 
     # Parse arguments and call corresponding command
     args = parser.parse_args()
